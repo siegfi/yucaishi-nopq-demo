@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的學習歷程時間軸｜育才仕</title>
+<style>
+  :root{
+    --navy:#1B3A6B; --navy-dark:#122748; --gold:#F0A500; --gold-light:#FFD166;
+    --bg:#F7F8FA; --card:#FFFFFF; --text:#20242B; --muted:#6B7280; --danger:#C0392B; --ok:#1E8E5A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;}
+  header{background:var(--navy);color:#fff;padding:20px 16px;text-align:center;}
+  header h1{margin:0;font-size:1.25rem;}
+  header p{margin:4px 0 0;color:var(--gold-light);font-size:0.85rem;}
+  main{max-width:640px;margin:0 auto;padding:16px;}
+  .card{background:var(--card);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .card h2{margin:0 0 12px;font-size:1.05rem;color:var(--navy);}
+  label{display:block;font-size:0.9rem;font-weight:600;margin:12px 0 4px;}
+  input[type=text],input[type=date],input[type=number],textarea,select{
+    width:100%;padding:10px;border:1px solid #D5D9E0;border-radius:8px;font-size:1rem;font-family:inherit;background:#fff;
+  }
+  textarea{min-height:70px;resize:vertical;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .hint{font-size:0.78rem;color:var(--muted);margin-top:2px;}
+  button{background:var(--gold);color:var(--navy-dark);border:none;border-radius:8px;padding:12px 20px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;margin-top:16px;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  button.secondary{background:transparent;border:1px solid var(--navy);color:var(--navy);font-weight:600;}
+  .entry{border-left:3px solid var(--gold);padding:10px 14px;margin-bottom:10px;background:#FCFBF7;border-radius:0 8px 8px 0;}
+  .entry .meta{font-size:0.78rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .entry .title{font-weight:700;margin:2px 0;}
+  .entry .body{font-size:0.92rem;white-space:pre-wrap;}
+  .tag{display:inline-block;font-size:0.72rem;padding:2px 8px;border-radius:99px;background:var(--navy);color:#fff;margin-right:4px;}
+  .tag.camp{background:var(--gold);color:var(--navy-dark);}
+  .tag.exam{background:var(--ok);color:#fff;}
+  .tag.narrative{background:#7B4FA0;color:#fff;}
+  .empty{color:var(--muted);text-align:center;padding:24px 0;}
+  .round-block{margin-bottom:20px;}
+  .round-head{font-size:0.9rem;font-weight:700;color:var(--navy);background:#EEF2F8;border-left:4px solid var(--navy);padding:7px 12px;border-radius:6px;margin-bottom:8px;}
+  .banner{padding:10px 14px;border-radius:8px;font-size:0.88rem;margin-bottom:12px;display:none;}
+  .banner.error{background:#FCE8E6;color:var(--danger);display:block;}
+  .banner.ok{background:#E6F4EC;color:var(--ok);display:block;}
+  .banner.warn{background:#FFF6E0;color:#8A6100;display:block;}
+  fieldset{border:none;padding:0;margin:0;}
+  .toggle-ai{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:0.9rem;}
+  .toggle-ai input{width:auto;}
+  .entry-actions{margin-top:8px;}
+  .entry-actions .linkbtn{margin:0 6px 6px 0;}
+  .linkbtn.danger{border-color:var(--danger);color:var(--danger);}
+  .tag.status{background:#6B7280;color:#fff;}
+  #edit-cancel-btn{margin-top:8px;}
+  .linkbtn{background:transparent;color:var(--navy);border:1px solid var(--navy);border-radius:6px;padding:6px 12px;font-size:0.8rem;font-weight:600;width:auto;margin:0;cursor:pointer;}
+  .ev-form{margin-top:10px;padding:10px;border:1px dashed #D5D9E0;border-radius:8px;background:#fff;}
+  .ev-form label{margin-top:8px;}
+  .ev-form button{margin-top:10px;}
+  details > summary{cursor:pointer;font-size:0.9rem;color:var(--navy);font-weight:600;margin-top:8px;}
+  .export-group{margin-bottom:18px;}
+  .export-group-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;}
+  .exp-ev-list{margin-top:6px;border-top:1px dashed #E5E8ED;padding-top:6px;}
+  .exp-ev-item{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;}
+  .exp-ev-item .linkbtn{flex:none;padding:3px 8px;font-size:0.72rem;}
+  .wishlist-channel{display:flex;gap:8px;margin-top:12px;}
+  .wishlist-channel .linkbtn.active{background:var(--navy);color:#fff;}
+  .wishlist-item-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .wishlist-item-actions .linkbtn{margin:0;}
+  .wishlist-search-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;}
+  .wishlist-search-row button{margin:0;width:auto;}
+  footer{text-align:center;color:var(--muted);font-size:0.78rem;padding:24px 16px 40px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>我的學習歷程時間軸</h1>
+  <p id="nickname-line">育才仕・自主學習計畫延伸系統</p>
+</header>
+
+<main>
+  <div id="config-banner" class="banner warn" style="display:none">
+    ⚠️ 這個頁面還沒接上正式資料庫（等 Supabase 帳號開通），目前是介面預覽版，送出不會真的存檔。
+  </div>
+  <div id="status-banner" class="banner"></div>
+
+  <div class="card">
+    <h2 id="form-card-title">新增一筆紀錄</h2>
+    <form id="entry-form">
+      <label for="f-title">標題</label>
+      <input type="text" id="f-title" maxlength="200" required placeholder="例：社團志工服務心得">
+
+      <div id="entry-date-field">
+        <label for="f-entrydate">日期（選填）</label>
+        <input type="date" id="f-entrydate">
+        <p class="hint">補登過去的學習事件才需要改，預設今天、不能填未來。</p>
+      </div>
+
+      <label for="f-type">這是什麼類型？</label>
+      <select id="f-type">
+        <option value="unclassified">還沒分類（先寫下來就好）</option>
+        <option value="diverse">多元表現素材（社團/志工/競賽/活動）</option>
+        <option value="courseOutcome">課程學習成果（作業/報告/作品）</option>
+        <option value="narrativeDraft">NOPQ 敘事草稿（綜整心得/自述）</option>
+        <option value="examScore">段考/模考成績</option>
+      </select>
+
+      <div id="nopq-field" style="display:none">
+        <label for="f-nopq">屬於哪一項？</label>
+        <select id="f-nopq">
+          <option value="N_diverseSummary">N－多元表現綜整心得</option>
+          <option value="O_reflection">O－高中學習歷程反思</option>
+          <option value="P_motivation">P－就讀動機</option>
+          <option value="Q_futurePlan">Q－未來學習計畫與生涯規劃</option>
+        </select>
+      </div>
+
+      <div id="exam-fields" style="display:none">
+        <div class="row2">
+          <div><label for="f-subject">科目</label><input type="text" id="f-subject" maxlength="20" placeholder="數學"></div>
+          <div><label for="f-examlabel">考試名稱</label><input type="text" id="f-examlabel" maxlength="30" placeholder="高一上第一次段考"></div>
+        </div>
+        <div class="row2">
+          <div><label for="f-score">分數</label><input type="number" id="f-score" min="0" step="0.5"></div>
+          <div><label for="f-fullscore">滿分</label><input type="number" id="f-fullscore" min="1" step="0.5" placeholder="100"></div>
+        </div>
+        <div class="row2">
+          <div><label for="f-rank">班排名（選填）</label><input type="number" id="f-rank" min="1"></div>
+          <div><label for="f-classsize">班人數（選填）</label><input type="number" id="f-classsize" min="1"></div>
+        </div>
+      </div>
+
+      <div id="bar-fields">
+        <label for="f-background">背景／動機是什麼？</label>
+        <textarea id="f-background" maxlength="2000" placeholder="為什麼想做這件事、事情的起因"></textarea>
+        <label for="f-action">實際做了什麼？</label>
+        <textarea id="f-action" maxlength="2000" placeholder="具體行動、過程"></textarea>
+        <label for="f-result">成果與反思？</label>
+        <textarea id="f-result" maxlength="2000" placeholder="學到什麼、有什麼收穫或改變"></textarea>
+        <p class="hint">這三格是 BAR 寫作法（背景/行動/成果），寫起來比較不會流水帳；不想拆開寫也可以只填「成果與反思」。</p>
+        <label for="f-reflection">或：只想寫一段反思</label>
+        <textarea id="f-reflection" maxlength="3000" placeholder="只想寫一段整體反思、不想拆成 BAR 三格時可用"></textarea>
+        <p class="hint">只想寫一段反思、不想拆 BAR 時可用；和上面 BAR 三格可以並存，也可以只填這一格。</p>
+      </div>
+
+      <div class="toggle-ai">
+        <input type="checkbox" id="f-ai-assisted">
+        <label for="f-ai-assisted" style="margin:0">這篇內容有用 AI 協助整理／潤飾</label>
+      </div>
+      <div id="ai-note-field" style="display:none">
+        <label for="f-ai-note">簡述 AI 幫了什麼（依教育部規定需誠實揭露）</label>
+        <input type="text" id="f-ai-note" maxlength="500" placeholder="例：AI 協助整理段落順序，內容為自己撰寫">
+      </div>
+
+      <button type="submit" id="submit-btn">存進時間軸</button>
+      <button type="button" id="edit-cancel-btn" class="secondary" style="display:none">取消編輯</button>
+    </form>
+  </div>
+
+  <div class="card" id="rounds-card">
+    <h2>探索方向</h2>
+    <div id="rounds-current" class="empty">載入中…</div>
+    <details id="rounds-history-wrap" style="display:none">
+      <summary>歷史方向紀錄</summary>
+      <div id="rounds-history"></div>
+    </details>
+    <details>
+      <summary>我想換探索方向</summary>
+      <form id="round-form">
+        <label for="f-new-group">新的探索方向／學群</label>
+        <input type="text" id="f-new-group" maxlength="100" placeholder="例：資訊工程學群">
+        <label for="f-change-reason">換方向的原因（選填）</label>
+        <textarea id="f-change-reason" maxlength="500" placeholder="為什麼想換方向？舊的紀錄都會完整保留。"></textarea>
+        <p class="hint">換方向不會刪掉任何舊紀錄，過去每一輪的探索都會完整保留下來。</p>
+        <button type="submit" id="round-submit-btn">確認換方向</button>
+      </form>
+    </details>
+  </div>
+
+  <div class="card" id="wishlist-card">
+    <h2>志願</h2>
+    <p class="hint">貼上落點通複製的志願代碼即可匯入；匯入會依代碼順序建立志願序。</p>
+    <label for="wishlist-code">志願代碼</label>
+    <input type="text" id="wishlist-code" placeholder="LD1-115-U-100012-cc">
+    <button type="button" id="wishlist-import-btn">匯入志願</button>
+    <div id="wishlist-list"><p class="empty">載入中…</p></div>
+    <hr>
+    <h3>手選</h3>
+    <p class="hint">搜尋校名或系名，逐一加入後調整志願序。</p>
+    <div class="wishlist-channel" role="group" aria-label="志願管道">
+      <button type="button" id="wishlist-channel-uni" class="linkbtn active">大學 UNI</button>
+      <button type="button" id="wishlist-channel-tech" class="linkbtn">科大 TECH</button>
+    </div>
+    <label for="wishlist-search">校名或系名</label>
+    <div class="wishlist-search-row">
+      <input type="text" id="wishlist-search" placeholder="輸入至少 2 字">
+      <button type="button" id="wishlist-search-btn" class="linkbtn">搜尋</button>
+    </div>
+    <p id="wishlist-search-hint" class="hint">輸入至少 2 字後會搜尋。</p>
+    <div id="wishlist-search-results"></div>
+    <h3>編輯中的志願</h3>
+    <div id="wishlist-editing-list"><p class="empty">載入中…</p></div>
+    <button type="button" id="wishlist-save-btn">儲存志願</button>
+  </div>
+
+  <div class="card">
+    <h2>時間軸</h2>
+    <div id="timeline"><p class="empty">載入中…</p></div>
+  </div>
+
+  <div class="card" id="export-card">
+    <h2>申請引用</h2>
+    <p class="hint">把你的學習歷程依類別整理成可複製的草稿素材，方便你寫自主學習計畫書／NOPQ 敘事時參考。這裡只是整理成可複製的草稿素材，不會、也無法直接寫入或上傳官方學習歷程系統。</p>
+    <button type="button" id="export-btn" class="secondary">整理我的引用素材</button>
+    <div id="export-result"></div>
+  </div>
+</main>
+
+<footer>育才仕 yucaishi・學習歷程是三年陪伴，不是高三衝刺</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="ld1_code.js"></script>
+<script>
+// ── 集中設定常數（比照 book.html 的 PAYCOURSE_API 模式，日後接正式 Supabase 只改這裡）──
+const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co'; // TODO: user 開通 Supabase 後換成正式 URL
+const SUPABASE_ANON_KEY = 'sb_publishable_7QYBhi8ypHJ8O_WzFmkwvw_YjM3pmCK';                // TODO: 換成正式 anon key
+const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR-PROJECT');
+
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('t') || '';
+const WISHLIST_OPEN_YEAR = 115; // 116 季開放時改 116
+
+// 第二批 P1：編輯模式狀態（editingEntryId=null 代表新增模式）
+let editingEntryId = null;
+let editOriginal = {};
+let entriesById = {};
+
+// 第三批 C：時間軸按輪次分組所需狀態（loadTimeline / loadRounds 各自載入後都呼叫 renderTimeline，
+// 兩者不論誰先完成都能正確組裝；rounds 尚未載入或失敗時退化平鋪，時間軸不空掉）。
+let timelineEntries = null; // 已載入的條目陣列（null=尚未載入；[]=載入完成但空）
+let roundsById = {};        // roundId -> round 物件
+let roundsOrder = [];       // round 陣列，roundNumber 由大到小（新輪在上）
+let roundsLoaded = false;   // rounds 是否已成功載入（false 時退化平鋪）
+let wishlistItems = [];
+let wishlistEditingItems = [];
+let wishlistManualChannel = 'UNI';
+let wishlistSearchResults = [];
+let wishlistSearchTimer = null;
+
+// ⚠️ 不能叫 supabase——CDN函式庫本身佔用 window.supabase，頂層 let 撞名會
+// SyntaxError「已經宣告過」，導致整支 script 完全不執行（2026-07-13 在
+// camp/live/ 發現的真bug，這裡是同一個寫法，一併修正）。
+let supabaseClient = null;
+if (IS_CONFIGURED && window.supabase) {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.getElementById('config-banner').style.display = 'block';
+}
+
+const el = (id) => document.getElementById(id);
+function showBanner(msg, kind) {
+  const b = el('status-banner');
+  b.textContent = msg;
+  b.className = 'banner ' + kind;
+}
+
+const TAG_LABEL = {
+  camp: '營隊產出', selfLogged: '自主新增', examScore: '成績', schoolLinked: '校方',
+};
+const CATEGORY_LABEL = {
+  unclassified: '未分類', diverse: '多元表現', courseOutcome: '課程學習成果',
+  narrativeDraft: 'NOPQ 草稿', examScore: '成績',
+};
+const NOPQ_LABEL = {
+  N_diverseSummary: 'N・綜整心得', O_reflection: 'O・學習反思',
+  P_motivation: 'P・就讀動機', Q_futurePlan: 'Q・未來計畫',
+};
+const EVIDENCE_LABEL = { note: '筆記', photo: '照片', youtube: 'YouTube', certificate: '證照', other: '其他' };
+const STATUS_LABEL = { draft: '草稿', readyToExport: '已標記可引用', studentExported: '已匯出' };
+const ERROR_LABEL = {
+  INVALID_TOKEN: '這個連結無效或已過期，請用你收到的專屬連結重新開啟。',
+  CONSENT_REQUIRED_OR_REVOKED: '尚未同意或已撤回資料使用同意，無法執行這個動作。',
+  NEW_LOCKED_GROUP_REQUIRED: '請先填寫新的探索方向／學群。',
+  ENTRY_NOT_FOUND: '找不到這筆紀錄，可能已被刪除，請重新整理頁面再試。',
+  INVALID_EVIDENCE_TYPE: '佐證類型不正確，請重新選擇。',
+  NOTE_TEXT_REQUIRED: '筆記類型的佐證需要填寫筆記內容。',
+  URL_REQUIRED: '這個佐證類型需要填寫連結網址。',
+  NOT_FOUND: '找不到這筆紀錄，可能已被刪除，請重新整理頁面再試。',
+  NOT_FOUND_OR_NOT_DELETABLE: '這筆紀錄無法刪除（可能是營隊產出的紀錄，或已被刪除）。',
+  CAMP_SEED_NOT_EDITABLE: '營隊產出的紀錄不能編輯或刪除，只能追加佐證。',
+  NOPQ_TYPE_REQUIRED: '選「NOPQ 敘事草稿」時，請指定屬於 N／O／P／Q 哪一項。',
+  EXAM_CATEGORY_REQUIRES_EXAM_SOURCE: '成績類別只能用在成績紀錄上。',
+  EXAM_SUBJECT_SCORE_REQUIRED: '成績紀錄需要填寫科目與分數。',
+  MALFORMED_FIELD_VALUE: '有欄位格式不正確（例如分數要填數字），請檢查後再送出。',
+  VALIDATION_FAILED: '內容未通過檢查，請確認必填欄位與格式後再試。',
+  MUST_START_AS_DRAFT: '新增時狀態必須從草稿開始。',
+  TITLE_REQUIRED: '請填寫標題。',
+  DUPLICATE: '這筆紀錄看起來重複了，請重新整理頁面確認。',
+  CHANNEL_INVALID: '志願管道不正確，請重新選擇。',
+  TOO_MANY: '志願最多 6 個，請先刪除後再加入。',
+  DEPT_NOT_FOUND: '找不到這個校系，請重新搜尋後再試。',
+  QUERY_TOO_SHORT: '請至少輸入 2 字再搜尋。',
+};
+function errMsg(code, fallback) {
+  return ERROR_LABEL[code] || ('操作失敗：' + (code || fallback || '未知錯誤'));
+}
+function fmtDate(s) { return s ? String(s).slice(0, 10) : ''; }
+function statusLabel(s) { return STATUS_LABEL[s] || s; }
+function groupLabel(key) { return NOPQ_LABEL[key] || CATEGORY_LABEL[key] || key; }
+
+function renderEntry(e) {
+  const isCamp = e.sourceType === 'camp';
+  const catTag = isCamp ? 'camp' : (e.sourceType === 'examScore' ? 'exam' : (e.officialCategory === 'narrativeDraft' ? 'narrative' : ''));
+  let body = '';
+  if (e.sourceType === 'examScore') {
+    const pct = (e.score != null && e.fullScore) ? Math.round((e.score / e.fullScore) * 100) + '%' : '';
+    body = (e.examLabel ? e.examLabel + '｜' : '') +
+           `${e.subject || ''}：${e.score ?? '—'} / ${e.fullScore ?? '?'} ${pct ? '(' + pct + ')' : ''}` +
+           (e.classRank ? `　班排 ${e.classRank}/${e.classSize || '?'}` : '');
+  } else {
+    body = e.reflection || [e.barBackground, e.barAction, e.barResult].filter(Boolean).join('\n\n') || '';
+  }
+  const nopq = e.nopqType ? `<span class="tag narrative">${NOPQ_LABEL[e.nopqType] || e.nopqType}</span>` : '';
+  // camp 條目後端擋編輯/刪除/改 status（CAMP_SEED_NOT_EDITABLE / NOT_FOUND_OR_NOT_DELETABLE）→ 不顯示這些按鈕
+  const statusTag = !isCamp ? `<span class="tag status">${escapeHtml(statusLabel(e.status))}</span>` : '';
+  const manageBtns = !isCamp
+    ? `<button type="button" class="linkbtn entry-edit">編輯</button>` +
+      `<button type="button" class="linkbtn entry-status">${e.status === 'readyToExport' ? '取消標記' : '標記為可引用'}</button>` +
+      `<button type="button" class="linkbtn danger entry-delete">刪除</button>`
+    : '';
+  const eid = escapeHtml(e.id || '');
+  return `
+    <div class="entry" data-entry-id="${eid}">
+      <div class="meta">
+        <span><span class="tag ${catTag}">${TAG_LABEL[e.sourceType] || e.sourceType}</span>${nopq}${statusTag}</span>
+        <span>${e.entryDate || ''}</span>
+      </div>
+      <div class="title">${escapeHtml(e.title || '')}</div>
+      <div class="body">${escapeHtml(body)}</div>
+      <div class="entry-actions">
+        ${manageBtns}
+        <button type="button" class="linkbtn ev-toggle">＋ 新增佐證</button>
+      </div>
+      <div class="ev-form" style="display:none">
+        <label>佐證類型</label>
+        <select class="ev-type">
+          <option value="note">上課筆記／文字</option>
+          <option value="photo">照片連結</option>
+          <option value="youtube">YouTube 影片</option>
+          <option value="certificate">證照／證書連結</option>
+          <option value="other">其他連結</option>
+        </select>
+        <div class="ev-note-wrap">
+          <label>筆記內容</label>
+          <textarea class="ev-note" maxlength="2000" placeholder="寫下這則筆記的內容"></textarea>
+        </div>
+        <div class="ev-url-wrap" style="display:none">
+          <label>連結網址</label>
+          <input type="text" class="ev-url" maxlength="500" placeholder="https://...">
+        </div>
+        <label>說明文字（選填）</label>
+        <input type="text" class="ev-caption" maxlength="200" placeholder="例：這是決賽當天的照片">
+        <button type="button" class="ev-submit">新增這筆佐證</button>
+      </div>
+    </div>`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function wishlistStage2(item) {
+  const stage2 = item.stage2 || {};
+  const parts = [];
+  (stage2.items || []).forEach(x => parts.push(String(x.name || '') + (x.pct != null ? ' ' + String(x.pct) + '%' : '')));
+  if (stage2.gsatPct != null) parts.push('學測 ' + String(stage2.gsatPct) + '%');
+  return parts.join('、') || '—';
+}
+function renderWishlist(items) {
+  wishlistItems = items || [];
+  const box = el('wishlist-list');
+  const visible = wishlistItems.filter(x => x.year === WISHLIST_OPEN_YEAR);
+  if (!visible.length) { box.innerHTML = '<p class="empty">尚未建立志願。</p>'; return; }
+  box.innerHTML = visible.map(x => `<div class="entry">
+    <div class="meta"><span><span class="tag">志願序 ${escapeHtml(x.rank)}</span></span><span>${escapeHtml(x.channel || '')}</span></div>
+    <div class="title">${escapeHtml(x.schoolName || x.schoolCode || '')} ${escapeHtml(x.name || '')}</div>
+    <div class="body">二階參採：${escapeHtml(wishlistStage2(x))}<br>審查資料要求：${escapeHtml(x.guideSource === 'missing' ? '待建檔' : '已建檔')}</div>
+  </div>`).join('');
+}
+function wishlistItemTitle(item) {
+  return `${escapeHtml(item.schoolName || item.schoolCode || '')} ${escapeHtml(item.name || '')}`;
+}
+function wishlistActiveItems(channel) {
+  return wishlistItems.filter(item => item.year === WISHLIST_OPEN_YEAR && item.channel === channel);
+}
+function resetWishlistEditing(channel) {
+  wishlistEditingItems = wishlistActiveItems(channel).map(item => ({ ...item }));
+  renderWishlistEditing();
+}
+function renderWishlistEditing() {
+  const box = el('wishlist-editing-list');
+  const full = wishlistEditingItems.length >= 6;
+  if (!wishlistEditingItems.length) {
+    box.innerHTML = '<p class="empty">尚未加入志願。</p>';
+    return;
+  }
+  box.innerHTML = wishlistEditingItems.map((item, index) => `
+    <div class="entry">
+      <div class="meta"><span><span class="tag">志願序 ${escapeHtml(index + 1)}</span></span></div>
+      <div class="title">${wishlistItemTitle(item)}</div>
+      <div class="wishlist-item-actions">
+        <button type="button" class="linkbtn wishlist-move-up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>上移</button>
+        <button type="button" class="linkbtn wishlist-move-down" data-index="${index}" ${index === wishlistEditingItems.length - 1 ? 'disabled' : ''}>下移</button>
+        <button type="button" class="linkbtn danger wishlist-remove" data-index="${index}">刪除</button>
+      </div>
+    </div>`).join('');
+  el('wishlist-search-hint').textContent = full ? '志願最多 6 個，請先刪除後再加入。' : '輸入至少 2 字後會搜尋。';
+}
+function renderWishlistSearchResults() {
+  const box = el('wishlist-search-results');
+  const full = wishlistEditingItems.length >= 6;
+  if (!wishlistSearchResults.length) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = wishlistSearchResults.map(item => {
+    const duplicated = wishlistEditingItems.some(x => x.deptCode === item.deptCode);
+    const disabled = full || duplicated;
+    const label = duplicated ? '已加入' : '加入';
+    return `<div class="entry">
+      <div class="title">${wishlistItemTitle(item)}</div>
+      <button type="button" class="linkbtn wishlist-add" data-dept-code="${escapeHtml(item.deptCode || '')}" ${disabled ? 'disabled' : ''}>${label}</button>
+    </div>`;
+  }).join('');
+}
+function setWishlistManualChannel(channel) {
+  wishlistManualChannel = channel;
+  el('wishlist-channel-uni').classList.toggle('active', channel === 'UNI');
+  el('wishlist-channel-tech').classList.toggle('active', channel === 'TECH');
+  wishlistSearchResults = [];
+  el('wishlist-search').value = '';
+  resetWishlistEditing(channel);
+  renderWishlistSearchResults();
+}
+async function searchWishlistDepartments() {
+  const query = el('wishlist-search').value.trim();
+  if (query.length < 2) {
+    wishlistSearchResults = [];
+    renderWishlistSearchResults();
+    el('wishlist-search-hint').textContent = '請至少輸入 2 字再搜尋。';
+    return;
+  }
+  if (!IS_CONFIGURED || !supabaseClient) {
+    el('wishlist-search-hint').textContent = '資料庫尚未連線（介面預覽版）。';
+    return;
+  }
+  const { data, error } = await supabaseClient.rpc('search_dept', {
+    p_year: WISHLIST_OPEN_YEAR,
+    p_channel: wishlistManualChannel,
+    p_q: query,
+  });
+  if (error || !data || data.ok === false) {
+    wishlistSearchResults = [];
+    renderWishlistSearchResults();
+    showBanner(errMsg(data && data.error, error?.message), 'error');
+    return;
+  }
+  wishlistSearchResults = Array.isArray(data) ? data : (data.items || []);
+  renderWishlistSearchResults();
+  el('wishlist-search-hint').textContent = wishlistSearchResults.length ? '' : '沒有符合的校系。';
+}
+function scheduleWishlistSearch() {
+  clearTimeout(wishlistSearchTimer);
+  wishlistSearchTimer = setTimeout(searchWishlistDepartments, 300);
+}
+function addWishlistDepartment(deptCode) {
+  const item = wishlistSearchResults.find(result => result.deptCode === deptCode);
+  if (!item) return;
+  if (wishlistEditingItems.length >= 6) {
+    showBanner('志願最多 6 個，請先刪除後再加入。', 'warn');
+    return;
+  }
+  if (wishlistEditingItems.some(existing => existing.deptCode === item.deptCode)) {
+    showBanner('同一系不能重複加入。', 'warn');
+    return;
+  }
+  wishlistEditingItems.push({ ...item, source: 'manual' });
+  renderWishlistEditing();
+  renderWishlistSearchResults();
+}
+function moveWishlistDepartment(index, change) {
+  const target = index + change;
+  if (target < 0 || target >= wishlistEditingItems.length) return;
+  const item = wishlistEditingItems[index];
+  wishlistEditingItems[index] = wishlistEditingItems[target];
+  wishlistEditingItems[target] = item;
+  renderWishlistEditing();
+}
+function removeWishlistDepartment(index) {
+  if (index < 0 || index >= wishlistEditingItems.length) return;
+  wishlistEditingItems.splice(index, 1);
+  renderWishlistEditing();
+  renderWishlistSearchResults();
+}
+async function saveWishlist() {
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法儲存。', 'error'); return; }
+  if (!IS_CONFIGURED || !supabaseClient) {
+    showBanner('資料庫尚未連線（介面預覽版）。', 'warn');
+    return;
+  }
+  if (!wishlistEditingItems.length && !confirm('會清空這個管道的全部志願，確定嗎？')) return;
+  const btn = el('wishlist-save-btn');
+  const pItems = wishlistEditingItems.map((item, index) => ({
+    deptCode: item.deptCode,
+    rank: index + 1,
+    source: item.source === 'luodianCode' ? 'luodianCode' : 'manual',
+  }));
+  btn.disabled = true;
+  btn.textContent = '儲存中…';
+  const { data, error } = await supabaseClient.rpc('upsert_wishlist', {
+    p_token: TOKEN,
+    p_year: WISHLIST_OPEN_YEAR,
+    p_channel: wishlistManualChannel,
+    p_items: pItems,
+  });
+  btn.disabled = false;
+  btn.textContent = '儲存志願';
+  if (error || !data || data.ok === false) {
+    showBanner(errMsg(data && data.error, error?.message), 'error');
+    return;
+  }
+  showBanner('志願已儲存。', 'ok');
+  loadWishlist();
+}
+async function loadWishlist() {
+  if (!TOKEN) { el('wishlist-list').innerHTML = '<p class="empty">網址缺少個人連結參數。</p>'; return; }
+  if (!IS_CONFIGURED || !supabaseClient) { el('wishlist-list').innerHTML = '<p class="empty">資料庫尚未連線（介面預覽版）。</p>'; return; }
+  const { data, error } = await supabaseClient.rpc('list_wishlist', { p_token: TOKEN });
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); el('wishlist-list').innerHTML = '<p class="empty">暫時無法載入志願。</p>'; return; }
+  renderWishlist(data.items || []);
+  resetWishlistEditing(wishlistManualChannel);
+}
+async function importWishlist() {
+  const raw = el('wishlist-code').value;
+  const decoded = LD1.decode(raw, { openYear: WISHLIST_OPEN_YEAR });
+  if (!decoded.ok) { showBanner(decoded.message, 'error'); return; } // decode 失敗不呼叫 RPC
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法匯入。', 'error'); return; }
+  if (!IS_CONFIGURED || !supabaseClient) { showBanner('資料庫尚未連線，暫時無法匯入（介面預覽版）。', 'error'); return; } // 主控補：原為靜默 return
+  const existing = wishlistItems.filter(x => x.year === decoded.year && x.channel === decoded.apiChannel);
+  if (existing.length && !confirm('匯入會取代你目前的 ' + existing.length + ' 個志願，確定嗎？')) return;
+  const btn = el('wishlist-import-btn');
+  const pItems = decoded.codes.map((deptCode, index) => ({ deptCode: deptCode, rank: index + 1, source: 'luodianCode' }));
+  btn.disabled = true; btn.textContent = '匯入中…';
+  const { data, error } = await supabaseClient.rpc('upsert_wishlist', { p_token: TOKEN, p_year: decoded.year, p_channel: decoded.apiChannel, p_items: pItems });
+  btn.disabled = false; btn.textContent = '匯入志願';
+  if (error || !data || data.ok === false) {
+    if (data && data.error === 'DEPT_NOT_FOUND') showBanner('代碼裡有校系在本系統查無資料，請改用手選或洽老師', 'error');
+    else showBanner(errMsg(data && data.error, error?.message), 'error');
+    return;
+  }
+  showBanner('志願已匯入。', 'ok');
+  await loadWishlist();
+  setWishlistManualChannel(decoded.apiChannel);
+}
+el('wishlist-import-btn').addEventListener('click', importWishlist);
+el('wishlist-channel-uni').addEventListener('click', () => setWishlistManualChannel('UNI'));
+el('wishlist-channel-tech').addEventListener('click', () => setWishlistManualChannel('TECH'));
+el('wishlist-search').addEventListener('input', scheduleWishlistSearch);
+el('wishlist-search-btn').addEventListener('click', searchWishlistDepartments);
+el('wishlist-save-btn').addEventListener('click', saveWishlist);
+el('wishlist-search-results').addEventListener('click', (event) => {
+  const btn = event.target.closest('.wishlist-add');
+  if (btn) addWishlistDepartment(btn.getAttribute('data-dept-code'));
+});
+el('wishlist-editing-list').addEventListener('click', (event) => {
+  const btn = event.target.closest('button');
+  if (!btn) return;
+  const index = Number(btn.getAttribute('data-index'));
+  if (btn.classList.contains('wishlist-move-up')) moveWishlistDepartment(index, -1);
+  if (btn.classList.contains('wishlist-move-down')) moveWishlistDepartment(index, 1);
+  if (btn.classList.contains('wishlist-remove')) removeWishlistDepartment(index);
+});
+
+async function loadTimeline() {
+  if (!TOKEN) {
+    el('timeline').innerHTML = '<p class="empty">網址缺少個人連結參數，請用你收到的專屬連結開啟這個頁面。</p>';
+    return;
+  }
+  if (!supabaseClient) {
+    el('timeline').innerHTML = '<p class="empty">資料庫尚未連線，暫時看不到時間軸內容（介面預覽版）。</p>';
+    return;
+  }
+  const { data, error } = await supabaseClient.rpc('list_portfolio_entries', { p_token: TOKEN });
+  if (error || !data || data.ok === false) {
+    showBanner('讀取失敗：' + (data && data.error || error?.message || '未知錯誤'), 'error');
+    el('timeline').innerHTML = '<p class="empty">暫時無法載入時間軸。</p>';
+    return;
+  }
+  el('nickname-line').textContent = `育才仕・${data.nickname || '同學'} 的學習歷程`;
+  entriesById = {};
+  (data.entries || []).forEach(e => { if (e && e.id) entriesById[e.id] = e; });
+  timelineEntries = data.entries || [];
+  if (timelineEntries.length === 0) {
+    el('timeline').innerHTML = '<p class="empty">還沒有任何紀錄，寫下第一筆吧！</p>';
+    return;
+  }
+  renderTimeline();
+}
+
+// 第三批 C：把已載入的條目依 roundId 分區塊渲染。
+// 組內條目沿用原本 renderEntry 輸出（.entry markup 不變 → #timeline 事件委派照常運作）。
+function renderTimeline() {
+  const entries = timelineEntries;
+  if (!entries || entries.length === 0) return; // 空／載入中狀態由 loadTimeline 處理，不覆蓋
+  const container = el('timeline');
+  // rounds 尚未載入或載入失敗（roundsLoaded=false）／沒有任何輪次 → 退化成原本平鋪，時間軸不空掉
+  if (!roundsLoaded || roundsOrder.length === 0) {
+    container.innerHTML = entries.map(renderEntry).join('');
+    return;
+  }
+  const byRound = {};     // roundId -> [entries]（維持後端回傳的 entryDate 新到舊順序）
+  const unrounded = [];   // roundId 為 null 或對不到輪次者
+  entries.forEach(e => {
+    const rid = e.roundId;
+    if (rid && roundsById[rid]) (byRound[rid] = byRound[rid] || []).push(e);
+    else unrounded.push(e);
+  });
+  const blocks = [];
+  roundsOrder.forEach(r => { // roundsOrder 已是 roundNumber 大到小 → 新輪在上
+    const items = byRound[r.id];
+    if (items && items.length) blocks.push(roundBlockHtml(roundHeadLabel(r), items));
+  });
+  if (unrounded.length) blocks.push(roundBlockHtml('未分輪', unrounded));
+  container.innerHTML = blocks.join('');
+}
+function roundHeadLabel(r) {
+  const grp = r.newLockedGroup ? '・' + escapeHtml(r.newLockedGroup) : '';
+  return `第 ${r.roundNumber} 輪${grp}${r.isCurrent ? '（目前）' : ''}`;
+}
+function roundBlockHtml(headHtml, items) {
+  return `<div class="round-block"><div class="round-head">${headHtml}</div>`
+    + items.map(renderEntry).join('') + `</div>`;
+}
+
+// ── 表單互動：依類型顯示/隱藏欄位 ──
+function applyTypeVisibility(t) {
+  el('nopq-field').style.display = t === 'narrativeDraft' ? 'block' : 'none';
+  el('exam-fields').style.display = t === 'examScore' ? 'block' : 'none';
+  el('bar-fields').style.display = t === 'examScore' ? 'none' : 'block';
+}
+el('f-type').addEventListener('change', (e) => applyTypeVisibility(e.target.value));
+el('f-ai-assisted').addEventListener('change', (e) => {
+  el('ai-note-field').style.display = e.target.checked ? 'block' : 'none';
+});
+
+el('entry-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if (editingEntryId) { await submitEdit(); return; }
+  const btn = el('submit-btn');
+  const type = el('f-type').value;
+
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法送出。', 'error'); return; }
+
+  const payload = {
+    title: el('f-title').value.trim(),
+    officialCategory: type,
+    sourceType: type === 'examScore' ? 'examScore' : 'selfLogged',
+    aiAssisted: el('f-ai-assisted').checked,
+    aiAssistedNote: el('f-ai-note').value.trim() || undefined,
+    clientRequestId: 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+  };
+  if (type === 'narrativeDraft') payload.nopqType = el('f-nopq').value;
+  if (type === 'examScore') {
+    payload.subject = el('f-subject').value.trim();
+    payload.examLabel = el('f-examlabel').value.trim() || undefined;
+    payload.score = el('f-score').value ? Number(el('f-score').value) : undefined;
+    payload.fullScore = el('f-fullscore').value ? Number(el('f-fullscore').value) : undefined;
+    payload.classRank = el('f-rank').value ? Number(el('f-rank').value) : undefined;
+    payload.classSize = el('f-classsize').value ? Number(el('f-classsize').value) : undefined;
+  } else {
+    payload.barBackground = el('f-background').value.trim() || undefined;
+    payload.barAction = el('f-action').value.trim() || undefined;
+    payload.barResult = el('f-result').value.trim() || undefined;
+    payload.reflection = el('f-reflection').value.trim() || undefined;
+    if (!payload.barAction && !payload.barBackground && !payload.barResult && !payload.reflection) {
+      showBanner('請至少填一格內容（BAR 三格或「只想寫一段反思」）。', 'error'); return;
+    }
+  }
+  const entryDateVal = el('f-entrydate').value;
+  if (entryDateVal) payload.entryDate = entryDateVal;
+
+  if (!supabaseClient) {
+    showBanner('介面預覽版：表單驗證通過，但資料庫還沒接上，不會真的存檔。', 'warn');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '送出中…';
+  const { data, error } = await supabaseClient.rpc('add_portfolio_entry', { p_token: TOKEN, p: payload });
+  btn.disabled = false; btn.textContent = '存進時間軸';
+
+  if (error || !data || data.ok === false) {
+    showBanner('存檔失敗：' + (data && data.error || error?.message || '未知錯誤'), 'error');
+    return;
+  }
+  showBanner('已存進時間軸！', 'ok');
+  ev.target.reset();
+  el('nopq-field').style.display = 'none';
+  el('exam-fields').style.display = 'none';
+  el('bar-fields').style.display = 'block';
+  loadTimeline();
+});
+
+// ── 探索輪次（換方向）──
+async function loadRounds() {
+  if (!TOKEN) { el('rounds-current').innerHTML = '<span class="empty">網址缺少個人連結參數。</span>'; return; }
+  if (!supabaseClient) { el('rounds-current').innerHTML = '<span class="empty">資料庫尚未連線（介面預覽版）。</span>'; return; }
+  const { data, error } = await supabaseClient.rpc('list_exploration_rounds', { p_token: TOKEN });
+  if (error || !data || data.ok === false) {
+    el('rounds-current').innerHTML = '<span class="empty">暫時無法載入探索方向。</span>';
+    roundsLoaded = false; // 載入失敗 → 時間軸退化平鋪，不空掉
+    renderTimeline();
+    return;
+  }
+  const rounds = data.rounds || [];
+  // 第三批 C：供 renderTimeline 分組用（rounds 已由後端依 roundNumber 大到小排序）
+  roundsOrder = rounds;
+  roundsById = {};
+  rounds.forEach(r => { if (r && r.id) roundsById[r.id] = r; });
+  roundsLoaded = true;
+  renderTimeline();
+  const current = rounds.find(r => r.isCurrent);
+  if (!current) {
+    el('rounds-current').innerHTML = '<span class="empty">還沒設定探索方向，用下方「我想換探索方向」開始第一個方向吧！</span>';
+  } else {
+    el('rounds-current').innerHTML =
+      `<div class="entry"><div class="meta"><span><span class="tag">目前方向・第 ${current.roundNumber} 輪</span></span><span>${fmtDate(current.createdAt)}</span></div>` +
+      `<div class="title">${escapeHtml(current.newLockedGroup || '')}</div>` +
+      (current.changeReason ? `<div class="body">原因：${escapeHtml(current.changeReason)}</div>` : '') +
+      `</div>`;
+  }
+  const history = rounds.filter(r => !r.isCurrent);
+  if (history.length) {
+    el('rounds-history-wrap').style.display = 'block';
+    el('rounds-history').innerHTML = history.map(r =>
+      `<div class="entry"><div class="meta"><span><span class="tag">第 ${r.roundNumber} 輪</span></span><span>${fmtDate(r.createdAt)}</span></div>` +
+      `<div class="title">${escapeHtml(r.previousLockedGroup || '—')} → ${escapeHtml(r.newLockedGroup || '')}</div>` +
+      (r.changeReason ? `<div class="body">原因：${escapeHtml(r.changeReason)}</div>` : '') +
+      `</div>`
+    ).join('');
+  } else {
+    el('rounds-history-wrap').style.display = 'none';
+  }
+}
+
+el('round-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const newGroup = el('f-new-group').value.trim();
+  const reason = el('f-change-reason').value.trim();
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法送出。', 'error'); return; }
+  if (!newGroup) { showBanner(errMsg('NEW_LOCKED_GROUP_REQUIRED'), 'error'); return; }
+  if (!supabaseClient) { showBanner('介面預覽版：驗證通過，但資料庫還沒接上，不會真的存檔。', 'warn'); return; }
+  const p = { newLockedGroup: newGroup };
+  if (reason) p.changeReason = reason;
+  const btn = el('round-submit-btn'); btn.disabled = true; btn.textContent = '送出中…';
+  const { data, error } = await supabaseClient.rpc('start_new_exploration_round', { p_token: TOKEN, p });
+  btn.disabled = false; btn.textContent = '確認換方向';
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  showBanner('已換到新的探索方向！舊的紀錄都完整保留著。', 'ok');
+  ev.target.reset();
+  loadRounds();
+  loadTimeline();
+});
+
+// ── 多型佐證：時間軸事件委派（只綁一次，重載時間軸後仍有效）──
+el('timeline').addEventListener('click', (ev) => {
+  const editBtn = ev.target.closest('.entry-edit');
+  if (editBtn) {
+    const e = entriesById[editBtn.closest('.entry').getAttribute('data-entry-id')];
+    if (e) enterEditMode(e);
+    return;
+  }
+  const delBtn = ev.target.closest('.entry-delete');
+  if (delBtn) { deleteEntry(delBtn.closest('.entry').getAttribute('data-entry-id')); return; }
+  const stBtn = ev.target.closest('.entry-status');
+  if (stBtn) {
+    const e = entriesById[stBtn.closest('.entry').getAttribute('data-entry-id')];
+    if (e) toggleStatus(e.id, e.status);
+    return;
+  }
+  const toggle = ev.target.closest('.ev-toggle');
+  if (toggle) {
+    const form = toggle.closest('.entry').querySelector('.ev-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  const submit = ev.target.closest('.ev-submit');
+  if (submit) submitEvidence(submit.closest('.entry'));
+});
+el('timeline').addEventListener('change', (ev) => {
+  const sel = ev.target.closest('.ev-type');
+  if (!sel) return;
+  const entry = sel.closest('.entry');
+  const isNote = sel.value === 'note';
+  entry.querySelector('.ev-note-wrap').style.display = isNote ? 'block' : 'none';
+  entry.querySelector('.ev-url-wrap').style.display = isNote ? 'none' : 'block';
+});
+
+async function submitEvidence(entry) {
+  const entryId = entry.getAttribute('data-entry-id');
+  const type = entry.querySelector('.ev-type').value;
+  const noteText = entry.querySelector('.ev-note').value.trim();
+  const url = entry.querySelector('.ev-url').value.trim();
+  const caption = entry.querySelector('.ev-caption').value.trim();
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法送出。', 'error'); return; }
+  if (type === 'note' && !noteText) { showBanner(errMsg('NOTE_TEXT_REQUIRED'), 'error'); return; }
+  if (type !== 'note' && !url) { showBanner(errMsg('URL_REQUIRED'), 'error'); return; }
+  if (!supabaseClient) { showBanner('介面預覽版：驗證通過，但資料庫還沒接上，不會真的存檔。', 'warn'); return; }
+  const p = { evidenceType: type };
+  if (noteText) p.noteText = noteText;
+  if (url) p.url = url;
+  if (caption) p.caption = caption;
+  const btn = entry.querySelector('.ev-submit'); btn.disabled = true; btn.textContent = '送出中…';
+  const { data, error } = await supabaseClient.rpc('add_evidence', { p_token: TOKEN, p_entry_id: entryId, p });
+  btn.disabled = false; btn.textContent = '新增這筆佐證';
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  showBanner('佐證已新增！', 'ok');
+  entry.querySelector('.ev-note').value = '';
+  entry.querySelector('.ev-url').value = '';
+  entry.querySelector('.ev-caption').value = '';
+  entry.querySelector('.ev-form').style.display = 'none';
+}
+
+// ── 申請引用摘要 ──
+let lastExport = {};
+el('export-btn').addEventListener('click', async () => {
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法整理。', 'error'); return; }
+  if (!supabaseClient) { showBanner('介面預覽版：資料庫還沒接上，暫時無法整理引用素材。', 'warn'); return; }
+  const btn = el('export-btn'); btn.disabled = true; btn.textContent = '整理中…';
+  const { data, error } = await supabaseClient.rpc('get_export_summary', { p_token: TOKEN });
+  btn.disabled = false; btn.textContent = '整理我的引用素材';
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  lastExport = data.byCategory || {};
+  renderExport(lastExport);
+});
+
+function renderExport(byCategory) {
+  const keys = Object.keys(byCategory);
+  if (!keys.length) {
+    el('export-result').innerHTML = '<p class="empty">還沒有可整理的紀錄，先去新增一些學習歷程吧！</p>';
+    return;
+  }
+  el('export-result').innerHTML = keys.map(key => {
+    const items = byCategory[key] || [];
+    const bodyHtml = items.map(renderExportItem).join('');
+    return `<div class="export-group">
+      <div class="export-group-head">
+        <span class="tag">${escapeHtml(groupLabel(key))}（${items.length}）</span>
+        <button type="button" class="linkbtn export-copy" data-group="${escapeHtml(key)}">複製本組摘要</button>
+      </div>${bodyHtml}</div>`;
+  }).join('');
+}
+
+function renderExportItem(it) {
+  let body = '';
+  if (it.subject || it.score != null) {
+    const pct = (it.score != null && it.fullScore) ? Math.round(it.score / it.fullScore * 100) + '%' : '';
+    body = `${it.subject || ''}：${it.score ?? '—'} / ${it.fullScore ?? '?'} ${pct ? '(' + pct + ')' : ''}`;
+  } else {
+    body = it.reflection || [it.barBackground, it.barAction, it.barResult].filter(Boolean).join('\n\n') || '';
+  }
+  const evs = it.evidence || [];
+  const status = it.status ? '<span class="tag">' + escapeHtml(statusLabel(it.status)) + '</span>' : '';
+  const ai = it.aiAssisted ? '<span class="tag narrative">AI協助</span>' : '';
+  return `<div class="entry">
+    <div class="meta"><span>${status}${ai}</span><span>${fmtDate(it.entryDate)}</span></div>
+    <div class="title">${escapeHtml(it.title || '')}</div>
+    <div class="body">${escapeHtml(body)}</div>
+    ${evs.length ? `<div class="exp-ev-list">${evs.map(renderExpEvidence).join('')}</div>` : ''}
+  </div>`;
+}
+
+function renderExpEvidence(x) {
+  const label = EVIDENCE_LABEL[x.evidenceType] || x.evidenceType;
+  const detail = x.evidenceType === 'note' ? (x.noteText || '') : (x.url || '');
+  return `<div class="exp-ev-item"><span class="hint">[${escapeHtml(label)}] ${escapeHtml(detail)}${x.caption ? '（' + escapeHtml(x.caption) + '）' : ''}</span>`
+    + (x.id ? ` <button type="button" class="linkbtn danger ev-del" data-evid="${escapeHtml(x.id)}">刪除佐證</button>` : '')
+    + `</div>`;
+}
+
+el('export-result').addEventListener('click', async (ev) => {
+  const cp = ev.target.closest('.export-copy');
+  if (cp) {
+    const key = cp.getAttribute('data-group');
+    copyText(buildGroupText(key, lastExport[key] || []), cp);
+    return;
+  }
+  const del = ev.target.closest('.ev-del');
+  if (del) {
+    const evid = del.getAttribute('data-evid');
+    if (!evid) return;
+    if (!confirm('確定要刪除這筆佐證嗎？刪除後無法復原（不會影響條目本身）。')) return;
+    if (!supabaseClient) { showBanner('介面預覽版：資料庫還沒接上，無法刪除。', 'warn'); return; }
+    del.disabled = true;
+    const { data, error } = await supabaseClient.rpc('delete_evidence', { p_token: TOKEN, p_evidence_id: evid });
+    if (error || !data || data.ok === false) {
+      del.disabled = false;
+      showBanner(errMsg(data && data.error, error?.message), 'error');
+      return;
+    }
+    showBanner('已刪除該筆佐證。', 'ok');
+    const r = await supabaseClient.rpc('get_export_summary', { p_token: TOKEN });
+    if (!r.error && r.data && r.data.ok !== false) { lastExport = r.data.byCategory || {}; renderExport(lastExport); }
+  }
+});
+
+function buildGroupText(key, items) {
+  const lines = ['【' + groupLabel(key) + '】', ''];
+  items.forEach((it, i) => {
+    lines.push(`${i + 1}. ${it.title || '(未命名)'}${it.entryDate ? '（' + fmtDate(it.entryDate) + '）' : ''}`);
+    if (it.subject || it.score != null) {
+      const pct = (it.score != null && it.fullScore) ? '（' + Math.round(it.score / it.fullScore * 100) + '%）' : '';
+      lines.push(`　成績：${it.subject || ''} ${it.score ?? '—'}/${it.fullScore ?? '?'}${pct}`);
+    }
+    if (it.reflection) lines.push('　' + it.reflection);
+    [it.barBackground && '背景：' + it.barBackground, it.barAction && '行動：' + it.barAction, it.barResult && '成果：' + it.barResult]
+      .filter(Boolean).forEach(b => lines.push('　' + b));
+    if (it.aiAssisted) lines.push('　（含 AI 協助：' + (it.aiAssistedNote || '未特別註明') + '）');
+    const evs = it.evidence || [];
+    if (evs.length) {
+      lines.push('　佐證：');
+      evs.forEach(x => {
+        const label = EVIDENCE_LABEL[x.evidenceType] || x.evidenceType;
+        const detail = x.evidenceType === 'note' ? (x.noteText || '') : (x.url || '');
+        lines.push(`　・[${label}] ${detail}${x.caption ? '（' + x.caption + '）' : ''}`);
+      });
+    }
+    lines.push('');
+  });
+  lines.push('— 以上由育才仕學習歷程系統整理成可複製的草稿素材，供你自行貼到申請文件參考；本系統不會、也無法直接寫入或上傳官方學習歷程系統。');
+  return lines.join('\n');
+}
+
+function copyText(text, btn) {
+  const done = () => {
+    const orig = btn.textContent;
+    btn.textContent = '已複製 ✓';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+    showBanner('已複製本組草稿素材，可貼到你的申請文件了。', 'ok');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  if (ok) done(); else showBanner('複製失敗，請手動選取文字複製。', 'error');
+}
+
+// ── 第二批 P1：編輯 / 刪除 / readyToExport 標記 ─────────────
+function setExamOptionDisabled(disabled) {
+  const opt = el('f-type').querySelector('option[value="examScore"]');
+  if (opt) opt.disabled = disabled;
+}
+
+function enterEditMode(e) {
+  editingEntryId = e.id;
+  // 記住進入編輯時的原始值，submit 時逐欄比對只送改過的（維持後端 per-field 保留邏輯）
+  editOriginal = {
+    title: e.title || '',
+    officialCategory: e.officialCategory || 'unclassified',
+    nopqType: e.nopqType || '',
+    barBackground: e.barBackground || '',
+    barAction: e.barAction || '',
+    barResult: e.barResult || '',
+    reflection: e.reflection || '',
+    score: e.score != null ? String(e.score) : '',
+    fullScore: e.fullScore != null ? String(e.fullScore) : '',
+    classRank: e.classRank != null ? String(e.classRank) : '',
+    classSize: e.classSize != null ? String(e.classSize) : '',
+    aiAssisted: !!e.aiAssisted,
+    aiAssistedNote: e.aiAssistedNote || '',
+  };
+  const isExam = e.sourceType === 'examScore';
+  el('f-title').value = editOriginal.title;
+  el('f-type').value = editOriginal.officialCategory;
+  applyTypeVisibility(editOriginal.officialCategory);
+  el('f-nopq').value = editOriginal.nopqType || 'N_diverseSummary';
+  el('f-subject').value = e.subject || '';
+  el('f-examlabel').value = e.examLabel || '';
+  el('f-score').value = editOriginal.score;
+  el('f-fullscore').value = editOriginal.fullScore;
+  el('f-rank').value = editOriginal.classRank;
+  el('f-classsize').value = editOriginal.classSize;
+  el('f-background').value = editOriginal.barBackground;
+  el('f-action').value = editOriginal.barAction;
+  el('f-result').value = editOriginal.barResult;
+  el('f-reflection').value = editOriginal.reflection;
+  el('f-ai-assisted').checked = editOriginal.aiAssisted;
+  el('ai-note-field').style.display = editOriginal.aiAssisted ? 'block' : 'none';
+  el('f-ai-note').value = editOriginal.aiAssistedNote;
+  // 成績條目：subject/examLabel 後端不可改 → 唯讀；並鎖類別（改類別對成績無意義）
+  el('f-subject').readOnly = isExam;
+  el('f-examlabel').readOnly = isExam;
+  el('f-type').disabled = isExam;
+  setExamOptionDisabled(true); // 編輯時不允許把非成績條目改成成績（後端會擋 EXAM_CATEGORY_REQUIRES_EXAM_SOURCE）
+  el('entry-date-field').style.display = 'none'; // update_portfolio_entry 不支援改 entryDate
+  el('form-card-title').textContent = '編輯這筆紀錄';
+  el('submit-btn').textContent = '更新這筆紀錄';
+  el('edit-cancel-btn').style.display = 'block';
+  el('entry-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function exitEditMode() {
+  editingEntryId = null;
+  editOriginal = {};
+  el('entry-form').reset();
+  el('f-type').disabled = false;
+  el('f-subject').readOnly = false;
+  el('f-examlabel').readOnly = false;
+  setExamOptionDisabled(false);
+  applyTypeVisibility(el('f-type').value);
+  el('ai-note-field').style.display = 'none';
+  el('entry-date-field').style.display = 'block';
+  el('form-card-title').textContent = '新增一筆紀錄';
+  el('submit-btn').textContent = '存進時間軸';
+  el('edit-cancel-btn').style.display = 'none';
+}
+
+async function submitEdit() {
+  const btn = el('submit-btn');
+  const title = el('f-title').value.trim();
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法送出。', 'error'); return; }
+  if (!title) { showBanner(errMsg('TITLE_REQUIRED'), 'error'); return; }
+  // 只放與原值不同的欄位；空字串代表「清空」（後端 nullif 會轉 null）
+  const p = {};
+  if (title !== editOriginal.title) p.title = title;
+  // officialCategory 與 nopqType 成對：類別有變、或仍是 narrativeDraft 但改了 NOPQ 項，就一起送
+  const newCategory = el('f-type').value;
+  const newNopq = newCategory === 'narrativeDraft' ? el('f-nopq').value : '';
+  const catChanged = newCategory !== editOriginal.officialCategory;
+  const nopqChanged = newNopq !== editOriginal.nopqType;
+  if (catChanged || (newCategory === 'narrativeDraft' && nopqChanged)) {
+    p.officialCategory = newCategory;
+    if (newCategory === 'narrativeDraft') p.nopqType = newNopq;
+  }
+  const diff = (key, val) => { if (val !== editOriginal[key]) p[key] = val; };
+  diff('barBackground', el('f-background').value.trim());
+  diff('barAction', el('f-action').value.trim());
+  diff('barResult', el('f-result').value.trim());
+  diff('reflection', el('f-reflection').value.trim());
+  diff('aiAssistedNote', el('f-ai-note').value.trim());
+  diff('score', el('f-score').value.trim());
+  diff('fullScore', el('f-fullscore').value.trim());
+  diff('classRank', el('f-rank').value.trim());
+  diff('classSize', el('f-classsize').value.trim());
+  const aiNow = el('f-ai-assisted').checked;
+  if (aiNow !== editOriginal.aiAssisted) p.aiAssisted = aiNow;
+
+  if (Object.keys(p).length === 0) { showBanner('沒有任何變更，未送出。', 'warn'); return; }
+  if (!supabaseClient) { showBanner('介面預覽版：驗證通過，但資料庫還沒接上，不會真的存檔。', 'warn'); return; }
+  btn.disabled = true; btn.textContent = '更新中…';
+  const { data, error } = await supabaseClient.rpc('update_portfolio_entry', { p_token: TOKEN, p_entry_id: editingEntryId, p });
+  btn.disabled = false; btn.textContent = '更新這筆紀錄';
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  showBanner('已更新這筆紀錄！', 'ok');
+  exitEditMode();
+  loadTimeline();
+}
+
+async function deleteEntry(entryId) {
+  if (!entryId) return;
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法刪除。', 'error'); return; }
+  if (!confirm('確定要刪除這筆紀錄嗎？刪除後不會顯示在時間軸，這個動作無法在頁面上復原。')) return;
+  if (!supabaseClient) { showBanner('介面預覽版：驗證通過，但資料庫還沒接上，不會真的刪除。', 'warn'); return; }
+  const { data, error } = await supabaseClient.rpc('delete_portfolio_entry', { p_token: TOKEN, p_entry_id: entryId });
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  showBanner('已刪除這筆紀錄。', 'ok');
+  if (editingEntryId === entryId) exitEditMode();
+  loadTimeline();
+}
+
+async function toggleStatus(entryId, currentStatus) {
+  if (!entryId) return;
+  if (!TOKEN) { showBanner('網址缺少個人連結參數，無法更新狀態。', 'error'); return; }
+  // 只在 draft ⇄ readyToExport 之間切換，永不送 studentExported
+  const target = currentStatus === 'readyToExport' ? 'draft' : 'readyToExport';
+  if (!supabaseClient) { showBanner('介面預覽版：驗證通過，但資料庫還沒接上，不會真的存檔。', 'warn'); return; }
+  const { data, error } = await supabaseClient.rpc('update_portfolio_entry', { p_token: TOKEN, p_entry_id: entryId, p: { status: target } });
+  if (error || !data || data.ok === false) { showBanner(errMsg(data && data.error, error?.message), 'error'); return; }
+  showBanner(target === 'readyToExport' ? '已標記為可引用（同一 NOPQ 類型只保留最新一筆為可引用）。' : '已取消標記。', 'ok');
+  loadTimeline();
+}
+
+el('edit-cancel-btn').addEventListener('click', exitEditMode);
+(function initEntryDateMax(){
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  el('f-entrydate').max = local.toISOString().slice(0, 10); // UX 防未來；後端另有 clamp
+})();
+
+loadTimeline();
+loadRounds();
+if (IS_CONFIGURED) loadWishlist();
+else {
+  el('wishlist-list').innerHTML = '<p class="empty">資料庫尚未連線（介面預覽版）。</p>';
+  el('wishlist-editing-list').innerHTML = '<p class="empty">資料庫尚未連線（介面預覽版）。</p>';
+  el('wishlist-search').disabled = true;
+  el('wishlist-search-btn').disabled = true;
+  el('wishlist-save-btn').disabled = true;
+}
+</script>
+</body>
+</html>
