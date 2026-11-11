@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>NOPQ通｜學生</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="boot" class="center muted"><span class="spin"></span>載入中…</div>
+<div id="login" class="login hidden">
+  <h1>NOPQ通</h1>
+  <p class="muted" style="margin:0 0 14px">育才仕備審輔導｜學生登入</p>
+  <div id="l-import" class="hint hidden" style="margin:0 0 12px"></div>
+  <form id="login-form" class="card" autocomplete="on">
+    <label class="f" for="l-email">Email</label><input type="email" id="l-email" autocomplete="username" required>
+    <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
+    <div id="l-err" class="err hidden"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
+    <p class="muted small" style="margin:12px 0 0">老師請到 <a href="/teacher/">老師頁</a>。忘記密碼請聯絡育才仕。</p>
+  </form>
+</div>
+<div id="app" class="hidden">
+  <header class="top"><a class="brand" href="#/"><span class="ic" aria-hidden="true"><i>N</i><i>O</i><i>P</i><i>Q</i></span>NOPQ通</a><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs"><a href="#/score" data-t="score">落點分析</a><a href="#/wish" data-t="wish">志願</a><a href="#/need" data-t="need">要交什麼</a><a href="#/mine" data-t="mine">我的東西</a><a href="#/write" data-t="write">寫</a></nav>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="../luodian/data/wubiao_multi_year.js"></script>
+<script defer src="../luodian/data/caac_history.js"></script>
+<script defer src="../luodian/data/caac_115_full.js"></script>
+<script defer src="luodian_core.js"></script>
+<script defer src="../luodian/js/ld1_code.js"></script>
+  <script src="guide_pure.js"></script>
+  <script src="assess_pure.js"></script>
+  <script>
+  const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL（佔位字只能放在 .html，替換程式只看 .html）
+  const SUPABASE_ANON_KEY = 'sb_publishable_7QYBhi8ypHJ8O_WzFmkwvw_YjM3pmCK';
+  // 2026-11-10 上雲準備：丟檔案抽文字（/upload）與批改版 Word（/export/review.docx）只有本機平台有；放在 GitHub Pages 的雲端版沒有，相關按鈕藏起來
+  const LOCAL_SERVER = SUPABASE_URL.indexOf('.supabase.co') < 0;
+  </script>
+  <script src="core.js"></script>
+  <script src="disclaimer.js"></script>
+  <script src="score_new.js"></script>
+  <script src="score_history.js"></script>
+  <script src="score_assess.js"></script>
+  <script src="wish.js"></script>
+  <script src="need.js"></script>
+  <script src="mine.js"></script>
+  <script src="write.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

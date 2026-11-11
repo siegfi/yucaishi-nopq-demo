@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>NOPQ通｜staff 後台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+  /* 育才仕 NOPQ通 1a staff 後台（帳號版）。配色同學生端；手機與電腦都能用，表格在窄螢幕改成直排卡片。 */
+  :root { --main:#1F3B5C; --sub:#5E8CA7; --accent:#D08A1E; --text:#1D2433; --muted:#5B6472; --bg:#FFFFFF; --soft:#F4F5F7; --line:#D9DDE3; --ok:#1E7B4B; --warn:#B26A00; --bad:#B3261E; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:16px; line-height:1.55; overflow-x:hidden; }
+  body { padding-bottom:40px; } .hidden { display:none !important; }
+  header.top { background:var(--main); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  header.top .brand { font-weight:700; font-size:17px; } header.top .who { font-size:13px; display:flex; gap:8px; align-items:center; }
+  nav.tabs { background:#fff; border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
+  nav.tabs a { padding:10px 11px; font-size:15px; color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
+  main { max-width:1000px; margin:0 auto; padding:12px 12px 0; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:17px; margin:0 0 8px; } .card h3 { font-size:15px; margin:12px 0 6px; }
+  .muted { color:var(--muted); font-size:14px; } .small { font-size:13px; } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
+  .btn { font:inherit; font-size:15px; padding:8px 15px; min-height:38px; border-radius:6px; border:1px solid var(--main); background:var(--main); color:#fff; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn.ghost { background:#fff; color:var(--main); border-color:var(--line); } .btn.sm { padding:4px 11px; font-size:14px; min-height:32px; } .btn:disabled { opacity:.45; cursor:default; }
+  .pill { display:inline-block; font-size:12px; line-height:1.7; padding:0 9px; border-radius:999px; border:1px solid var(--sub); color:var(--sub); background:#fff; margin:2px 4px 2px 0; }
+  .pill.ok { border-color:var(--ok); color:var(--ok); } .pill.warn { border-color:var(--warn); color:var(--warn); } .pill.bad { border-color:var(--bad); color:var(--bad); } .pill.main { background:var(--main); border-color:var(--main); color:#fff; }
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], textarea, select { font:inherit; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--text); }
+  textarea { min-height:90px; resize:vertical; } label.f { display:block; font-size:14px; color:var(--muted); margin:10px 0 3px; } label.chk { display:flex; gap:6px; align-items:center; margin:8px 0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; } .grid2 > div { min-width:0; }
+  .trow { display:grid; grid-template-columns:1.2fr 1fr .8fr 1fr 1.4fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:center; word-break:break-word; } .trow.head { font-size:13px; color:var(--muted); border-top:0; }
+  .trow.pick { cursor:pointer; } .trow.pick:hover { background:var(--soft); } .trow.sel { background:#EEF3F8; }
+  .rrow { display:grid; grid-template-columns:2fr 1fr 2fr; gap:8px; padding:6px 0; border-top:1px solid var(--line); align-items:center; font-size:14px; word-break:break-word; }
+  .ok-box { background:#EAF6EF; border:1px solid var(--ok); border-radius:6px; padding:10px 12px; margin-top:10px; } .bad-box { background:#FDECEA; border:1px solid var(--bad); border-radius:6px; padding:10px 12px; margin-top:10px; }
+  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:#fff; padding:10px 16px; border-radius:6px; font-size:14px; z-index:50; } .toast.bad { background:var(--bad); }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--main); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; } @keyframes sp { to { transform:rotate(360deg); } }
+  .center { text-align:center; padding:30px 0; } .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
+  @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } .trow { grid-template-columns:1fr 1fr; } .trow.head { display:none; } .rrow { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div id="boot" class="center muted"><span class="spin"></span>載入中…</div>
+<div id="login" class="login hidden">
+  <h1>NOPQ通｜staff</h1>
+  <p class="muted" style="margin:0 0 14px">育才仕後台｜staff 登入</p>
+  <form id="login-form" class="card" autocomplete="on">
+    <label class="f" for="l-email">Email</label><input type="email" id="l-email" autocomplete="username" required>
+    <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
+    <div id="l-err" class="err hidden"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
+  </form>
+</div>
+<div id="app" class="hidden">
+  <header class="top"><span class="brand">NOPQ通・staff 後台</span><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <nav class="tabs" id="tabs"><a href="#/" data-t="cases">案件總覽</a><a href="#/import" data-t="import">匯入名單</a><a href="#/account" data-t="account">建帳號</a><a href="#/consent" data-t="consent">同意登錄</a><a href="#/age" data-t="age">年齡</a><a href="#/assign" data-t="assign">指派老師</a><a href="#/guide" data-t="guide">校系指引</a></nav>
+  <main id="view"></main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script id="sg-pure">
+/* 校系指引確認頁的純函式（不碰 DOM、不連線；離線測試 profile-db/tests/walk_staff_guide.mjs 會把這段抽出來單獨跑）。
+   toFields：guide 物件 → 表單欄位字串；renderEditor：一系的編輯畫面；formToGuide：表單欄位 → guide 物件（沒改的欄位原樣保留）；buildCall：存／確認要送的 RPC 與參數。 */
+var SG = (function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var DOCS = [['N', '多元表現綜整心得'], ['O', '高中學習歷程反思'], ['P', '就讀動機'], ['Q', '未來學習計畫與生涯規劃']];
+  var CONF = { high: '高', medium: '中', low: '低', none: '沒抓到' };
+  var CONF_KEYS = [['items', '要交的項目'], ['abilities', '看重的能力'], ['prompts', '題目'], ['limits', '限制']];
+  var SRC = { official: '官方文件整理', manual: '老師手建', missing: '還沒有指引' };
+  var arr = function (a) { return Array.isArray(a) ? a : []; };
+  var lines = function (s) { return String(s == null ? '' : s).split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); };
+  var strs = function (a) { return arr(a).filter(function (x) { return typeof x === 'string' && x.trim() !== ''; }); };
+  var clone = function (o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); };
+  var httpsUrl = function (u) { return typeof u === 'string' && /^https:\/\//i.test(u) ? u : ''; };
+  var day = function (iso) { return iso ? String(iso).slice(0, 10) : ''; };
+  var reqStr = function (v) { return v === true ? 'true' : v === false ? 'false' : 'null'; };
+  var parseTri = function (s) { return s === 'true' ? true : s === 'false' ? false : null; };
+  function limitLine(l) {
+    l = l || {};
+    var t = typeof l.quote === 'string' && l.quote.trim() ? l.quote.trim() : [l.pages ? l.pages + ' 頁' : '', l.images ? l.images + ' 張圖' : ''].filter(Boolean).join('、');
+    return (l.applies ? l.applies + '｜' : '') + t;
+  }
+  function toFields(g) {
+    g = g || {}; var f = { req: {}, prompts: {} };
+    DOCS.forEach(function (d) { var x = g[d[0]] || {}; f.req[d[0]] = reqStr(x.required); f.prompts[d[0]] = strs(x.prompts).join('\n'); });
+    f.abilities = arr(g.abilities).map(function (a) { return a && typeof a === 'object' ? a.term : a; }).filter(Boolean).join('\n');
+    f.limits = arr(g.limits).map(limitLine).filter(Boolean).join('\n');
+    f.ivHas = reqStr((g.interview || {}).has); f.ivNotes = strs((g.interview || {}).notes).join('\n');
+    f.extra = strs(g.extra).join('\n'); f.philosophy = typeof g.philosophy === 'string' ? g.philosophy : '';
+    return f;
+  }
+  function formToGuide(orig, f) {
+    orig = orig || {}; var g = clone(orig);
+    var origP = strs((orig.P || {}).prompts), origEmph = strs(orig.emphasis);
+    g.docs = g.docs && typeof g.docs === 'object' ? g.docs : {};
+    DOCS.forEach(function (d) {
+      var k = d[0], x = g[k] && typeof g[k] === 'object' ? g[k] : { required: null, limit: null, notes: null, prompts: [] };
+      x.required = parseTri(f.req[k]); x.prompts = lines(f.prompts[k]); g[k] = x; g.docs[k] = x.required === null ? true : x.required;
+    });
+    if (JSON.stringify(origEmph) === JSON.stringify(origP)) g.emphasis = g.P.prompts.slice();
+    var oa = arr(orig.abilities).map(function (a) { return a && typeof a === 'object' ? a : { term: String(a), quote: null }; }), usedA = {};
+    g.abilities = lines(f.abilities).map(function (t) {
+      for (var i = 0; i < oa.length; i++) if (!usedA[i] && oa[i].term === t) { usedA[i] = 1; return clone(oa[i]); }
+      return { term: t, quote: null };
+    });
+    var ol = arr(orig.limits), usedL = {};
+    g.limits = lines(f.limits).map(function (ln, idx) {
+      for (var i = 0; i < ol.length; i++) if (!usedL[i] && limitLine(ol[i]) === ln) { usedL[i] = 1; return clone(ol[i]); }
+      var m = /^([A-Z])｜(.*)$/.exec(ln), ap = m ? m[1] : null, txt = (m ? m[2] : ln).trim(), b = ol[idx] && ol[idx].applies === ap ? ol[idx] : {}, o = {};
+      if (ap) o.applies = ap; if (b.pages != null) o.pages = b.pages; if (b.images != null) o.images = b.images; o.quote = txt; return o;
+    });
+    var has = parseTri(f.ivHas), notes = lines(f.ivNotes);
+    g.interview = orig.interview == null && has === null && !notes.length ? null : { has: has, notes: notes };
+    g.extra = lines(f.extra); var ph = String(f.philosophy == null ? '' : f.philosophy).trim(); g.philosophy = ph || null;
+    return g;
+  }
+  function buildCall(deptCode, guide, reviewed) { return { fn: 'staff_set_review_guide', args: { p_dept_code: deptCode, p_guide: guide, p_reviewed: reviewed === true } }; }
+  function statusOf(rec) {
+    var g = (rec && rec.guide) || {}, src = rec && rec.guideSource;
+    return { hasGuide: !!src && src !== 'missing', source: src || 'missing', reviewed: !!g.reviewedBy, by: g.reviewedBy || '', at: g.reviewedAt || '' };
+  }
+  var opt = function (v, cur, t) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + t + '</option>'; };
+  function renderEditor(rec) {
+    rec = rec || {}; var g = rec.guide || {}, f = toFields(g), s = statusOf(rec), cf = g.confidence || {}, src = g.source || {};
+    var school = rec.schoolName || src.schoolName || '', dept = rec.name || src.deptName || '', yr = g.year || rec.year || 115;
+    var url = httpsUrl(rec.guideSourceUrl) || httpsUrl(src.url), rules = httpsUrl(rec.rulesUrl);
+    var h = '<div class="card" id="rg-card"><h2>' + esc(school) + ' ' + esc(dept) + '</h2><div class="muted small">校系代碼 ' + esc(rec.deptCode) + '｜' + esc(rec.year || yr) + ' 學年度｜' + esc(rec.channel === 'TECH' ? '技專' : '一般大學') + '｜指引來源：' + esc(SRC[rec.guideSource] || '還沒有指引') + (rec.guideFetchedAt ? '｜抓取 ' + esc(day(rec.guideFetchedAt)) : '') + '</div>';
+    h += '<div style="margin-top:8px">' + (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(school) + ' ' + esc(dept) + ' ' + esc(yr) + ' 學年度審查資料準備指引（官方）</a>' : '<span class="muted">這系沒有官方指引連結</span>') + (rules ? '｜<a href="' + esc(rules) + '" target="_blank" rel="noopener noreferrer">校系分則</a>' : '') + '</div>';
+    h += '<div style="margin-top:8px">' + (s.reviewed ? '<span class="pill ok">老師確認過了</span><span class="muted small">' + esc(s.by) + (s.at ? '｜' + esc(day(s.at)) : '') + '</span>' : '<span class="pill warn">老師還沒確認過</span><span class="muted small">機器整理，以官方連結為準</span>') + '</div>';
+    h += '<div style="margin-top:6px"><span class="muted small">機器信心：</span>' + CONF_KEYS.map(function (k) { return '<span class="pill' + (cf[k[0]] === 'low' || cf[k[0]] === 'none' ? ' warn' : '') + '">' + k[1] + ' ' + esc(CONF[cf[k[0]]] || '沒有資料') + '</span>'; }).join('') + (g.extractedBy ? '<span class="muted small">（' + esc({ rule: '規則抽取', model: '模型抽取', manual: '手建' }[g.extractedBy] || g.extractedBy) + '）</span>' : '') + '</div>';
+    var wr = strs(g.warnings); if (wr.length) h += '<div class="bad-box small" id="rg-warn"><b>機器抽取時的提醒</b><ul style="margin:4px 0 0 18px;padding:0">' + wr.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
+    h += '<h3>要交什麼、題目是什麼</h3>';
+    DOCS.forEach(function (d) {
+      var k = d[0];
+      h += '<div class="grid2"><div><label class="f" for="rg-req-' + k + '">' + k + ' ' + d[1] + '</label><select id="rg-req-' + k + '">' + opt('true', f.req[k], '必交') + opt('false', f.req[k], '選交') + opt('null', f.req[k], '指引沒分項') + '</select></div>' +
+        '<div><label class="f" for="rg-pr-' + k + '">' + k + ' 的題目（一行一條）</label><textarea id="rg-pr-' + k + '" style="min-height:70px">' + esc(f.prompts[k]) + '</textarea></div></div>';
+    });
+    h += '<label class="f" for="rg-ph">選才理念（原句）</label><textarea id="rg-ph" style="min-height:70px">' + esc(f.philosophy) + '</textarea>';
+    h += '<label class="f" for="rg-ab">看重的能力（一行一條）</label><textarea id="rg-ab">' + esc(f.abilities) + '</textarea>';
+    h += '<label class="f" for="rg-lim">限制（一行一條；前面的「N｜」代表哪一篇，可省略）</label><textarea id="rg-lim" style="min-height:70px">' + esc(f.limits) + '</textarea>';
+    h += '<div class="grid2"><div><label class="f" for="rg-iv-has">面試</label><select id="rg-iv-has">' + opt('true', f.ivHas, '有面試') + opt('false', f.ivHas, '沒有面試') + opt('null', f.ivHas, '指引沒寫') + '</select></div>' +
+      '<div><label class="f" for="rg-iv-notes">面試重點（一行一條）</label><textarea id="rg-iv-notes" style="min-height:70px">' + esc(f.ivNotes) + '</textarea></div></div>';
+    h += '<label class="f" for="rg-ex">其他（一行一條）</label><textarea id="rg-ex" style="min-height:70px">' + esc(f.extra) + '</textarea>';
+    h += '<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="rgSave">存</button><button class="btn" data-act="rgConfirm">確認</button><span class="muted small">「存」只存修改、老師還沒確認；「確認」會記下是誰、什麼時候確認的。</span></div></div>';
+    return h;
+  }
+  function mergeWishlist(details) {
+    var m = {}, out = [];
+    arr(details).forEach(function (d) {
+      if (!d || d.ok === false) return;
+      arr(d.wishlist).forEach(function (w) {
+        if (!w || !w.deptCode) return;
+        if (!m[w.deptCode]) { m[w.deptCode] = { deptCode: w.deptCode, schoolName: w.schoolName || '', name: w.name || '', year: w.year, channel: w.channel, count: 0 }; out.push(m[w.deptCode]); }
+        m[w.deptCode].count++;
+      });
+    });
+    return out.sort(function (a, b) { return b.count - a.count || String(a.deptCode).localeCompare(String(b.deptCode)); });
+  }
+  function renderClassList(list, status) {
+    status = status || {}; list = arr(list);
+    if (!list.length) return '<p class="muted">這一班目前沒有人填志願。</p>';
+    var done = list.filter(function (x) { return status[x.deptCode] && status[x.deptCode].reviewed; }).length;
+    return '<p class="muted small">這一班志願裡共 ' + list.length + ' 系，老師確認過 ' + done + ' 系；其餘標「機器整理，以官方連結為準」。</p>' + list.map(function (x) {
+      var s = status[x.deptCode];
+      return '<div class="rrow" style="grid-template-columns:2fr 2fr 80px"><div>' + esc(x.schoolName) + ' ' + esc(x.name) + '<div class="muted small">' + esc(x.deptCode) + '｜' + x.count + ' 位同學填</div></div><div>' +
+        (s ? '<span class="pill ' + (s.hasGuide ? '' : 'bad') + '">' + esc(SRC[s.source] || SRC.missing) + '</span><span class="pill ' + (s.reviewed ? 'ok' : 'warn') + '">' + (s.reviewed ? '老師確認過了' : '老師還沒確認過') + '</span>' : '<span class="muted small">讀取中…</span>') +
+        '</div><button class="btn sm ghost" data-act="rgPick" data-code="' + esc(x.deptCode) + '">看這系</button></div>';
+    }).join('');
+  }
+  return { esc: esc, toFields: toFields, formToGuide: formToGuide, buildCall: buildCall, statusOf: statusOf, renderEditor: renderEditor, mergeWishlist: mergeWishlist, renderClassList: renderClassList, limitLine: limitLine };
+})();
+</script>
+<script>
+'use strict';
+const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL
+const SUPABASE_ANON_KEY = 'sb_publishable_7QYBhi8ypHJ8O_WzFmkwvw_YjM3pmCK';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ycs-staff-auth' } });
+const S = { me: null, cases: null, teachers: null, cohorts: null, ui: {} };
+const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET']);
+const ERRS = {
+  NOT_STAFF: '這個帳號不是 staff，不能使用後台。', STUDENT_NOT_FOUND: '找不到這位學生。', TEACHER_NOT_FOUND: '找不到這位老師。', CASE_NOT_FOUND: '找不到這個案件。', COHORT_NOT_FOUND: '找不到這個班別。',
+  ROWS_INVALID: '名單格式不對。', TOO_MANY_ROWS: '一次最多匯入 300 列。', CLIENT_REQUEST_ID_REQUIRED: '缺少請求編號，請重新整理再試。', AUTH_USER_TAKEN: '這個登入帳號已經接給別人了。', EMAIL_TAKEN: '這個 email 已經被用走了。',
+  VALIDATION: '資料不完整或格式不對', VALIDATION_FAILED: '資料不符規則', CONSENT_BY_INVALID: '同意人要選「監護人」或「本人」。', SIGNER_NAME_REQUIRED: '本人簽署要填簽署人姓名。', GUARDIAN_NAME_REQUIRED: '要填監護人姓名。',
+  GUARDIAN_NAME_INVALID: '監護人姓名不能寫「本人」。', GUARDIAN_CONTACT_REQUIRED: '要填聯絡方式。', CONSENT_METHOD_INVALID: '登錄方式要選紙本或 Tally。', CONSENT_SCOPE_VERSION_REQUIRED: '要填同意書版本。',
+  RECORDED_BY_REQUIRED: '缺少登錄人。', ATTACHMENT_REQUIRED: '紙本同意要填附件檔名。', CONSENT_AT_REQUIRED: '紙本同意要填簽署日期。', CONSENT_AT_INVALID: '簽署日期不能在未來。', DEPT_NOT_FOUND: '找不到這個校系。',
+  NAME_REQUIRED: '要填名稱。', UNAUTHENTICATED: '登入已過期，請重新登入。', LINK_FAILED: '建帳號後接線失敗，已回滾。', ADMIN_FAILED: '建帳號失敗，請稍後再試。', QUERY_TOO_SHORT: '至少輸入 2 個字。',
+};
+const FIELD_NAMES = { guide: '指引內容的格式不對', 'N.required': 'N 的必交／選交選項不對', 'O.required': 'O 的必交／選交選項不對', 'P.required': 'P 的必交／選交選項不對', 'Q.required': 'Q 的必交／選交選項不對', deptCode: '校系代碼不存在', terms: '用語要 1～30 個、每個最多 30 字', sourceQuote: '指引原句最多 300 字', email: 'email 格式不對', 'password（8–72 字元）': '暫時密碼要 8～72 字元', p_age_status: '年齡選項不對' };
+const detailText = (x) => (Array.isArray(x) ? x.map(detailText).join('、') : x && typeof x === 'object' ? x.note || '' : FIELD_NAMES[String(x)] || String(x));
+const errText = (d) => (ERRS[d.error] || `這一步沒有成功（${d.error}）`) + (d.detail != null && d.detail !== '' ? '：' + detailText(d.detail) : '');
+let toastTimer = 0;
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4500); }
+async function call(fn, args, opts = {}) {
+  const { data, error } = await sb.rpc(fn, args || {});
+  if (error) {
+    if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin('登入已過期，請重新登入。'); throw new Error('AUTH'); }
+    if (error.status === 403 || error.code === '42501') { toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
+    toast('連線失敗，請稍後再試。', true); throw new Error('NET');
+  }
+  if (data && data.ok === false) {
+    if (data.error === 'NOT_STAFF') { await toLogin(ERRS.NOT_STAFF); throw new Error('NOT_STAFF'); }
+    if (!opts.quiet) toast(errText(data), true);
+  }
+  return data || { ok: false, error: 'EMPTY' };
+}
+document.addEventListener('click', async (ev) => {
+  const el = ev.target.closest('[data-act]'); if (!el || el.disabled || !ACT[el.dataset.act]) return;
+  try { await ACT[el.dataset.act](el, ev); } catch (e) { if (!KNOWN.has(e.message) && e.message !== 'NOT_STAFF') { toast('發生預期外的問題，請重新整理再試。', true); console.warn('act', el.dataset.act, e.message); } }
+});
+document.addEventListener('input', (ev) => { const el = ev.target.closest('[data-in]'); if (el && IN[el.dataset.in]) IN[el.dataset.in](el, ev); });
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+function showLogin(msg) { S.me = null; S.ui = {}; show('boot', false); show('app', false); show('login', true); $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false; }
+async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
+$('login-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault(); $('l-btn').disabled = true; show('l-err', false);
+  const { error } = await sb.auth.signInWithPassword({ email: $('l-email').value.trim(), password: $('l-pw').value }); $('l-pw').value = '';
+  if (error) { showLogin(/invalid|credentials/i.test(error.message || '') ? '帳號或密碼不對。' : '登入沒成功，請稍後再試。'); return; }
+  await enter();
+});
+ACT.logout = async () => { await toLogin(''); };
+async function enter() {
+  show('login', false); show('boot', true);
+  let w; try { w = await call('staff_whoami'); } catch (e) { return; }
+  if (!(w.roles || []).includes('staff')) { await toLogin('這個帳號不是 staff。' + ((w.roles || []).includes('teacher') ? '老師請到老師頁。' : (w.roles || []).includes('student') ? '學生請到學生頁。' : '')); return; }
+  S.me = w; $('who').textContent = w.email || ''; show('boot', false); show('app', true);
+  try { await loadBase(); } catch (e) { return; } route();
+}
+async function loadBase() {
+  const [c, t, h] = await Promise.all([call('staff_list_cases', { p: {} }), call('staff_list_teachers'), call('staff_list_cohorts', { p_season: null })]);
+  S.cases = c.items || []; S.teachers = t.items || []; S.cohorts = h.items || [];
+}
+window.addEventListener('hashchange', () => { if (S.me) route(); });
+const VIEWS = { '#/': 'cases', '#/import': 'import', '#/account': 'account', '#/consent': 'consent', '#/age': 'age', '#/assign': 'assign', '#/guide': 'guide' };
+function route() {
+  window.scrollTo(0, 0); const k = VIEWS[location.hash || '#/'] || 'cases';
+  document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === k)); (VIEW[k])();
+}
+const view = (html) => { $('view').innerHTML = html; };
+const TRACK = { bigClass: '大班', oneOnOne: '1 對 1' }, DOC_STATUS = { notStarted: '未開始', outlining: '整理中', drafting: '寫稿中', awaitingReview: '待批改', finalized: '定稿', exported: '已匯出' };
+const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso).slice(0, 10) : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; };
+const studentOptions = (sel) => (S.cases || []).map((c) => `<option value="${esc(c.studentId)}" data-email="${esc(c.email || '')}" data-case="${esc(c.caseId)}" ${sel === c.studentId ? 'selected' : ''}>${esc(c.nickname)}（${esc(c.email || '無 email')}）</option>`).join('');
+// ── 案件總覽 ──
+function viewCases() {
+  const f = S.ui.cf = S.ui.cf || { q: '', track: '' };
+  view(`<div class="card"><h2>案件總覽（${(S.cases || []).length}）</h2><div class="grid2"><div><label class="f" for="c-q">搜尋（暱稱或 email）</label><input type="text" id="c-q" data-in="cf" data-k="q" value="${esc(f.q)}"></div>
+    <div><label class="f" for="c-track">軌別</label><select id="c-track" data-in="cf" data-k="track"><option value="">全部</option><option value="bigClass" ${f.track === 'bigClass' ? 'selected' : ''}>大班</option><option value="oneOnOne" ${f.track === 'oneOnOne' ? 'selected' : ''}>1 對 1</option></select></div></div>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-act="reloadCases">查詢</button></div></div>
+    <div class="card"><div class="trow head"><div>學生</div><div>班別／軌別</div><div>老師</div><div>階段／文件</div><div>下一步／阻塞</div></div><div id="case-list">${caseRows()}</div></div><div id="case-detail"></div>`);
+}
+const caseRows = () => (S.cases || []).map((c) => `<div class="trow pick" data-act="openCase" data-id="${esc(c.caseId)}"><div><b>${esc(c.nickname)}</b><div class="muted small">${esc(c.email || '')}</div></div>
+  <div>${esc(c.cohortName || '—')}<div class="muted small">${esc(TRACK[c.track] || c.track)}</div></div><div>${esc(c.teacherName || '（未指派）')}</div>
+  <div><span class="pill main">${esc(c.stage)}</span><span class="pill ${c.hasAiConsent ? 'ok' : 'warn'}">${c.hasAiConsent ? 'AI 同意' : '無 AI 同意'}</span><div class="muted small">文件 ${c.docDone}／${c.docTotal} 已完成</div></div>
+  <div class="small">${esc(c.nextAction || '—')}${c.blocker ? `<div><span class="pill bad">${esc(c.blocker)}</span></div>` : ''}</div></div>`).join('') || '<p class="muted">沒有符合的案件。</p>';
+IN.cf = (el) => { S.ui.cf[el.dataset.k] = el.value; };
+ACT.reloadCases = async () => {
+  const f = S.ui.cf, p = {}; if (f.q.trim()) p.q = f.q.trim(); if (f.track) p.track = f.track;
+  const r = await call('staff_list_cases', { p }); if (!r.ok) return; S.cases = r.items; $('case-list').innerHTML = caseRows(); $('case-detail').innerHTML = '';
+};
+ACT.openCase = async (el) => {
+  const r = await call('staff_get_case', { p_case_id: el.dataset.id }); if (!r.ok) return; const st = r.student || {}, cs = r.consent, docs = r.docs || [];
+  document.querySelectorAll('#case-list .trow').forEach((x) => x.classList.toggle('sel', x === el));
+  $('case-detail').innerHTML = `<div class="card"><h2>${esc(st.nickname)}｜案件明細</h2><div class="muted small">${esc(st.email || '')}｜${esc(st.school || '')} ${esc(st.gradeYear || '')}｜班別 ${esc((r.cohort || {}).name || '—')}｜老師 ${esc((r.teacher || {}).name || '（未指派）')}</div>
+    <h3>文件</h3>${docs.map((d) => `<div class="row spread"><span>${esc({ N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來規劃' }[d.nopqType] || d.nopqType)}${d.deptName ? '｜' + esc(d.schoolName || '') + ' ' + esc(d.deptName) : ''}</span><span class="pill main">${esc(DOC_STATUS[d.status] || d.status)}</span></div>`).join('') || '<span class="muted">沒有文件</span>'}
+    <h3>同意</h3>${cs ? `${esc(cs.consentBy === 'self' ? '本人' : '監護人')}簽｜${esc(cs.method)}｜${esc(when(cs.consentAt))}｜AI 處理${cs.aiProcessingConsent ? '同意' : '不同意'}｜登錄人 ${esc(cs.recordedBy || '—')}${cs.revokedAt ? '｜<b>已撤回</b>' : ''}` : '<span class="pill warn">沒有同意紀錄</span>'}
+    <h3>盤點與志願</h3><div class="muted">八類條目 ${(r.entries || {}).total || 0} 筆｜志願 ${(r.wishlist || []).length} 個</div></div>`;
+};
+// ── 匯入名單（CSV 欄沿用 staff_import_roster）──
+const CSV_COLUMNS = ['email', 'nickname', 'school', 'gradeYear', 'consentBy', 'guardianName', 'signerName', 'guardianContact', 'consentAt', 'attachmentRef', 'aiProcessingConsent', 'experienceOptIn', 'scopeVersion'];
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; } else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ''));
+}
+const yesNo = (v) => { const s = String(v || '').trim().toLowerCase(); return /^(y|yes|true|1|是|有|勾|同意)$/.test(s) ? true : /^(n|no|false|0|否|無|不|不同意)$/.test(s) ? false : null; };
+const consentWho = (v) => { const s = String(v || '').trim().toLowerCase(); return ['guardian', '監護人', '家長'].includes(s) ? 'guardian' : ['self', '本人'].includes(s) ? 'self' : null; };
+function toRosterRows(text) {
+  const t = parseCsv(text.replace(/^﻿/, '')); if (!t.length) return []; const head = t[0].map((h) => h.trim());
+  return t.slice(1).map((cells) => {
+    const r = Object.fromEntries(head.map((h, i) => [h, (cells[i] || '').trim()])), row = { email: r.email, nickname: r.nickname, school: r.school || null, gradeYear: r.gradeYear || null };
+    if (r.consentBy) {
+      const who = consentWho(r.consentBy), ai = yesNo(r.aiProcessingConsent), ex = r.experienceOptIn ? yesNo(r.experienceOptIn) : false;
+      const bad = [who === null && `consentBy「${r.consentBy}」`, ai === null && `aiProcessingConsent「${r.aiProcessingConsent}」`, ex === null && `experienceOptIn「${r.experienceOptIn}」`].filter(Boolean);
+      if (bad.length) row.parseError = `看不懂：${bad.join('、')}（請填 guardian／self、是／否）`;
+      row.consent = { consentBy: who, guardianName: r.guardianName, signerName: r.signerName, guardianContact: r.guardianContact, method: 'paper', scopeVersion: r.scopeVersion || 'v2-paper', consentAt: r.consentAt || null, attachmentRef: r.attachmentRef, aiProcessingConsent: ai, experienceOptIn: ex };
+    }
+    return row;
+  });
+}
+function viewImport() {
+  const u = S.ui; u.imp = u.imp || { cohort: (S.cohorts[0] || {}).id || '', text: '', rows: [], result: null };
+  view(`<div class="card"><h2>匯入名單</h2><p class="muted" style="margin:0 0 6px">貼上或上傳 CSV（第一列是欄名）。有同意欄的新生會一併建檔；沒有同意欄的新生會標「待補同意」不建檔。登錄人由系統帶入你的 email。</p>
+    <label class="f" for="i-cohort">要匯入到哪個班別</label><select id="i-cohort" data-in="impCohort">${S.cohorts.map((c) => `<option value="${esc(c.id)}" ${u.imp.cohort === c.id ? 'selected' : ''}>${esc(c.name)}（${esc(TRACK[c.track] || c.track)}｜${c.caseCount} 人）</option>`).join('')}</select>
+    <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="csvTemplate">下載 CSV 範本</button><label class="btn sm ghost" style="margin:0">上傳 CSV<input type="file" id="i-file" accept=".csv,text/csv" class="hidden" data-in="impFile"></label></div>
+    <label class="f" for="i-text">CSV 內容</label><textarea id="i-text" data-in="impText" placeholder="${esc(CSV_COLUMNS.join(','))}">${esc(u.imp.text)}</textarea>
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="impPreview">預覽</button><button class="btn" id="i-go" data-act="impGo" ${u.imp.rows.length && !u.imp.rows.some((r) => r.parseError) ? '' : 'disabled'}>確認匯入</button></div></div><div id="imp-out">${impPreviewHtml()}</div>`);
+}
+function impPreviewHtml() {
+  const x = S.ui.imp, rs = x.rows; if (x.result) return impResultHtml(x.result); if (!rs.length) return '';
+  return `<div class="card"><h3 style="margin-top:0">預覽（共 ${rs.length} 列）</h3>${rs.map((r, i) => `<div class="rrow"><div>${i + 1}. ${esc(r.email || '（沒有 email）')}　${esc(r.nickname || '')}</div><div>${esc(r.school || '')}</div>
+    <div>${r.parseError ? `<span class="pill bad">${esc(r.parseError)}</span>` : r.consent ? `<span class="pill ok">${r.consent.consentBy === 'self' ? '本人' : '監護人'}簽</span><span class="pill">AI 處理${r.consent.aiProcessingConsent ? '同意' : '不同意'}</span>` : '<span class="pill warn">無同意欄（新生不建檔）</span>'}</div></div>`).join('')}</div>`;
+}
+const ROW_STATUS = { created: ['新建檔', 'ok'], linked: ['接上既有學生', 'ok'], linkedNeedsConsent: ['接上，待補同意', 'warn'], needsConsent: ['待補同意（未建檔）', 'warn'], consentRevoked: ['已撤回同意，請個別處理', 'bad'], failed: ['失敗', 'bad'] };
+function impResultHtml(r) {
+  return `<div class="card"><h3 style="margin-top:0">匯入結果</h3><p>新建檔 <b>${r.created}</b>｜接上既有 <b>${r.linked}</b>｜接上待補同意 <b>${r.linkedNeedsConsent || 0}</b>｜待補同意 <b>${r.needsConsent}</b>｜已撤回 <b>${r.consentRevoked || 0}</b>｜失敗 <b>${r.failed}</b></p>
+    ${(r.rows || []).map((x) => { const s = ROW_STATUS[x.status] || [x.status, '']; return `<div class="rrow"><div>${x.row}. ${esc(x.email || '')} ${esc(x.nickname || '')}</div><div><span class="pill ${s[1]}">${esc(s[0])}</span></div><div class="small">${x.error ? esc(x.error) : x.consentRecorded === true ? '登錄了新的同意書' : x.consentRecorded === false ? '同意書已登錄過，沒有重寫' : ''}</div></div>`; }).join('')}
+    <p class="muted small" style="margin-top:8px">新建檔的學生還沒有登入帳號，請到「建帳號」幫他建。</p></div>`;
+}
+IN.impCohort = (el) => { S.ui.imp.cohort = el.value; }; IN.impText = (el) => { S.ui.imp.text = el.value; S.ui.imp.rows = []; S.ui.imp.result = null; const g = $('i-go'); if (g) g.disabled = true; };
+IN.impFile = async (el) => { const f = el.files[0]; if (f) { S.ui.imp.text = await f.text(); S.ui.imp.rows = toRosterRows(S.ui.imp.text); S.ui.imp.result = null; viewImport(); } };
+ACT.impPreview = () => { const x = S.ui.imp; x.rows = toRosterRows(x.text); x.result = null; viewImport(); };
+ACT.csvTemplate = () => {
+  const s = CSV_COLUMNS.join(',') + '\nstudent1@example.com,小安,○○高中,高三,guardian,王媽媽,,0912-345-678,2026-11-01,同意書掃描檔名.pdf,是,否,v2-paper\nstudent2@example.com,小柏,○○高中,高三,self,,林小柏,0922-000-111,2026-11-01,同意書掃描檔名2.pdf,是,否,v2-paper\n';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + s], { type: 'text/csv' })); a.download = '名單範本.csv'; a.click();
+};
+ACT.impGo = async (el) => {
+  const x = S.ui.imp; if (!x.cohort || !x.rows.length || x.rows.some((r) => r.parseError)) return; el.disabled = true;
+  const rows = x.rows.map(({ parseError, ...r }) => r), r = await call('staff_import_roster', { p_cohort_id: x.cohort, p_rows: rows, p_client_request_id: `roster-${Date.now()}` });
+  if (!r.ok) { el.disabled = false; return; } x.result = r; x.rows = []; await loadBase(); viewImport(); toast('匯入完成');
+};
+// ── 建帳號（呼叫 nopq-admin；只顯示 authUserId，不顯示密碼）──
+function viewAccount() {
+  const u = S.ui; u.ac = u.ac || { role: 'student', id: '', email: '', pw: '' }; const a = u.ac;
+  const people = a.role === 'student' ? studentOptions(a.id) : (S.teachers || []).map((t) => `<option value="${esc(t.id)}" data-email="${esc(t.email || '')}" ${a.id === t.id ? 'selected' : ''}>${esc(t.name)}（${esc(t.email || '無 email')}）</option>`).join('');
+  view(`<div class="card"><h2>建登入帳號</h2><p class="muted" style="margin:0 0 6px">幫學生或老師建 email＋暫時密碼的帳號。密碼只有你輸入的這一次，建好後不會顯示；請另外告訴他本人，叫他登入後自己換。</p>
+    <div class="row"><label class="chk"><input type="radio" name="ac-role" value="student" data-in="acRole" ${a.role === 'student' ? 'checked' : ''}> 學生</label><label class="chk"><input type="radio" name="ac-role" value="teacher" data-in="acRole" ${a.role === 'teacher' ? 'checked' : ''}> 老師</label></div>
+    <label class="f" for="ac-who">要建給誰</label><select id="ac-who" data-in="acPerson"><option value="">請選…</option>${people}</select>
+    <label class="f" for="ac-email">登入 email</label><input type="email" id="ac-email" data-in="acEmail" value="${esc(a.email)}" autocomplete="off">
+    <label class="f" for="ac-pw">暫時密碼（8～72 字元）</label><input type="password" id="ac-pw" data-in="acPw" autocomplete="new-password" value="">
+    <div style="margin-top:12px"><button class="btn" data-act="mkAccount">建立帳號</button></div><div id="ac-out">${u.acResult || ''}</div></div>`);
+}
+IN.acRole = (el) => { S.ui.ac = { role: el.value, id: '', email: '', pw: '' }; S.ui.acResult = ''; viewAccount(); };
+IN.acPerson = (el) => { const o = el.selectedOptions[0]; S.ui.ac.id = el.value; S.ui.ac.email = (o && o.dataset.email) || ''; $('ac-email').value = S.ui.ac.email; };
+IN.acEmail = (el) => { S.ui.ac.email = el.value; }; IN.acPw = (el) => { S.ui.ac.pw = el.value; };
+ACT.mkAccount = async (el) => {
+  const a = S.ui.ac; if (!a.id) return toast('先選要建給誰。', true); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a.email.trim())) return toast('email 格式不對。', true); if (a.pw.length < 8) return toast('暫時密碼至少 8 個字元。', true);
+  el.disabled = true; const body = { action: 'invite', email: a.email.trim(), tempPassword: a.pw }; body[a.role === 'student' ? 'studentId' : 'teacherId'] = a.id;
+  let res; try {
+    const { data, error } = await sb.functions.invoke('nopq-admin', { body }); res = data;
+    if (error) { res = { ok: false, error: 'ADMIN_FAILED' }; try { res = await error.context.json(); } catch (e) { /* 維持通用錯誤 */ } }
+  } catch (e) { res = { ok: false, error: 'ADMIN_FAILED' }; }
+  a.pw = ''; $('ac-pw').value = ''; el.disabled = false;
+  const who = $('ac-who').selectedOptions[0].textContent;
+  S.ui.acResult = res && res.ok ? `<div class="ok-box"><b>帳號已建立</b>：${esc(who)}<div class="small">authUserId：<code>${esc(res.authUserId)}</code></div><div class="small muted">密碼不會顯示，請另外告訴本人。</div></div>` : `<div class="bad-box">${esc(errText(res || { error: 'ADMIN_FAILED' }))}</div>`;
+  $('ac-out').innerHTML = S.ui.acResult; if (res && res.ok) toast('帳號已建立'); else toast(errText(res || { error: 'ADMIN_FAILED' }), true);
+};
+// ── 同意登錄 ──
+function viewConsent() {
+  const u = S.ui; u.cs = u.cs || { student: '', by: 'guardian', guardian: '', signer: '', contact: '', method: 'paper', at: '', ref: '', scope: 'v2-paper', ai: false, exp: false }; const c = u.cs;
+  const inp = (k, label, type = 'text') => `<div><label class="f" for="cs-${k}">${label}</label><input type="${type}" id="cs-${k}" data-in="cs" data-k="${k}" value="${esc(c[k])}"></div>`;
+  view(`<div class="card"><h2>同意登錄</h2><p class="muted" style="margin:0 0 6px">紙本或 Tally 的同意書，由你登錄。登錄人：${esc((S.me || {}).email || '')}（系統自動帶入）。</p>
+    <label class="f" for="cs-student">學生</label><select id="cs-student" data-in="cs" data-k="student"><option value="">請選…</option>${studentOptions(c.student)}</select>
+    <div class="grid2"><div><label class="f" for="cs-by">誰簽的</label><select id="cs-by" data-in="cs" data-k="by"><option value="guardian" ${c.by === 'guardian' ? 'selected' : ''}>監護人</option><option value="self" ${c.by === 'self' ? 'selected' : ''}>本人</option></select></div>
+      <div><label class="f" for="cs-method">登錄方式</label><select id="cs-method" data-in="cs" data-k="method"><option value="paper" ${c.method === 'paper' ? 'selected' : ''}>紙本</option><option value="tally" ${c.method === 'tally' ? 'selected' : ''}>Tally 表單</option></select></div>
+      ${c.by === 'guardian' ? inp('guardian', '監護人姓名') : inp('signer', '簽署人姓名（本人）')}${inp('contact', '聯絡方式')}${inp('at', '簽署日期（紙本必填）', 'date')}${inp('ref', '附件檔名（紙本必填）')}${inp('scope', '同意書版本')}</div>
+    <label class="chk"><input type="checkbox" data-in="csChk" data-k="ai" ${c.ai ? 'checked' : ''}> 同意 AI 處理（沒勾＝這位學生的問答改由老師出題）</label>
+    <label class="chk"><input type="checkbox" data-in="csChk" data-k="exp" ${c.exp ? 'checked' : ''}> 同意經驗分享（experienceOptIn）</label>
+    <div style="margin-top:8px"><button class="btn" data-act="saveConsent">登錄同意</button></div></div>`);
+}
+IN.cs = (el) => { S.ui.cs[el.dataset.k] = el.value; if (el.dataset.k === 'by') viewConsent(); }; IN.csChk = (el) => { S.ui.cs[el.dataset.k] = el.checked; };
+ACT.saveConsent = async (el) => {
+  const c = S.ui.cs; if (!c.student) return toast('先選學生。', true); el.disabled = true;
+  const p = { consentBy: c.by, guardianContact: c.contact, method: c.method, scopeVersion: c.scope, attachmentRef: c.ref || null, aiProcessingConsent: !!c.ai, experienceOptIn: !!c.exp, consentAt: c.at ? `${c.at}T00:00:00+08:00` : null };
+  if (c.by === 'guardian') p.guardianName = c.guardian; else p.signerName = c.signer;
+  const r = await call('staff_record_consent', { p_student_id: c.student, p }); el.disabled = false; if (!r.ok) return;
+  toast('同意已登錄'); await loadBase(); S.ui.cs = null; viewConsent();
+};
+// ── 年齡 ──
+function viewAge() {
+  const a = S.ui.ag = S.ui.ag || { student: '', age: 'adult', msg: '' };
+  view(`<div class="card"><h2>年齡確認</h2><p class="muted" style="margin:0 0 6px">對照證件或家長資料後填成年或未成年；系統會記是誰、何時確認的。</p>
+    <label class="f" for="ag-student">學生</label><select id="ag-student" data-in="ag" data-k="student"><option value="">請選…</option>${studentOptions(a.student)}</select>
+    <div class="row" style="margin-top:8px">${[['adult', '成年'], ['minor', '未成年'], ['unknown', '未確認']].map(([v, t]) => `<label class="chk"><input type="radio" name="ag" value="${v}" data-in="ag" data-k="age" ${a.age === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+    <div style="margin-top:8px"><button class="btn" data-act="saveAge">儲存</button></div>${a.msg ? `<div class="ok-box">${esc(a.msg)}</div>` : ''}</div>`);
+}
+IN.ag = (el) => { S.ui.ag[el.dataset.k] = el.value; };
+ACT.saveAge = async (el) => {
+  const a = S.ui.ag; if (!a.student) return toast('先選學生。', true); el.disabled = true; const r = await call('staff_set_age', { p_student_id: a.student, p_age_status: a.age }); el.disabled = false; if (!r.ok) return;
+  a.msg = `已記錄：${$('ag-student').selectedOptions[0].textContent} → ${{ adult: '成年', minor: '未成年', unknown: '未確認' }[r.ageStatus]}`; viewAge(); toast('年齡已儲存');
+};
+// ── 指派老師 ──
+function viewAssign() {
+  const opts = (cur) => `<option value="">（不指派）</option>${(S.teachers || []).filter((t) => t.active || t.name === cur).map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}`;
+  view(`<div class="card"><h2>指派老師</h2><p class="muted" style="margin:0 0 6px">老師只看得到指派給他的學生。換老師後，原老師立刻看不到這位學生。</p>${(S.cases || []).map((c) => `<div class="rrow"><div><b>${esc(c.nickname)}</b><div class="muted small">${esc(c.cohortName || '')}｜${esc(TRACK[c.track] || c.track)}</div></div>
+    <div>現在：${esc(c.teacherName || '（未指派）')}</div><div class="row"><select id="as-${esc(c.caseId)}" style="flex:1;min-width:140px">${opts(c.teacherName)}</select><button class="btn sm" data-act="assignTeacher" data-id="${esc(c.caseId)}">指派</button></div></div>`).join('') || '<p class="muted">沒有案件。</p>'}</div>`);
+}
+ACT.assignTeacher = async (el) => {
+  const v = $('as-' + el.dataset.id).value; el.disabled = true; const r = await call('staff_update_case', { p_case_id: el.dataset.id, p: { teacherId: v } }); el.disabled = false; if (!r.ok) return;
+  await loadBase(); viewAssign(); toast(v ? '已指派' : '已取消指派');
+};
+// ── 校系指引（確認頁）：搜系 → 看機器抽的結果 → 改 → 存／確認；staff_get_review_guide／staff_set_review_guide ──
+const RG0 = () => ({ year: '115', ch: 'UNI', q: '', found: [], rec: null, only: false, cohort: '', list: null, status: {}, busy: false });
+const rgFoundHtml = () => (S.ui.rg.found || []).map((d) => `<div class="rrow" style="grid-template-columns:2fr 1fr 80px"><div>${esc(d.schoolName)} ${esc(d.name)}</div><div class="muted small">${esc(d.deptCode)}</div><button class="btn sm ghost" data-act="rgPick" data-code="${esc(d.deptCode)}">看這系</button></div>`).join('');
+const rgListHtml = () => { const r = S.ui.rg; return r.busy ? '<p class="muted"><span class="spin"></span>讀取這一班的志願…</p>' : r.list ? SG.renderClassList(r.list, r.status) : ''; };
+function viewGuide() {
+  const r = S.ui.rg = S.ui.rg || RG0();
+  view(`<div class="card"><h2>校系指引</h2><p class="muted" style="margin:0 0 6px">各校的審查資料準備指引，由機器整理成表。只有這一班同學填的志願系需要老師確認；沒確認的會在學生端標「機器整理，以官方連結為準」。</p>
+    <div class="grid2"><div><label class="f" for="rg-year">學年度</label><input type="text" id="rg-year" data-in="rg" data-k="year" value="${esc(r.year)}"></div><div><label class="f" for="rg-ch">管道</label><select id="rg-ch" data-in="rg" data-k="ch"><option value="UNI" ${r.ch === 'UNI' ? 'selected' : ''}>一般大學</option><option value="TECH" ${r.ch === 'TECH' ? 'selected' : ''}>技專</option></select></div></div>
+    <label class="f" for="rg-q">找校系（校名與系名，至少 2 字）</label><div class="row"><input type="text" id="rg-q" data-in="rg" data-k="q" value="${esc(r.q)}" style="flex:1"><button class="btn sm" data-act="rgFind">搜尋</button></div>
+    <div id="rg-found">${rgFoundHtml()}</div>
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="rg-only" data-in="rgOnly" ${r.only ? 'checked' : ''}> 只看這一班志願的系</label>
+    <div id="rg-classbox" class="${r.only ? '' : 'hidden'}"><label class="f" for="rg-cohort">哪一班</label><div class="row"><select id="rg-cohort" data-in="rg" data-k="cohort" style="flex:1"><option value="">全部班別</option>${(S.cohorts || []).map((c) => `<option value="${esc(c.name)}" ${r.cohort === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select><button class="btn sm ghost" data-act="rgReload">重新讀取</button></div>
+      <div id="rg-class">${rgListHtml()}</div></div></div>
+    <div id="rg-editor">${r.rec ? SG.renderEditor(r.rec) : ''}</div><div id="rg-intro">${r.rec ? rgIntroHtml(r.rec) : ''}</div>
+    <div class="card"><h2>校系指引用語（手打）</h2><p class="muted" style="margin:0 0 6px">把校系備審指引裡的能力用語建進詞庫，每個詞附指引原句。系統只能從詞庫裡提議能力標籤。</p>
+    <div class="grid2"><div><label class="f" for="gd-year">學年度</label><input type="text" id="gd-year" data-in="gd" data-k="year" value="${esc(g.year)}"></div><div><label class="f" for="gd-ch">管道</label><select id="gd-ch" data-in="gd" data-k="ch"><option value="UNI" ${g.ch === 'UNI' ? 'selected' : ''}>一般大學</option><option value="TECH" ${g.ch === 'TECH' ? 'selected' : ''}>技專</option></select></div></div>
+    <label class="f" for="gd-q">找校系（校名與系名，至少 2 字）</label><div class="row"><input type="text" id="gd-q" data-in="gd" data-k="q" value="${esc(g.q)}" style="flex:1"><button class="btn sm" data-act="findDept">搜尋</button></div>
+    <div id="gd-found">${foundHtml()}</div>
+    <label class="f" for="gd-dept">校系代碼</label><input type="text" id="gd-dept" data-in="gd" data-k="dept" value="${esc(g.dept)}">
+    <label class="f" for="gd-terms">用語（一行一個，或用逗號分開；最多 30 個）</label><textarea id="gd-terms" data-in="gd" data-k="terms">${esc(g.terms)}</textarea>
+    <label class="f" for="gd-quote">指引原句（最多 300 字）</label><textarea id="gd-quote" data-in="gd" data-k="quote" maxlength="300" style="min-height:70px">${esc(g.quote)}</textarea>
+    <div style="margin-top:10px"><button class="btn" data-act="saveGuide">建立用語</button></div>${g.msg ? `<div class="ok-box">${esc(g.msg)}</div>` : ''}</div>`);
+}
+const foundHtml = () => (S.ui.gd.found || []).map((d) => `<div class="rrow" style="grid-template-columns:2fr 1fr 80px"><div>${esc(d.schoolName)} ${esc(d.name)}</div><div class="muted small">${esc(d.deptCode)}</div><button class="btn sm ghost" data-act="pickDept" data-code="${esc(d.deptCode)}">選這個</button></div>`).join('');
+IN.gd = (el) => { S.ui.gd[el.dataset.k] = el.value; };
+ACT.findDept = async () => { const g = S.ui.gd, r = await call('search_dept', { p_year: +g.year || 115, p_channel: g.ch, p_q: g.q }); if (!r.ok) return; g.found = r.items || []; $('gd-found').innerHTML = foundHtml() || '<p class="muted">找不到。</p>'; };
+ACT.pickDept = (el) => { S.ui.gd.dept = el.dataset.code; $('gd-dept').value = el.dataset.code; };
+ACT.saveGuide = async (el) => {
+  const g = S.ui.gd, terms = g.terms.split(/[\n,，、]/).map((s) => s.trim()).filter(Boolean); if (!g.dept.trim()) return toast('先填校系代碼。', true); if (!terms.length) return toast('至少一個用語。', true);
+  el.disabled = true; const r = await call('staff_upsert_guide_terms', { p_dept_code: g.dept.trim(), p_terms: terms, p_source_quote: g.quote.trim() }); el.disabled = false; if (!r.ok) return;
+  g.msg = `已新增 ${r.added} 個用語（這個校系目前共 ${r.total} 個）`; viewGuide(); toast('用語已建立');
+};
+IN.rg = async (el) => { S.ui.rg[el.dataset.k] = el.value; if (el.dataset.k === 'cohort') { S.ui.rg.list = null; await loadClassList(); } };
+IN.rgOnly = async (el) => { const r = S.ui.rg; r.only = el.checked; show('rg-classbox', r.only); if (r.only && !r.list) await loadClassList(); };
+ACT.rgFind = async () => {
+  const r = S.ui.rg; if (r.q.trim().length < 2) return toast(ERRS.QUERY_TOO_SHORT, true);
+  const d = await call('search_dept', { p_year: +r.year || 115, p_channel: r.ch, p_q: r.q.trim() }); if (!d.ok) return;
+  r.found = d.items || []; $('rg-found').innerHTML = rgFoundHtml() || '<p class="muted">找不到。</p>';
+};
+async function openRG(code) {
+  const r = S.ui.rg, d = await call('staff_get_review_guide', { p_dept_code: code }); if (!d.ok) return false;
+  r.rec = d; r.status[d.deptCode] = SG.statusOf(d); $('rg-editor').innerHTML = SG.renderEditor(d); $('rg-intro').innerHTML = rgIntroHtml(d); if (r.list) $('rg-class').innerHTML = rgListHtml(); return true;
+}
+// 2026-11-09 落點分析改版 L6b：「老師一句話」（學生新作落點分析每系「這系在做什麼」會顯示，標「老師寫的」＋老師名＋日期）；外部科系介紹連結要 L6a 查證、owner 點頭才接
+function rgIntroHtml(d) {
+  const it = (d.guide && d.guide.intro) || {}, day = (iso) => { const x = new Date(iso); return isNaN(x) ? '' : `${x.getMonth() + 1}/${x.getDate()}`; };
+  return `<div class="card"><h2>老師一句話</h2><p class="muted small" style="margin:0 0 6px">學生在「新作落點分析」點「這系在做什麼」會看到這句，標「老師寫的」。只寫你確定的，例如「這系偏硬體、數學要好」。最多 120 字；清空再存就是拿掉。</p>
+    <textarea id="rg-tnote" maxlength="120" rows="2" style="min-height:60px">${esc(it.teacherNote || '')}</textarea>
+    ${it.teacherNote ? `<div class="muted small">目前：${esc(it.teacherBy || '')}${it.teacherAt ? '・' + esc(day(it.teacherAt)) : ''}</div>` : ''}
+    <div style="margin-top:8px"><button class="btn sm" data-act="rgIntroSave">存這一句</button></div></div>`;
+}
+ACT.rgIntroSave = async (el) => {
+  const r = S.ui.rg; if (!r.rec) return; el.disabled = true;
+  try { const res = await call('staff_set_dept_intro', { p_dept_code: r.rec.deptCode, p_note: ($('rg-tnote').value || '').trim() }); if (!res.ok) return; toast('已存'); await openRG(r.rec.deptCode); } finally { el.disabled = false; }
+};
+ACT.rgPick = async (el) => { if (await openRG(el.dataset.code)) $('rg-editor').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+const rgVal = (id) => ($(id) || {}).value || '';
+function readRgForm() {
+  const f = { req: {}, prompts: {} }; ['N', 'O', 'P', 'Q'].forEach((k) => { f.req[k] = rgVal('rg-req-' + k); f.prompts[k] = rgVal('rg-pr-' + k); });
+  f.abilities = rgVal('rg-ab'); f.limits = rgVal('rg-lim'); f.ivHas = rgVal('rg-iv-has'); f.ivNotes = rgVal('rg-iv-notes'); f.extra = rgVal('rg-ex'); f.philosophy = rgVal('rg-ph'); return f;
+}
+async function rgSubmit(el, reviewed) {
+  const r = S.ui.rg; if (!r.rec) return; el.disabled = true; const code = r.rec.deptCode;
+  const c = SG.buildCall(code, SG.formToGuide(r.rec.guide, readRgForm()), reviewed);
+  let res; try { res = await call(c.fn, c.args); } finally { el.disabled = false; }
+  if (!res.ok) return; toast(reviewed ? '已確認' : '已存'); await openRG(code);
+}
+ACT.rgSave = (el) => rgSubmit(el, false);
+ACT.rgConfirm = (el) => rgSubmit(el, true);
+// 「這一班志願的系」：用既有的 staff_get_case 把每位同學的 active 志願收齊，再逐系讀 staff_get_review_guide 看老師確認過沒有（沒有專用的清單 RPC）。
+async function loadClassList() {
+  const r = S.ui.rg; if (r.busy) return; r.busy = true; $('rg-class').innerHTML = rgListHtml();
+  try {
+    const cs = (S.cases || []).filter((c) => !r.cohort || c.cohortName === r.cohort), details = [];
+    for (let i = 0; i < cs.length; i += 4) details.push(...await Promise.all(cs.slice(i, i + 4).map((c) => call('staff_get_case', { p_case_id: c.caseId }, { quiet: true }))));
+    r.list = SG.mergeWishlist(details); r.status = {};
+    for (let i = 0; i < r.list.length; i += 4) await Promise.all(r.list.slice(i, i + 4).map(async (x) => { const d = await call('staff_get_review_guide', { p_dept_code: x.deptCode }, { quiet: true }); r.status[x.deptCode] = d.ok ? SG.statusOf(d) : { hasGuide: false, source: 'missing', reviewed: false }; }));
+  } catch (e) { /* call() 已經提示過 */ } finally { r.busy = false; if ($('rg-class')) $('rg-class').innerHTML = rgListHtml(); }
+}
+ACT.rgReload = async () => { S.ui.rg.list = null; await loadClassList(); };
+const VIEW = { cases: viewCases, import: viewImport, account: viewAccount, consent: viewConsent, age: viewAge, assign: viewAssign, guide: viewGuide };
+sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.me) showLogin('已登出。'); });
+(async function boot() { const { data } = await sb.auth.getSession(); if (data && data.session) await enter(); else showLogin(''); })();
+</script>
+</body>
+</html>

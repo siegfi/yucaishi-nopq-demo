@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>NOPQ通｜老師</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+  /* 育才仕 NOPQ通 1a 老師端。電腦與手機都能用：窄螢幕單欄，寬螢幕批改頁左右兩欄。配色同學生端（STEM 主色）。 */
+  :root { --main:#1F3B5C; --sub:#5E8CA7; --accent:#D08A1E; --text:#1D2433; --muted:#5B6472; --bg:#FFFFFF; --soft:#F4F5F7; --line:#D9DDE3;
+          --ok:#1E7B4B; --warn:#B26A00; --bad:#B3261E; --yellow:#FFF1A8; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:16px; line-height:1.55; overflow-x:hidden; }
+  body { padding-bottom:40px; } .hidden { display:none !important; }
+  header.top { background:var(--main); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  header.top .brand { font-weight:700; font-size:17px; } header.top .who { font-size:13px; display:flex; gap:8px; align-items:center; }
+  nav.tabs { background:#fff; border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
+  nav.tabs a { padding:10px 12px; font-size:15px; color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
+  main { max-width:1000px; margin:0 auto; padding:12px 12px 0; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:17px; margin:0 0 8px; } .card h3 { font-size:15px; margin:12px 0 6px; }
+  .card.active { border-color:var(--main); box-shadow:0 0 0 2px rgba(31,59,92,.12); }
+  details.card > summary { cursor:pointer; font-weight:700; list-style:none; } details.card > summary::-webkit-details-marker { display:none; }
+  details.card > summary:before { content:"▸ "; color:var(--sub); } details.card[open] > summary:before { content:"▾ "; }
+  .muted { color:var(--muted); font-size:14px; } .small { font-size:13px; } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
+  .btn { font:inherit; font-size:15px; padding:8px 15px; min-height:38px; border-radius:6px; border:1px solid var(--main); background:var(--main); color:#fff; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn.ghost { background:#fff; color:var(--main); border-color:var(--line); } .btn.sm { padding:4px 11px; font-size:14px; min-height:32px; } .btn.warn { background:#fff; color:var(--bad); border-color:var(--bad); } .btn:disabled { opacity:.45; cursor:default; }
+  .pill { display:inline-block; font-size:12px; line-height:1.7; padding:0 9px; border-radius:999px; border:1px solid var(--sub); color:var(--sub); background:#fff; margin:2px 4px 2px 0; }
+  .pill.on { background:var(--sub); color:#fff; } .pill.ok { border-color:var(--ok); color:var(--ok); } .pill.warn { border-color:var(--warn); color:var(--warn); } .pill.bad { border-color:var(--bad); color:var(--bad); } .pill.main { background:var(--main); border-color:var(--main); color:#fff; }
+  button.pill { font-family:inherit; cursor:pointer; }
+  input[type=text], input[type=email], input[type=password], input[type=datetime-local], textarea, select { font:inherit; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--text); }
+  textarea { min-height:80px; resize:vertical; } label.f { display:block; font-size:14px; color:var(--muted); margin:10px 0 3px; }
+  .bar { display:flex; gap:3px; margin:6px 0 4px; } .bar i { flex:1; height:7px; border-radius:3px; background:var(--line); } .bar i.done { background:var(--sub); } .bar i.cur { background:var(--accent); }
+  .hint { background:var(--soft); border-left:4px solid var(--main); padding:8px 12px; border-radius:0 6px 6px 0; margin-top:8px; font-size:15px; }
+  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:#fff; padding:10px 16px; border-radius:6px; font-size:14px; z-index:50; } .toast.bad { background:var(--bad); }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--main); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; } @keyframes sp { to { transform:rotate(360deg); } }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px; }
+  .tile { display:block; background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px; text-decoration:none; color:var(--text); } .tile b { display:block; font-size:28px; color:var(--main); line-height:1.1; } .tile.hot { border-color:var(--accent); } .tile.hot b { color:var(--accent); }
+  .srow { display:grid; grid-template-columns:1.1fr 1.7fr; gap:8px; padding:10px 0; border-top:1px solid var(--line); align-items:start; } .srow:first-of-type { border-top:0; }
+  .chat { display:flex; flex-direction:column; gap:6px; margin:6px 0; } .bub { max-width:90%; padding:7px 11px; border-radius:6px; white-space:pre-wrap; word-break:break-word; font-size:15px; }
+  .bub.q { align-self:flex-start; background:var(--soft); border:1px solid var(--line); } .bub.a { align-self:flex-end; background:var(--main); color:#fff; } .bub .who { display:block; font-size:12px; opacity:.75; }
+  .pt { border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin:8px 0; } .pt.cand { border-style:dashed; border-color:var(--sub); } .pt .txt { white-space:pre-wrap; word-break:break-word; }
+  .pt blockquote { margin:6px 0; padding:3px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:14px; white-space:pre-wrap; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; } .two > div { min-width:0; }
+  .cellv { border:1px solid var(--line); border-radius:6px; margin:8px 0; padding:8px 10px; background:#fff; } .cellv.edited { background:var(--yellow); border-color:#E0C84A; } .cellv.pick { box-shadow:0 0 0 2px var(--accent); cursor:pointer; }
+  .cellv .lab { font-size:13px; font-weight:700; color:var(--main); display:flex; justify-content:space-between; gap:6px; flex-wrap:wrap; } .cellv .ro { white-space:pre-wrap; word-break:break-word; margin-top:3px; user-select:text; }
+  .seg { margin:12px 0 4px; padding:5px 10px; border-left:4px solid var(--main); background:var(--soft); font-weight:700; border-radius:0 6px 6px 0; }
+  .issue { border-left:4px solid var(--warn); padding:4px 10px; margin:6px 0; background:#FFF8EC; font-size:14px; } .cm { border-left:4px solid var(--accent); padding:6px 10px; margin:8px 0; background:#FFF8EC; font-size:14px; }
+  .badge { display:inline-block; font-size:12px; padding:0 8px; border-radius:4px; background:#EEF1F5; color:var(--muted); border:1px solid var(--line); } .badge.ai { background:#FFF8EC; color:var(--warn); border-color:#F0D9A8; }
+  .seg-tabs { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; } ul.plain { margin:4px 0; padding-left:20px; } .center { text-align:center; padding:30px 0; }
+  .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
+  @media (max-width:760px) { .two { grid-template-columns:1fr; } .srow { grid-template-columns:1fr; } }
+  .lvbox { margin-top:6px; } .lvpanel { background:var(--soft); border-radius:6px; padding:6px 10px 10px; } .lvpanel h3 { font-size:14px; margin:10px 0 4px; }   /* 2026-11-09 落點分析版本 */
+</style>
+</head>
+<body>
+<div id="boot" class="center muted"><span class="spin"></span>載入中…</div>
+<div id="login" class="login hidden">
+  <h1>NOPQ通｜老師</h1>
+  <p class="muted" style="margin:0 0 14px">育才仕備審輔導｜老師登入</p>
+  <form id="login-form" class="card" autocomplete="on">
+    <label class="f" for="l-email">Email</label><input type="email" id="l-email" autocomplete="username" required>
+    <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
+    <div id="l-err" class="err hidden"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
+    <p class="muted small" style="margin:12px 0 0">學生請到 <a href="../app/">學生頁</a>。忘記密碼請聯絡育才仕 staff。</p>
+  </form>
+</div>
+<div id="app" class="hidden">
+  <header class="top"><span class="brand">NOPQ通・老師</span><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <nav class="tabs" id="tabs"><a href="#/" data-t="home">今天要做</a><a href="#/students" data-t="students">我的學生</a><a href="#/materials" data-t="materials">素材待回</a><a href="#/lessons" data-t="lessons">排課</a><a href="#/terms" data-t="terms">補充用語</a></nav>
+  <main id="view"></main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL
+const SUPABASE_ANON_KEY = 'sb_publishable_7QYBhi8ypHJ8O_WzFmkwvw_YjM3pmCK';
+// 2026-11-10 上雲準備：批改版 Word（/export/review.docx）只有本機平台有；放在 GitHub Pages 的雲端版沒有，下載按鈕藏起來
+const LOCAL_SERVER = SUPABASE_URL.indexOf('.supabase.co') < 0;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nlen = (s) => String(s || '').replace(/\s/g, '').length;   // 字數＝去空白字元數（同資料庫 nopq_nonspace_len）
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ycs-teacher-auth' } });
+const S = { home: null, students: null, doc: null, docId: null, ui: {}, filter: '', lessons: [], cohorts: [], terms: [], dTerms: [], termsMiss: {}, sel: null };   // lessons／cohorts：排課頁讀回來的；dTerms：這一篇的詞庫
+const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET']);
+const ERRS = {
+  NOT_TEACHER: '這個帳號不是老師帳號。學生請到學生頁登入。', NOT_STUDENT: '這個帳號不是學生帳號。', NOT_STAFF: '這個帳號不是 staff。',
+  CASE_NOT_FOUND: '找不到這一篇。', NOT_ASSIGNED: '這位學生不是你帶的，看不到也不能動。', CONSENT_MISSING: '這位學生的同意書還沒登錄完成。',
+  AI_CONSENT_MISSING: '這位學生沒有 AI 處理同意。', STATE_INVALID: '現在這一步不能這樣做，已為你更新畫面。', STALE: '畫面已過期（學生或別處剛更新過），已為你重新載入，請再操作一次。',
+  QUOTA_EXCEEDED: '這位學生今天的系統次數用完了。', VALIDATION: '資料不完整或格式不對',
+};
+const FIELD_NAMES = { decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '能力標籤不在詞庫', text: '文字不可空白或太長', type: '作業類型', prompt: '題目（必填，最多 2000 字）', dueAt: '截止時間（必填）',
+  fromSuggestionJobId: '系統建議的編號不對', body: '回饋內容不可空白', next: '下一步沒選', fieldKey: '格子不存在', sectionKey: '格子不存在', newText: '新文字太長', reason: '改字理由（必填，最多 300 字）',
+  quote: '選取的文字不在這一格裡（請在同一格內重新框選）', issue: '意見不可空白', items: '意見清單格式不對', decision: '決定沒選', summary: '退回與重開要寫總評', term: '用語不可空白（最多 30 字）' };
+function detailText(x) {
+  if (Array.isArray(x)) { const t = x.map(detailText).filter(Boolean); return t.length > 4 ? t.slice(0, 4).join('、') + `…等共 ${t.length} 項（完整清單看下面的卡片）` : t.join('、'); }
+  if (x && typeof x === 'object') return x.kind === 'no_term' ? gapText(x) : x.note || x.kind || '';
+  const k = String(x).split(':')[0];
+  if (/externalUrl/.test(k)) return '連結要 https:// 開頭'; if (/LessonSession_title|"title"/.test(k)) return '課名要 1～100 字'; if (/format/.test(k)) return '形式不對';
+  return FIELD_NAMES[k] || (/violates|constraint|relation/.test(k) ? '格式不符規則' : String(x));
+}
+const errText = (d) => (ERRS[d.error] || `這一步沒有成功（${d.error}）`) + (d.error === 'VALIDATION' && d.detail != null ? '：' + detailText(d.detail) : '');
+let toastTimer = 0;
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4500); }
+async function call(fn, args, opts = {}) {
+  const { data, error } = await sb.rpc(fn, args || {});
+  if (error) {
+    if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin('登入已過期，請重新登入。'); throw new Error('AUTH'); }
+    if (error.status === 403 || error.code === '42501') { toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
+    toast('連線失敗，請稍後再試。', true); throw new Error('NET');
+  }
+  if (data && data.ok === false) {
+    if (/^NOT_/.test(data.error) && data.error !== 'NOT_ASSIGNED') { await toLogin(ERRS[data.error] || '這個帳號不能使用此頁。'); throw new Error(data.error); }
+    if (!opts.quiet) toast(errText(data), true);
+    if ((data.error === 'STALE' || data.error === 'STATE_INVALID') && S.docId && !opts.noRefresh) refreshDoc();
+  }
+  return data || { ok: false, error: 'EMPTY' };
+}
+document.addEventListener('click', async (ev) => {
+  const el = ev.target.closest('[data-act]'); if (!el || el.disabled || !ACT[el.dataset.act]) return;
+  try { await ACT[el.dataset.act](el, ev); } catch (e) { if (!KNOWN.has(e.message) && !/^NOT_/.test(e.message)) { toast('發生預期外的問題，請重新整理再試。', true); console.warn('act', el.dataset.act, e.message); } }
+});
+document.addEventListener('input', (ev) => { const el = ev.target.closest('[data-in]'); if (el && IN[el.dataset.in]) IN[el.dataset.in](el, ev); });
+// ── 登入／開機／路由 ──
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+function showLogin(msg) {
+  S.home = null; S.doc = null; S.docId = null; S.ui = {}; show('boot', false); show('app', false); show('login', true);
+  $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false;
+}
+async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
+$('login-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault(); $('l-btn').disabled = true; show('l-err', false);
+  const { error } = await sb.auth.signInWithPassword({ email: $('l-email').value.trim(), password: $('l-pw').value });
+  $('l-pw').value = '';
+  if (error) { showLogin(/invalid|credentials/i.test(error.message || '') ? '帳號或密碼不對。' : '登入沒成功，請稍後再試。'); return; }
+  await enter();
+});
+ACT.logout = async () => { await toLogin(''); };
+async function enter() {
+  show('login', false); show('boot', true);
+  try { const h = await call('teacher_home'); if (!h.ok) return; S.home = h; } catch (e) { return; }
+  show('boot', false); show('app', true); route();
+}
+window.addEventListener('hashchange', () => { if (S.home) route(); });
+function route() {
+  window.scrollTo(0, 0); const h = location.hash || '#/'; const m = h.match(/^#\/doc\/([\w-]+)$/);
+  document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === (m ? '#/students' : h)));
+  if (m) return viewDoc(m[1]);
+  S.docId = null; S.doc = null;
+  if (h === '#/students') return viewStudents(); if (h === '#/materials') return viewMaterials(); if (h === '#/lessons') return viewLessons(); if (h === '#/terms') return viewTerms();
+  return viewHome();
+}
+const view = (html) => { $('view').innerHTML = html; };
+const loading = '<div class="center muted"><span class="spin"></span>載入中…</div>';
+const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' }, TRACK = { bigClass: '大班', oneOnOne: '1 對 1' };
+const AGE = { adult: '成年', minor: '未成年', unknown: '年齡未確認' };
+const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+// ── 今天要做 ──
+const TILES = [['pendingPoints', '待審要點', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '待出作業', ['assignment_pending']],
+  ['pendingFeedback', '待回饋', ['feedback_pending']], ['pendingReviews', '待批改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '待准寫初稿', ['feedback_published']]];
+async function viewHome() {
+  view(loading); const h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
+  view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}</div>
+  <div class="card"><h2>我帶的學生（${(h.students || []).length} 位）</h2>${(h.students || []).map((s) => `<span class="pill">${esc(s.nickname)}</span>`).join('') || '<span class="muted">目前沒有指派給你的學生。</span>'}</div>`);
+}
+ACT.tile = (el) => { S.filter = el.dataset.f; };
+ACT.clearFilter = () => { S.filter = ''; viewStudents(); };
+// ── 我的學生 ──
+async function viewStudents() {
+  view(loading); const r = await call('teacher_students'); if (!r.ok) return; const f = TILES.find((t) => t[0] === S.filter), states = f ? f[2] : null;
+  const live = (d) => d.state !== 'warmup' && d.state !== 'finalized', stuck = (s) => Math.max(0, ...s.docs.filter(live).map((d) => d.stuckDays || 0));
+  let list = r.students.slice().sort((a, b) => stuck(b) - stuck(a) || a.nickname.localeCompare(b.nickname));
+  if (states) list = list.filter((s) => s.docs.some((d) => states.includes(d.state))); const top = list.length && stuck(list[0]) > 0 ? list[0].studentId : null;
+  view(`<div class="card"><div class="row spread"><h2 style="margin:0">我的學生</h2>${f ? `<span>篩選：<span class="pill main">${esc(f[1])}</span><button class="btn sm ghost" data-act="clearFilter">看全部</button></span>` : ''}</div>
+    <p class="muted small" style="margin:6px 0 0">依「卡最久」排序。每位學生下面是 N、O 的狀態，以及有動靜的 P、Q（交來批改、定稿過的；其餘只列篇數）。</p></div><div class="card">${list.map((s) => `<div class="srow"><div><b>${esc(s.nickname)}</b> ${top === s.studentId ? '<span class="pill warn">卡最久</span>' : ''}
+      <div class="muted small">${esc(TRACK[s.track] || s.track)}｜${esc(s.cohortName || '')}</div><span class="pill ${s.aiConsent ? 'ok' : 'warn'}">${s.aiConsent ? 'AI 已同意' : '無 AI 同意'}</span><span class="pill">${esc(AGE[s.ageStatus] || s.ageStatus)}</span></div>
+      <div>${stuDocsHtml(s, states, live)}<div class="lvbox" id="lv_${esc(s.studentId)}"><button type="button" class="btn sm ghost" data-act="lvShow" data-id="${esc(s.studentId)}">落點分析版本</button></div></div></div>`).join('') || '<p class="muted">沒有符合的學生。</p>'}</div>`);
+}
+// ── 2026-11-09 落點分析改版 L7（設計稿 §九 L7、§10.3(b)）：學生排過的版本、每次存成志願的紀錄（不能改）、AI 回覆與檢查結果、「請老師看」 ──
+const LV_SRC = { new: '新作頁', history: '歷史頁', assess: '評估頁' }, LV_ST = { active: '', archived: '更早的版本', deleted: '學生刪掉的' }, LP = { safe: '保底', reach: '正常', dream: '夢幻' };
+const lvMix = (r) => { const m = (r && r.mix) || {}; return `夢幻 ${m.dream || 0}／正常 ${m.reach || 0}／保底 ${m.safe || 0}${m.none ? `／不在清單 ${m.none}` : ''}、學群 ${(r && r.groupsPicked) || 0}`; };
+const lvMore = (list, render, n = 8) => list.slice(0, n).map(render).join('') + (list.length > n ? `<details><summary class="small">其餘 ${list.length - n} 筆</summary>${list.slice(n).map(render).join('')}</details>` : '');   // 每區先列最新 n 筆
+const lvPicks = (picks) => (picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => `${p.rank}. ${p.deptCode}${p.code ? '（' + LP[p.code] + '）' : ''}`).join('、');
+function lvPanel(sid, d) {
+  const vs = d.versions || [], ev = d.events || [], ai = d.aiJobs || [], lk = (d.lookRequests || []).filter((x) => x.status === 'open');
+  const seqOf = (id) => { const v = vs.find((x) => x.id === id); return v ? `第 ${v.seq} 版` : '（不經落點分析）'; };
+  return `<div class="lvpanel">
+    ${lk.length ? `<div class="hint"><b>學生請你看（${lk.length}）</b>${lk.map((x) => `<div class="small">${esc(when(x.createdAt))}　${esc((x.versionIds || []).map(seqOf).join('、'))}${x.note ? '：「' + esc(x.note) + '」' : ''} <button type="button" class="btn sm ghost" data-act="lvDone" data-id="${esc(x.id)}" data-sid="${esc(sid)}">看過了</button></div>`).join('')}</div>` : ''}
+    <h3>版本（${vs.length}）</h3>${lvMore(vs, (v) => `<div class="small" style="padding:2px 0"><b>第 ${v.seq} 版「${esc(v.title)}」</b> ${esc(when(v.createdAt))}${LV_ST[v.status] ? ` <span class="pill">${LV_ST[v.status]}</span>` : ''}<br>${esc(lvMix(v.rules))}｜${v.scoreKind === 'official' ? '正式成績' : '模考或預估'}<br><span class="muted">${esc(lvPicks(v.picks))}</span>${v.note ? `<br>備註：${esc(v.note)}` : ''}</div>`) || '<p class="muted small">還沒有存過版本。</p>'}
+    <h3>存成志願的紀錄（${ev.length}，不能改）</h3>${lvMore(ev, (e) => `<div class="small" style="padding:2px 0">${esc(when(e.createdAt))}　${esc(e.versionId ? seqOf(e.versionId) : '（不經落點分析）')}・從${esc(LV_SRC[e.source] || e.source)}
+      <span class="pill ${e.followed && e.followed.mix222 ? 'ok' : 'warn'}">2／2／2 ${e.followed && e.followed.mix222 ? '有照' : '沒照'}</span><span class="pill ${e.followed && e.followed.groupsLe3 ? 'ok' : 'warn'}">學群 ${e.followed && e.followed.groupsLe3 ? '≤3' : '超過 3'}</span>
+      <br>${esc(lvMix(e.rules))}${e.overrideNote ? `<br>學生寫的理由：「${esc(e.overrideNote)}」` : ''}<br><span class="muted">勾過說明版本 ${esc(e.disclaimerVersion)}・按確認 ${esc(when(e.ackAt))}</span></div>`) || '<p class="muted small">還沒有從落點分析存過志願。</p>'}
+    <h3>AI 解讀（${ai.length}）</h3>${lvMore(ai, (j) => `<div class="small" style="padding:2px 0">${esc(when(j.createdAt))}　<span class="pill ${j.status === 'done' ? 'ok' : 'warn'}">${j.status === 'done' ? '通過檢查' : '被退回或失敗'}</span>${j.error ? ` 原因：${esc(j.error)}` : ''}
+      ${j.status === 'done' && j.result ? (j.result.perDept || []).map((p) => `<br>・${esc(p.deptId)}：${esc(p.line1)}${p.line2 ? ' ' + esc(p.line2) : ''}`).join('') : ''}</div>`) || '<p class="muted small">沒有 AI 解讀紀錄。</p>'}
+    <button type="button" class="btn sm ghost" data-act="lvHide" data-id="${esc(sid)}">收起</button></div>`;
+}
+ACT.lvShow = async (el) => {
+  const sid = el.dataset.id, box = $('lv_' + sid); if (!box) return; el.disabled = true;
+  try { const d = await call('teacher_student_luodian', { p_student_id: sid }); if (!d.ok) return; box.innerHTML = lvPanel(sid, d); } finally { el.disabled = false; }
+};
+ACT.lvHide = (el) => { const box = $('lv_' + el.dataset.id); if (box) box.innerHTML = `<button type="button" class="btn sm ghost" data-act="lvShow" data-id="${esc(el.dataset.id)}">落點分析版本</button>`; };
+ACT.lvDone = async (el) => {
+  el.disabled = true;
+  try { const r = await call('teacher_done_look_request', { p_id: el.dataset.id }); if (!r.ok) return; toast('標成看過了。'); const d = await call('teacher_student_luodian', { p_student_id: el.dataset.sid }); if (d.ok) $('lv_' + el.dataset.sid).innerHTML = lvPanel(el.dataset.sid, d); } finally { el.disabled = false; }
+};
+// 2026-11-08 架構稿 W5：P、Q 每個志願系各一篇，一位學生最多 12 篇；只列有動靜的（交來批改、定稿過、有輪次、或被篩選命中的），其餘一行篇數
+const isPQ = (d) => d.nopqType === 'P_motivation' || d.nopqType === 'Q_futurePlan';
+function stuDocRow(d, states, live) {
+  const name = (TYPE_NAME[d.nopqType] || d.nopqType).slice(0, 1) + (isPQ(d) && d.deptName ? ' ' + d.deptName : '');
+  return `<div class="row spread" style="padding:3px 0"><span>${esc(name)}　<span class="pill main">${esc(d.stateLabel)}</span>${d.round ? `<span class="pill">第 ${d.round} 輪</span>` : ''}${isPQ(d) && d.inWishlist === false ? '<span class="pill">已不在志願</span>' : ''}${live(d) && d.stuckDays >= 1 ? `<span class="pill warn">卡 ${d.stuckDays} 天</span>` : ''}</span>
+    <a class="btn sm ${states && states.includes(d.state) ? '' : 'ghost'}" href="#/doc/${esc(d.caseDocId)}">${d.state === 'warmup' ? '看' : '處理'}</a></div>`;
+}
+function stuDocsHtml(s, states, live) {
+  const docs = s.docs || [], no = docs.filter((d) => !isPQ(d)), pq = docs.filter(isPQ);
+  const busy = pq.filter((d) => d.state === 'review_pending' || d.state === 'finalized' || d.round || (states && states.includes(d.state) && d.state !== 'draft_open'));
+  const rest = pq.length - busy.length;
+  return no.concat(busy).map((d) => stuDocRow(d, states, live)).join('') + (rest > 0 ? `<div class="muted small" style="padding:3px 0">另有 P、Q ${rest} 篇學生還在寫（還沒交來）</div>` : '');
+}
+// ── 素材待回（W5）：學生把課程學習成果、多元表現交來看；老師回一段意見，或請學生補一下 ──
+const KIND_NAME = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現', statement: '學習歷程自述' }, MAT_STATUS = { pending: '待回', replied: '已回', needMore: '請學生補' };
+async function viewMaterials() {
+  view(loading); S.matFilter = S.matFilter || 'pending'; S.matNote = S.matNote || {}; S.matMore = S.matMore || {};
+  const r = await call('teacher_material_reviews', { p_status: S.matFilter }); if (!r.ok) return;
+  const tab = (k, t) => `<button class="btn sm ${S.matFilter === k ? '' : 'ghost'}" data-act="matFilter" data-f="${k}">${t}</button>`;
+  view(`<div class="card"><h2>素材待回</h2><p class="muted small" style="margin:0 0 6px">學生交來的課程學習成果、多元表現。回一段意見；覺得還不夠，勾「請學生補一下」，學生改完會再交一輪。</p><div class="row">${tab('pending', '待回')}${tab('needMore', '請學生補')}${tab('replied', '已回')}${tab('all', '全部')}</div></div>`
+    + ((r.reviews || []).map((m) => `<div class="card"><div class="row spread"><b>${esc(m.nickname)}｜${esc(KIND_NAME[m.kind] || m.kind)}｜${esc(m.title || m.fileName || '')}</b><span><span class="pill">${m.selfWritten ? '在 NOPQ通 補寫' : '上傳的檔'}</span><span class="pill">第 ${esc(m.round)} 輪</span><span class="pill ${m.status === 'pending' ? 'warn' : 'ok'}">${esc(MAT_STATUS[m.status] || m.status)}</span></span></div>
+      ${m.studentNote ? `<div class="muted small">學生附註：${esc(m.studentNote)}</div>` : ''}
+      <details ${m.status === 'pending' ? 'open' : ''}><summary class="muted small">內容（${esc(String(m.text || '').length)} 字）</summary><div class="ro" style="white-space:pre-wrap;margin-top:6px">${esc(m.text || '（沒有讀到文字）')}</div></details>
+      ${m.teacherNote ? `<div class="cm">我回的：${esc(m.teacherNote)}</div>` : ''}
+      ${m.status === 'pending' ? `<label class="f" for="mn-${esc(m.reviewId)}">回學生的話（必填）</label><textarea id="mn-${esc(m.reviewId)}" data-in="matNote" data-id="${esc(m.reviewId)}" maxlength="2000" style="min-height:70px">${esc(S.matNote[m.reviewId] || '')}</textarea>
+        <label class="small" style="display:block;margin-top:6px"><input type="checkbox" data-in="matMore" data-id="${esc(m.reviewId)}" ${S.matMore[m.reviewId] ? 'checked' : ''}> 請學生補一下（學生改完再交一輪）</label>
+        <div style="margin-top:8px"><button class="btn sm" data-act="matReply" data-id="${esc(m.reviewId)}">送出</button></div>` : ''}</div>`).join('') || '<div class="card muted">這裡沒有。</div>'));
+}
+ACT.matFilter = (el) => { S.matFilter = el.dataset.f; viewMaterials(); };
+IN.matNote = (el) => { S.matNote[el.dataset.id] = el.value; };
+IN.matMore = (el) => { S.matMore[el.dataset.id] = el.checked; };
+ACT.matReply = async (el) => {
+  const id = el.dataset.id, note = (S.matNote[id] || '').trim(); if (!note) return toast('回學生的話要寫。', true);
+  el.disabled = true; const r = await call('teacher_reply_material', { p_review_id: id, p_note: note, p_need_more: !!S.matMore[id] });
+  if (!r.ok) { el.disabled = false; return; } delete S.matNote[id]; delete S.matMore[id]; toast(r.status === 'needMore' ? '已請學生補一下。' : '已回覆學生。'); viewMaterials();
+};
+// ── 格子規格展開（同資料庫 nopq_grid_fields／nopq_seg_count 的規則）與詞庫名稱 ──
+function expandCells(spec, segs) {
+  const out = [], four = (segs || 0) >= 4;
+  ((spec && spec.sections) || []).forEach((s) => {
+    const ch = s.children || [], qs = s.questions || [];
+    if (ch.length) ch.forEach((c) => out.push({ section: s.key, secLabel: s.label, key: s.key + '.' + c.key, child: c.key, label: c.label, limit: four && c.limit4 ? c.limit4 : c.limit, req: s.required !== false && !!c.required, kind: c.kind || 'text' }));
+    else out.push({ section: s.key, secLabel: s.label, key: s.key, child: 'text', label: s.label, limit: s.limit, req: !!s.required, kind: s.kind || 'text' });
+  });
+  return out;
+}
+function segCount(spec, text) {
+  const seg = spec && spec.segments; if (!seg) return 1; let mx = 0;
+  Object.keys(text || {}).forEach((k) => { const m = k.startsWith(seg.prefix) && k.match(/\[(\d+)\]/), v = text[k]; if (m && v != null && JSON.stringify(v) !== '""' && JSON.stringify(v) !== '[]' && String(v).trim() !== '') mx = Math.max(mx, +m[1]); });
+  return Math.max(seg.min || 1, mx);
+}
+const gridSpec = () => (S.doc.grid && S.doc.grid.spec) || null;
+// 能力詞庫：名稱與可選項一律來自 list_terms（這位學生這一篇可用的：學群通用＋校系指引＋老師補充；28c），不再靠固定 id 規則。
+// S.dTerms＝目前這一篇的詞庫（S.terms 是「補充用語」頁這次登入加的用語，兩者不同）
+const ORIGIN_NAME = { cluster: '學群通用', guide: '校系指引', teacher: '老師補充' };
+const termName = (id) => { const t = (S.dTerms || []).find((x) => x.id === id); return t ? t.term : '（未知用語）'; };
+const termOptions = () => S.dTerms || [];
+const termIdsUsed = () => (((S.doc && S.doc.cycle) || {}).pointCard ? S.doc.cycle.pointCard.points || [] : []).reduce((a, p) => a.concat(p.termIds || [], p.termCandidates || []), []);
+const termsStale = () => termIdsUsed().some((id) => !termOptions().some((t) => t.id === id) && !(S.termsMiss || {})[id]);   // 要點用到清單裡沒有的詞 → 重讀一次；讀完還沒有就不再重讀
+async function loadTerms() {
+  const id = S.docId, r = await call('list_terms', { p_case_doc_id: id }, { quiet: true, noRefresh: true }); if (!r.ok || id !== S.docId) return;
+  S.dTerms = r.terms || []; S.termsMiss = {}; termIdsUsed().forEach((x) => { if (!S.dTerms.some((t) => t.id === x)) S.termsMiss[x] = 1; });
+}
+function cellLabel(sectionKey, fieldKey) { if (sectionKey === '_free') return '整段稿'; const c = expandCells(gridSpec(), 4).find((x) => x.section === sectionKey && (x.child === fieldKey || !fieldKey)); return c ? c.label : sectionKey || ''; }
+const cellKeyOf = (e) => (e.sectionKey === '_free' ? '_free' : !e.fieldKey || e.fieldKey === 'text' ? e.sectionKey : e.sectionKey + '.' + e.fieldKey);
+// 2026-11-08 架構稿 W5：整段稿（學生上傳的稿、P／Q 整段寫的稿）存在 textBySection._free；老師頁把它當成一格「整段稿」顯示、改字、框選下意見
+const FREE_CELL = { section: '_free', secLabel: '整段稿', key: '_free', child: '_free', label: '整段稿（學生上傳或整段寫的）', limit: 5000, req: false, kind: 'text' };
+const hasFree = () => { const v = S.doc && S.doc.draft && S.doc.draft.currentVersion; const t = (v && v.textBySection) || {}; return typeof t._free === 'string' && t._free.trim() !== ''; };
+// ── 一篇的載入 ──
+const STATES = ['warmup', 'interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published', 'draft_open', 'self_check_pending', 'review_pending', 'finalized'];
+const NEXT_HINT = { warmup: '學生還沒開始這一篇。', interviewing: '學生在回答問題。你可以審要點、對某個要點追問。', assignment_pending: '輪到你出作業。可以參考系統建議。', submission_pending: '作業已出，等學生繳交。',
+  feedback_pending: '學生交了作業，輪到你回饋，並決定再問一輪或准寫初稿。', feedback_published: '回饋已發。輪到你決定准寫初稿（條件滿足才能開）。', draft_open: '學生在寫初稿。你可以直接改字，也可以等學生送批改。',
+  self_check_pending: '學生的稿件在自檢中。', review_pending: '學生送批改了：可以直接改字、寫逐句意見，最後退回／重開問答／定稿。', finalized: '這一篇已定稿。' };
+async function viewDoc(id) {
+  S.docId = id; S.ui = { pr: {}, tool: 'edit' }; S.sel = null; S.localEdits = {}; S.dTerms = []; S.termsMiss = {}; view(loading);
+  const d = await call('teacher_doc', { p_case_doc_id: id }, { noRefresh: true }); if (!d.ok) { location.hash = '#/students'; return; }
+  S.doc = d; await loadTerms(); syncUi(); renderDoc();
+}
+async function refreshDoc() { if (!S.docId) return; const d = await call('teacher_doc', { p_case_doc_id: S.docId }, { quiet: true, noRefresh: true }); if (d.ok) { S.doc = d; if (termsStale()) await loadTerms(); syncUi(); renderDoc(); } }
+function syncUi() {
+  const d = S.doc, u = S.ui, v = d.draft && d.draft.currentVersion, key = `${d.state}:${d.stateVersion}:${v ? v.id : ''}`;
+  if (u.key === key) return; u.key = key; u.pr = {}; u.editKey = null; u.editText = ''; u.editReason = ''; u.asg = null; u.fb = null; u.skip = false;
+  u.items = JSON.parse(JSON.stringify((d.review && d.review.items) || [])); u.cm = { issue: '', question: '' }; u.decision = ''; u.summary = '';
+}
+function renderDoc() {
+  const d = S.doc; if (!d || d.caseDocId !== S.docId) return; const y = window.scrollY;
+  const late = ['draft_open', 'self_check_pending', 'review_pending', 'finalized'].includes(d.state);   // 進到稿件階段，批改頁放最前面
+  view(headCard() + (late ? gradeCard() : '') + dialogueCard() + pointsCard() + assignCard() + feedbackCard() + allowCard() + (late ? '' : gradeCard()) + versionsCard()); window.scrollTo(0, y);
+}
+function headCard() {
+  const d = S.doc, i = Math.max(0, STATES.indexOf(d.state)), st = d.internal && d.internal.student, lj = d.lastJob;
+  return `<div class="card active"><a href="#/students" class="small" style="text-decoration:none">← 我的學生</a>
+    <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(TYPE_NAME[d.nopqType] || d.nopqType)}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
+    <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
+      ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : '學生沒有 AI（你要自己出題）'}</span></div>
+    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇的任務，等一下按「重新整理」。</div>' : ''}
+    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? `<div class="issue">最近一次系統任務沒有成功（${esc(lj.purpose)}）：學生的內容都在，可由你接手。</div>` : ''}
+    <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="reload">重新整理</button></div></div>`;
+}
+ACT.reload = async () => { await refreshDoc(); toast('已更新'); };
+function dialogueCard() {
+  const c = S.doc.cycle; if (!c) return ''; const turns = c.turns || [], live = S.doc.state === 'interviewing';
+  const who = { system: '系統問', ai: '系統追問', teacher: '老師問' };
+  return `<details class="card" ${live ? 'open' : ''}><summary>問答紀錄（第 ${c.round} 輪，${turns.length} 題）</summary><div class="chat">${turns.map((t) => `<div class="bub q"><span class="who">${esc(who[t.role] || '系統問')}｜${esc(cellLabel(t.sectionKey, t.fieldKey))}</span>${esc(t.question)}</div>
+    ${t.answered ? `<div class="bub a"><span class="who">學生回答</span>${esc(t.answer || '（略過）')}</div>` : '<div class="muted small">（還沒回答）</div>'}`).join('') || '<div class="muted">沒有題目。</div>'}</div></details>`;
+}
+// ── 要點審閱 ──
+const prOf = (p) => (S.ui.pr[p.id] = S.ui.pr[p.id] || { action: '' });
+const ptTerms = (p) => { const x = prOf(p); return x.termIds || (p.termIds && p.termIds.length ? p.termIds : p.termCandidates || []); };
+function pointsCard() {
+  const d = S.doc, pc = d.cycle && d.cycle.pointCard, pts = (pc && pc.points) || []; if (!pts.length) return '';
+  const canAsk = d.state === 'interviewing', open = ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published'].includes(d.state) && pts.some((p) => !p.teacherMark), big = d.track === 'bigClass', n = Object.values(S.ui.pr).filter((x) => x.action).length;
+  const html = pts.map((p) => {
+    const x = prOf(p), sel = ptTerms(p), cand = p.status === 'candidate';
+    const acts = [['', '不動'], ['adopt', '採用'], ['delete', '刪除']].concat(canAsk ? [['ask', '改問（追問）']] : []);
+    return `<div class="pt ${cand ? 'cand' : ''}"><div class="row spread"><span class="small muted">${esc(cellLabel(p.sectionKey, p.fieldKey))}｜第 ${p.round || 1} 輪</span>
+      <span>${cand ? `<span class="badge ai">${big ? '系統列點，未經老師審閱；學生還沒確認' : '系統列點；學生還沒確認'}</span>` : '<span class="badge">學生已確認</span>'}${p.teacherMark ? `<span class="pill ok">你已${esc({ adopt: '採用', ask: '追問', delete: '刪除' }[p.teacherMark] || p.teacherMark)}</span>` : ''}</span></div>
+      <div class="txt">${esc(p.text)}</div>${(p.sourceRefs || []).filter((r) => r && r.quote).map((r) => `<blockquote>來源：「${esc(r.quote)}」</blockquote>`).join('')}
+      <div>${sel.map((t) => `<span class="pill on">${esc(termName(t))}</span>`).join('') || '<span class="muted small">還沒有能力標籤</span>'}</div>
+      <div class="row" style="margin-top:6px">${acts.map(([v, t]) => `<label><input type="radio" name="pr-${esc(p.id)}" value="${v}" data-in="prAct" data-id="${esc(p.id)}" ${x.action === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+      ${x.action === 'adopt' ? `<textarea data-in="prText" data-id="${esc(p.id)}" maxlength="500" style="margin-top:6px">${esc(x.text != null ? x.text : p.text)}</textarea><div>${termOptions().map((o) => `<button type="button" class="pill ${sel.includes(o.id) ? 'on' : ''}" data-act="prTerm" data-id="${esc(p.id)}" data-term="${esc(o.id)}" title="${esc(ORIGIN_NAME[o.origin] || '')}">${esc(o.term)}</button>`).join('')}</div>` : ''}
+      ${x.action === 'ask' ? `<input type="text" data-in="prAsk" data-id="${esc(p.id)}" maxlength="500" placeholder="你要追問學生什麼？" value="${esc(x.ask || '')}" style="margin-top:6px">` : ''}</div>`;
+  }).join('');
+  return `<details class="card ${open ? 'active' : ''}" ${open ? 'open' : ''}><summary>要點審閱（${pts.length}）</summary>${html}<div class="row" style="margin-top:8px"><button class="btn" data-act="prSubmit" ${n ? '' : 'disabled'}>送出審閱（${n} 項）</button></div></details>`;
+}
+IN.prAct = (el) => { prOfId(el.dataset.id).action = el.value; renderDoc(); };
+IN.prText = (el) => { prOfId(el.dataset.id).text = el.value; }; IN.prAsk = (el) => { prOfId(el.dataset.id).ask = el.value; };
+const prOfId = (id) => (S.ui.pr[id] = S.ui.pr[id] || { action: '' });
+const ptById = (id) => ((S.doc.cycle.pointCard || {}).points || []).find((p) => p.id === id);
+ACT.prTerm = (el) => { const p = ptById(el.dataset.id), cur = ptTerms(p).slice(), i = cur.indexOf(el.dataset.term); if (i >= 0) cur.splice(i, 1); else cur.push(el.dataset.term); prOf(p).termIds = cur; el.classList.toggle('on', i < 0); };
+ACT.prSubmit = async (el) => {
+  const dec = [];
+  for (const [id, x] of Object.entries(S.ui.pr)) {
+    if (!x.action) continue; const p = ptById(id); if (!p) continue; const d = { pointId: id, action: x.action };
+    if (x.action === 'adopt') { d.termIds = ptTerms(p); if (x.text != null) d.text = x.text; }
+    if (x.action === 'ask') { if (!(x.ask || '').trim()) return toast('「改問」要寫你要問的問題。', true); d.text = x.ask.trim(); }
+    dec.push(d);
+  }
+  if (!dec.length) return; el.disabled = true;
+  const r = await call('teacher_review_points', { p_point_card_id: S.doc.cycle.pointCard.id, p_decisions: dec }); if (!r.ok) { el.disabled = false; return; }
+  S.ui.pr = {}; await refreshDoc(); toast(`已審閱：採用 ${r.adopted}、刪除 ${r.deleted}、追問 ${r.asked}`);
+};
+// ── 出作業 ──
+const ASG_TYPE = { worksheet: '學習單（針對缺口的幾題）', reply: '回覆老師針對這個人的問題', write_section: '試寫某一格' };
+const pad = (n) => String(n).padStart(2, '0'), localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const itemText = (x) => (typeof x === 'string' ? x : x && typeof x === 'object' ? (x.note || x.text || x.issue || x.question || '') : String(x));
+function defaultAsg() { const due = new Date(Date.now() + 7 * 86400000); due.setHours(18, 0, 0, 0); return { type: 'reply', prompt: '', pq: '', due: localInput(due), from: null, sectionKey: '' }; }
+function assignCard() {
+  const d = S.doc, a = d.assignment, sg = d.internal && d.internal.suggestion;
+  if (d.state !== 'assignment_pending') {
+    return a ? `<details class="card"><summary>已出的作業（${esc((ASG_TYPE[a.type] || a.type).split('（')[0])}）</summary><p style="white-space:pre-wrap;margin:8px 0 4px">${esc(a.prompt)}</p>
+      ${(a.personalQuestions || []).length ? `<ul class="plain">${a.personalQuestions.map((q) => `<li>${esc(itemText(q))}</li>`).join('')}</ul>` : ''}<div class="muted small">截止 ${esc(when(a.dueAt))}${a.submission ? `｜學生已交第 ${a.submission.revision} 版（${esc(when(a.submission.submittedAt))}）` : '｜學生還沒交'}</div></details>` : '';
+  }
+  const u = S.ui; u.asg = u.asg || defaultAsg(); const x = u.asg, r = sg && sg.result, secs = [...new Map(expandCells(gridSpec(), 4).map((c) => [c.section, c.secLabel]))];
+  return `<details class="card active" open><summary>出作業</summary>
+    ${sg ? (r && r.prompt ? `<div class="hint"><span class="badge ai">系統建議，未經老師審閱</span><p style="margin:6px 0;white-space:pre-wrap">${esc(ASG_TYPE[r.type] || r.type)}：${esc(r.prompt)}</p>${r.why ? `<div class="muted small">原因：${esc(r.why)}</div>` : ''}<button class="btn sm" data-act="useSuggest">採用建議（帶進下面的表單，可再改）</button></div>`
+      : `<div class="hint">系統建議${sg.status === 'failed' || sg.status === 'rejected' ? '沒有產生成功' : '還在產生'}，你可以自己出。</div>`) : '<div class="hint">這位學生沒有 AI 建議，請自己出題。</div>'}
+    <label class="f" for="a-type">類型</label><select id="a-type" data-in="asg" data-k="type">${Object.entries(ASG_TYPE).map(([k, t]) => `<option value="${k}" ${x.type === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+    ${x.type === 'write_section' ? `<label class="f" for="a-sec">試寫哪一格</label><select id="a-sec" data-in="asg" data-k="sectionKey"><option value="">（不指定）</option>${secs.map(([k, t]) => `<option value="${esc(k)}" ${x.sectionKey === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}
+    <label class="f" for="a-prompt">題目（必填）</label><textarea id="a-prompt" data-in="asg" data-k="prompt" maxlength="2000">${esc(x.prompt)}</textarea>
+    <label class="f" for="a-pq">針對這位學生的問題（選填，一行一題）</label><textarea id="a-pq" data-in="asg" data-k="pq" style="min-height:60px">${esc(x.pq)}</textarea>
+    <label class="f" for="a-due">截止時間（必填）</label><input type="datetime-local" id="a-due" data-in="asg" data-k="due" value="${esc(x.due)}">
+    <div style="margin-top:10px"><button class="btn" data-act="issueAsg">出作業</button></div></details>`;
+}
+IN.asg = (el) => { S.ui.asg[el.dataset.k] = el.value; if (el.dataset.k === 'type') renderDoc(); };
+ACT.useSuggest = () => {
+  const r = S.doc.internal.suggestion.result; S.ui.asg = Object.assign(defaultAsg(), { type: r.type, prompt: r.prompt, pq: (r.personalQuestions || []).map(itemText).join('\n'), from: S.doc.internal.suggestion.jobId }); renderDoc();
+};
+ACT.issueAsg = async (el) => {
+  const x = S.ui.asg, due = x.due ? new Date(x.due) : null; if (!x.prompt.trim()) return toast('題目要寫。', true); if (!due || isNaN(due)) return toast('截止時間要選。', true);
+  el.disabled = true; const p = { type: x.type, prompt: x.prompt.trim(), dueAt: due.toISOString(), personalQuestions: x.pq.split('\n').map((s) => s.trim()).filter(Boolean) };
+  if (x.type === 'write_section' && x.sectionKey) p.sectionKey = x.sectionKey; if (x.from) p.fromSuggestionJobId = x.from;
+  const r = await call('teacher_issue_assignment', { p_cycle_id: S.doc.cycle.id, p: p }); if (!r.ok) { el.disabled = false; return; }
+  await refreshDoc(); toast('作業已出，學生會在他的頁面看到。');
+};
+// ── 作業回饋 ──
+const VERDICT = { needs_work: '還需要補強', almost: '接近了', ready: '可以了' };
+function fbBodyHtml(b) {
+  const li = (arr) => `<ul class="plain">${arr.map((x) => `<li>${esc(itemText(x))}</li>`).join('')}</ul>`, iss = (b.issues || []).map((i) => (i.sectionKey ? `【${cellLabel(i.sectionKey, i.fieldKey)}】` : '') + itemText(i));
+  return `${b.text ? `<div style="white-space:pre-wrap">${esc(b.text)}</div>` : ''}${Array.isArray(b.items) && b.items.length ? li(b.items) : ''}${iss.length ? `<div class="muted small">可補強</div>${li(iss)}` : ''}
+    ${(b.strengths || []).length ? `<div class="muted small">做得不錯</div>${li(b.strengths)}` : ''}${b.verdict ? `<span class="pill">${esc(VERDICT[b.verdict] || b.verdict)}</span>` : ''}`;
+}
+function feedbackCard() {
+  const d = S.doc, a = d.assignment; if (!a || !a.submission) return ''; const pending = d.state === 'feedback_pending', u = S.ui, fbs = (d.internal && d.internal.feedbackInternal) || [];
+  u.fb = u.fb || { text: '', items: '', next: 'none' }; const x = u.fb;
+  return `<details class="card ${pending ? 'active' : ''}" ${pending ? 'open' : ''}><summary>作業回饋${pending ? '（輪到你）' : ''}</summary>
+    <h3>學生交的（第 ${a.submission.revision} 版，${esc(when(a.submission.submittedAt))}）</h3><div class="cellv"><div class="ro">${esc(a.submission.text || '（沒有文字）')}</div></div>
+    ${fbs.map((f) => `<h3>${f.reviewedLabel === 'ai_unreviewed' ? '<span class="badge ai">系統列點，未經老師審閱（只有你看得到）</span>' : '<span class="badge">內部回饋</span>'}</h3>${fbBodyHtml(f.body || {})}`).join('')}
+    ${a.feedback ? `<h3><span class="badge ${a.feedback.reviewedLabel === 'ai_unreviewed' ? 'ai' : ''}">${a.feedback.reviewedLabel === 'ai_unreviewed' ? '已發給學生：系統列點，未經老師審閱' : '已發給學生的回饋'}</span></h3>${fbBodyHtml(a.feedback.body || {})}` : ''}
+    ${pending ? `<label class="f" for="f-text">回饋（發給學生）</label><textarea id="f-text" data-in="fb" data-k="text">${esc(x.text)}</textarea>
+      <label class="f" for="f-items">重點提醒（選填，一行一點）</label><textarea id="f-items" data-in="fb" data-k="items" style="min-height:60px">${esc(x.items)}</textarea>
+      <div class="row" style="margin-top:8px">${[['none', '只發回饋'], ['reopen', '再問一輪（帶缺口）'], ['allow_draft', '直接准寫初稿']].map(([v, t]) => `<label><input type="radio" name="f-next" value="${v}" data-in="fbNext" ${x.next === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+      <div style="margin-top:10px"><button class="btn" data-act="sendFb">發佈回饋</button></div>` : ''}</details>`;
+}
+IN.fb = (el) => { S.ui.fb[el.dataset.k] = el.value; }; IN.fbNext = (el) => { S.ui.fb.next = el.value; };
+ACT.sendFb = async (el) => {
+  const x = S.ui.fb, body = {}, items = x.items.split('\n').map((s) => s.trim()).filter(Boolean); if (x.text.trim()) body.text = x.text.trim(); if (items.length) body.items = items;
+  if (!Object.keys(body).length) return toast('回饋要寫一點。', true);
+  el.disabled = true; const r = await call('teacher_feedback', { p_submission_id: S.doc.assignment.submission.id, p_body: body, p_next: x.next }); if (!r.ok) { el.disabled = false; return; }
+  await refreshDoc(); toast('回饋已發佈，目前狀態：' + S.doc.stateLabel);
+};
+// ── 准寫初稿 ──
+function gapText(g) {
+  if (g.kind === 'no_term') { const c = S.doc && gridSpec() ? expandCells(gridSpec(), 4).find((x) => x.section === g.sectionKey) : null; return (c ? c.secLabel : g.sectionKey) + ' 還沒有能力標籤'; }
+  return (g.kind === 'unclear' ? '說不清的事：' : '') + (g.note || g.kind);
+}
+function allowCard() {
+  const d = S.doc; if (d.state !== 'feedback_published') return ''; const gaps = (d.cycle.pointCard.gaps || []), hard = gaps.filter((g) => g.kind !== 'unclear'), soft = gaps.filter((g) => g.kind === 'unclear');
+  return `<details class="card active" open><summary>准寫初稿</summary><p class="muted" style="margin:6px 0">條件：每個必填格至少一個已確認要點、每個要點有來源、每段至少一個能力標籤；「說不清的事」可以由你標略過。</p>
+    ${hard.length ? `<div class="muted small">還擋著的缺口（${hard.length}）</div>${hard.map((g) => `<div class="issue">${esc(gapText(g))}</div>`).join('')}` : '<div class="pill ok">硬條件都滿足</div>'}
+    ${soft.length ? `<div class="muted small">說不清的事（${soft.length}）</div>${soft.map((g) => `<div class="issue">${esc(g.note || g.kind)}</div>`).join('')}<label class="row"><input type="checkbox" data-in="skip" ${S.ui.skip ? 'checked' : ''}> 標略過這些「說不清的事」</label>` : ''}
+    <div style="margin-top:10px"><button class="btn" data-act="allowDraft">准寫初稿</button></div></details>`;
+}
+IN.skip = (el) => { S.ui.skip = el.checked; };
+ACT.allowDraft = async (el) => {
+  el.disabled = true; const r = await call('teacher_allow_draft', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion, p_skip_gaps: S.ui.skip ? ['unclear'] : [] });
+  if (!r.ok) { el.disabled = false; return; } await refreshDoc(); toast('已准寫初稿，學生可以開始填格子。');
+};
+// ── 批改頁：左原文、右工具 ──
+const AUTHOR = { student: '學生', teacher: '老師', ai: '系統' }, DECISION = { return: '退回修改', reopen: '重開問答', finalize: '定稿' };
+const tableText = (v) => (Array.isArray(v) ? v.map((r) => [r.term || r[0] || '', r.subject || r[1] || '', r.score || r[2] || ''].join(',')).join('\n') : v || '');
+function editFor(key, val) {
+  let hit = null; ((S.doc.review && S.doc.review.edits) || []).forEach((e) => { if (cellKeyOf(e) === key && e.afterText === val) hit = e; });
+  const l = (S.localEdits || {})[key]; return hit || (l && l.afterText === val ? l : null);
+}
+function gradeCells() {
+  const spec = gridSpec(), t = S.doc.draft.currentVersion.textBySection || {}, head = hasFree() || !spec ? [FREE_CELL] : [];
+  if (!spec) return head;   // P／Q 第一版沒有格子範本：只有整段稿一格
+  const segs = segCount(spec, t), seg = spec.segments;
+  return head.concat(expandCells(spec, segs).filter((c) => { const m = seg && c.section.startsWith(seg.prefix) && c.section.match(/\[(\d+)\]$/); return !m || +m[1] <= segs; }));
+}
+function cellsHtml(pick) {
+  const t = S.doc.draft.currentVersion.textBySection || {}; let last = '';
+  return gradeCells().map((c) => {
+    const v = t[c.key], hit = c.kind === 'text' ? editFor(c.key, v) : null, head = c.child !== 'text' && c.section !== last ? `<div class="seg">${esc(c.secLabel)}</div>` : ''; last = c.section;
+    const body = c.kind === 'terms' ? ((Array.isArray(v) ? v : []).map((x) => `<span class="pill on">${esc(termName(x))}</span>`).join('') || '<span class="muted">（沒選）</span>') : esc(c.kind === 'table' ? tableText(v) : v || '') || '<span class="muted">（空白）</span>';
+    const n = nlen(v);
+    return head + `<div class="cellv ${hit ? 'edited' : ''} ${pick && c.kind === 'text' ? 'pick' : ''}" data-key="${esc(c.key)}" ${pick && c.kind === 'text' ? `data-act="pickCell" data-ck="${esc(c.key)}"` : ''}>
+      <div class="lab"><span>${esc(c.label)}${c.req ? '<span style="color:var(--bad)"> *</span>' : ''}</span>${c.kind === 'text' ? `<span class="muted" style="font-weight:400">已 ${n} 字${c.limit ? '／≤' + c.limit : ''}</span>` : ''}</div>
+      <div class="ro" data-sec="${esc(c.section)}" data-fld="${esc(c.child)}">${body}</div>${hit ? `<div class="small" style="margin-top:4px">老師改過｜原文：「${esc(hit.beforeText || '（空白）')}」</div>` : ''}</div>`;
+  }).join('');
+}
+function toolsHtml(canEdit, rv) {
+  const u = S.ui, d = S.doc, tab = (k, t) => `<button class="btn sm ${u.tool === k ? '' : 'ghost'}" data-act="tool" data-tool="${k}">${t}</button>`, review = d.state === 'review_pending';
+  let body = '';
+  if (u.tool === 'edit') {
+    const c = gradeCells().find((x) => x.key === u.editKey);
+    body = !canEdit ? '<div class="hint">現在不能改字（要在「初稿可寫」或「待批改」）。</div>' : c ? `<h3>改「${esc(c.label)}」</h3><textarea data-in="editText" style="min-height:${c.key === '_free' ? 300 : 110}px">${esc(u.editText)}</textarea>
+      <div class="muted small" id="edit-cnt">已 ${nlen(u.editText)} 字${c.limit ? '／≤' + c.limit + ' 字' : ''}</div><label class="f" for="edit-reason">改字理由（必填）</label><input type="text" id="edit-reason" data-in="editReason" maxlength="300" value="${esc(u.editReason)}">
+      <div class="row" style="margin-top:8px"><button class="btn" data-act="sendEdit">送出改字</button><button class="btn ghost" data-act="cancelEdit">取消</button></div>` : '<div class="hint">點左邊的一格，就能改那一格的字。改過的格子會變黃底，學生發佈後看得到。</div>';
+  } else if (u.tool === 'comment') {
+    body = !review ? '<div class="hint">學生送批改（待批改）後，才能寫逐句意見。</div>' : `<div class="hint" id="sel-box">${selBoxText()}</div>
+      <label class="f" for="cm-issue">這句的問題（必填）</label><textarea id="cm-issue" data-in="cmIssue" maxlength="300" style="min-height:60px">${esc(u.cm.issue)}</textarea>
+      <label class="f" for="cm-q">想問學生的（選填）</label><input type="text" id="cm-q" data-in="cmQ" maxlength="300" value="${esc(u.cm.question)}"><div style="margin-top:8px"><button class="btn sm" data-act="addCm">加入這則意見</button></div>
+      <h3>逐句意見（${u.items.length}）</h3>${u.items.map((i, k) => `<div class="cm">${i.sectionKey ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}<q>${esc(i.quote)}</q><div>${esc(i.issue)}</div>${i.question ? `<div class="muted">問：${esc(i.question)}</div>` : ''}<button class="btn sm warn" data-act="delCm" data-i="${k}">刪</button></div>`).join('') || '<div class="muted">還沒有。</div>'}
+      <button class="btn" data-act="saveCm">儲存逐句意見</button><div class="muted small">儲存會取代上一次存的整份意見；發佈前學生看不到。</div>`;
+  } else {
+    body = !review ? '<div class="hint">學生送批改後才能發佈。</div>' : `<div class="muted small">學生送審：第 ${rv ? rv.round : 1} 輪</div><div class="row" style="margin:8px 0">${Object.entries(DECISION).map(([k, t]) => `<label><input type="radio" name="dec" value="${k}" data-in="decision" ${u.decision === k ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+      <label class="f" for="sum">總評（退回、重開問答必填；定稿選填）</label><textarea id="sum" data-in="summary" maxlength="3000">${esc(u.summary)}</textarea><div style="margin-top:8px"><button class="btn" data-act="publish">發佈</button></div>`;
+  }
+  return `<div class="seg-tabs">${tab('edit', '直接改字')}${tab('comment', '逐句意見')}${tab('publish', '退回／重開／定稿')}</div>${body}`;
+}
+function gradeCard() {
+  const d = S.doc, v = d.draft && d.draft.currentVersion; if (!v || !(gridSpec() || hasFree()) || !['draft_open', 'self_check_pending', 'review_pending', 'finalized'].includes(d.state)) return '';
+  const canEdit = ['draft_open', 'review_pending'].includes(d.state), rv = d.review, sc = d.draft.selfCheck;
+  return `<div class="card ${d.state === 'review_pending' ? 'active' : ''}"><h2>批改頁｜第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}寫的）${d.state === 'finalized' ? ' <span class="pill ok">已定稿</span>' : ''}${rv && rv.decision ? ` <span class="pill main">上次：${esc(DECISION[rv.decision] || rv.decision)}</span>` : ''}</h2>
+    ${rv && LOCAL_SERVER ? '<div class="row" style="margin:0 0 8px"><button class="btn sm ghost" data-act="dlReview">下載批改版 Word（含追蹤修訂與逐句意見）</button><span class="muted small">發佈前下載＝目前改到哪裡；學生要等你發佈後才下載得到。</span></div>' : ''}
+    <div class="two"><div><h3 style="margin-top:0">原文</h3>${cellsHtml(S.ui.tool === 'edit' && canEdit)}</div><div>${toolsHtml(canEdit, rv)}
+      ${sc && sc.status === 'done' ? `<h3>學生自檢結果 <span class="badge ai">系統自檢，未經老師審閱</span></h3>${(sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}</div>`).join('') || '<div class="pill ok">沒有發現問題</div>'}` : ''}</div></div></div>`;
+}
+ACT.tool = (el) => { S.ui.tool = el.dataset.tool; renderDoc(); };
+// W6b：批改版 Word（本機伺服器 /export/review.docx；老師改的字＝追蹤修訂、逐句意見＝Word 註解）
+ACT.dlReview = async (el) => {
+  el.disabled = true;
+  try {
+    const ss = await sb.auth.getSession(), tok = ss.data && ss.data.session && ss.data.session.access_token;
+    const res = await fetch('/export/review.docx?doc=' + encodeURIComponent(S.docId), { headers: { authorization: 'Bearer ' + (tok || '') } });
+    if (!res.ok) { toast(res.status === 404 ? '找不到可以匯出的批改（或這個版本只能在本機試用版下載）。' : '下載沒有成功，請稍後再試。', true); return; }
+    const m = /filename\*=UTF-8''([^;]+)/i.exec(res.headers.get('content-disposition') || ''), name = m ? decodeURIComponent(m[1]) : 'NOPQ通批改版.docx';
+    const url = URL.createObjectURL(await res.blob()), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
+};
+ACT.pickCell = (el) => { const k = el.dataset.ck; if (window.getSelection().toString()) return; S.ui.editKey = k; S.ui.editText = String(S.doc.draft.currentVersion.textBySection[k] || ''); S.ui.editReason = ''; renderDoc(); };
+IN.editText = (el) => { S.ui.editText = el.value; const c = gradeCells().find((x) => x.key === S.ui.editKey), e = $('edit-cnt'); if (e && c) e.textContent = `已 ${nlen(el.value)} 字${c.limit ? '／≤' + c.limit + ' 字' : ''}`; };
+IN.editReason = (el) => { S.ui.editReason = el.value; };
+ACT.cancelEdit = () => { S.ui.editKey = null; renderDoc(); };
+ACT.sendEdit = async (el) => {
+  const u = S.ui, c = gradeCells().find((x) => x.key === u.editKey), v = S.doc.draft.currentVersion; if (!c) return;
+  if (!u.editReason.trim()) return toast('改字理由要寫。', true); const before = String((v.textBySection || {})[c.key] || '');
+  el.disabled = true; const r = await call('teacher_edit_text', { p_case_doc_id: S.docId, p_base_version_id: v.id, p_section_key: c.section, p_field_key: c.child, p_new_text: u.editText, p_reason: u.editReason.trim() });
+  if (!r.ok) { el.disabled = false; return; }
+  S.localEdits = S.localEdits || {}; S.localEdits[c.key] = { beforeText: before, afterText: u.editText };
+  await refreshDoc(); S.ui.editKey = null; renderDoc(); toast(r.versionNumber ? `已改字（第 ${r.versionNumber} 版）` : '內容沒有變動');
+};
+// 逐句意見：框選原文（selectionchange 記住選取；只收落在同一格內、且確實出現在那一格文字裡的）
+const selBoxText = () => (S.sel ? `已選：<b>「${esc(S.sel.quote)}」</b><div class="muted small">${esc(cellLabel(S.sel.sectionKey, S.sel.fieldKey))}</div>` : '在左邊用手指或滑鼠框選一段原文，再寫意見。');
+document.addEventListener('selectionchange', () => {
+  if (!S.doc || S.ui.tool !== 'comment') return; const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+  const up = (n) => { const e = n && (n.nodeType === 1 ? n : n.parentElement); return e ? e.closest('.cellv[data-key]') : null; }, a = up(sel.anchorNode), f = up(sel.focusNode);
+  if (!a || a !== f) return; const ro = a.querySelector('.ro'), quote = sel.toString().trim(); if (!quote || !ro.textContent.includes(quote)) return;
+  S.sel = { sectionKey: ro.dataset.sec, fieldKey: ro.dataset.fld, quote }; const b = $('sel-box'); if (b) b.innerHTML = selBoxText();
+});
+IN.cmIssue = (el) => { S.ui.cm.issue = el.value; }; IN.cmQ = (el) => { S.ui.cm.question = el.value; };
+ACT.addCm = () => {
+  const u = S.ui; if (!S.sel) return toast('先在左邊框選一段原文。', true); if (!u.cm.issue.trim()) return toast('這句的問題要寫。', true);
+  u.items.push({ sectionKey: S.sel.sectionKey, fieldKey: S.sel.fieldKey, quote: S.sel.quote, issue: u.cm.issue.trim(), question: u.cm.question.trim() }); u.cm = { issue: '', question: '' }; S.sel = null; renderDoc();
+};
+ACT.delCm = (el) => { S.ui.items.splice(+el.dataset.i, 1); renderDoc(); };
+ACT.saveCm = async (el) => {
+  const rv = S.doc.review; if (!rv) return toast('這篇還沒有送審。', true); el.disabled = true;
+  const r = await call('teacher_sentence_comments', { p_review_id: rv.id, p_items: S.ui.items.map((i) => ({ sectionKey: i.sectionKey, fieldKey: i.fieldKey, quote: i.quote, issue: i.issue, question: i.question || null })) });
+  if (!r.ok) { el.disabled = false; return; } await refreshDoc(); toast(`已儲存 ${r.count} 則逐句意見（發佈後學生才看得到）`);
+};
+IN.decision = (el) => { S.ui.decision = el.value; }; IN.summary = (el) => { S.ui.summary = el.value; };
+ACT.publish = async (el) => {
+  const u = S.ui, rv = S.doc.review; if (!u.decision) return toast('先選：退回修改、重開問答或定稿。', true);
+  if (u.decision !== 'finalize' && !u.summary.trim()) return toast('退回或重開問答要寫總評。', true);
+  el.disabled = true; const r = await call('teacher_publish_review', { p_review_id: rv.id, p_decision: u.decision, p_summary: u.summary.trim() || null }); if (!r.ok) { el.disabled = false; return; }
+  await refreshDoc(); toast(`已發佈：${DECISION[r.decision]}，目前狀態：${S.doc.stateLabel}`);
+};
+function versionsCard() {
+  const vs = (S.doc.draft && S.doc.draft.versions) || []; if (!vs.length) return ''; const cur = S.doc.draft.currentVersion;
+  return `<details class="card"><summary>版本紀錄（${vs.length}）</summary><ul class="plain">${vs.slice().reverse().map((v) => `<li>第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '自由' : '格子'}｜${esc(when(v.createdAt))}${cur && cur.id === v.id ? ' <span class="pill ok">目前</span>' : ''}</li>`).join('')}</ul></details>`;
+}
+// ── 排課 ──
+const FMT = { onsite: '現場', live: '直播', recorded: '錄影', one_on_one: '1 對 1' };
+async function viewLessons() {
+  const f = S.ui.lf = S.ui.lf || { title: '', format: 'live', at: '', url: '', card: '', cohort: '' };
+  view(loading); const safe = (fn) => call(fn).catch(() => ({ ok: false }));   // 28c：班別選單用 teacher_cohorts、已建的課用 teacher_lessons；讀不到就當空的，表單照樣能用
+  const [co, ls] = await Promise.all([safe('teacher_cohorts'), safe('teacher_lessons')]); S.cohorts = co.ok ? co.cohorts || [] : []; S.lessons = ls.ok ? ls.lessons || [] : [];
+  view(`<div class="card"><h2>排課</h2><p class="muted" style="margin:0 0 6px">建一堂課（可選班別，可放架構卡 N／O 與你的連結）。不指定班別時，你帶的所有學生都看得到。</p>
+    <label class="f" for="l-title">課名（必填）</label><input type="text" id="l-title" data-in="lf" data-k="title" maxlength="100" value="${esc(f.title)}">
+    <label class="f" for="l-fmt">形式</label><select id="l-fmt" data-in="lf" data-k="format">${Object.entries(FMT).map(([k, t]) => `<option value="${k}" ${f.format === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <label class="f" for="l-cohort">班別</label><select id="l-cohort" data-in="lf" data-k="cohort"><option value="">不指定班別（我帶的所有學生都看得到）</option>${S.cohorts.map((c) => `<option value="${esc(c.id)}" ${f.cohort === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+    <label class="f" for="l-at">時間（選填）</label><input type="datetime-local" id="l-at" data-in="lf" data-k="at" value="${esc(f.at)}">
+    <label class="f" for="l-url">連結（選填，要 https:// 開頭）</label><input type="text" id="l-url" data-in="lf" data-k="url" placeholder="https://" value="${esc(f.url)}">
+    <label class="f" for="l-card">架構卡</label><select id="l-card" data-in="lf" data-k="card"><option value="">不放</option><option value="N" ${f.card === 'N' ? 'selected' : ''}>N 多元表現綜整心得</option><option value="O" ${f.card === 'O' ? 'selected' : ''}>O 學習歷程反思</option></select>
+    <div style="margin-top:12px"><button class="btn" data-act="mkLesson">建立這堂課</button></div></div>
+    <div class="card"><h3 style="margin-top:0">我建立的課（${S.lessons.length}）</h3>${S.lessons.map((l) => `<div class="row spread" style="padding:4px 0"><span><b>${esc(l.title)}</b> <span class="pill">${esc(FMT[l.format] || l.format)}</span><span class="pill ${l.cohortName ? 'on' : ''}">${esc(l.cohortName || '全部學生')}</span>${l.structureCardKey ? `<span class="pill main">架構卡 ${esc(l.structureCardKey)}</span>` : ''}${/^https:\/\//i.test(l.externalUrl || '') ? ` <a class="small" href="${esc(l.externalUrl)}" target="_blank" rel="noopener noreferrer">連結</a>` : ''}</span><span class="muted small">${esc(l.scheduledAt ? when(l.scheduledAt) : '未排時間')}</span></div>`).join('') || '<span class="muted">還沒有。</span>'}</div>`);
+}
+IN.lf = (el) => { S.ui.lf[el.dataset.k] = el.value; };
+ACT.mkLesson = async (el) => {
+  const f = S.ui.lf; if (!f.title.trim()) return toast('課名要寫。', true); if (f.url.trim() && !/^https:\/\//i.test(f.url.trim())) return toast('連結要 https:// 開頭。', true); const at = f.at ? new Date(f.at) : null;
+  const p = { title: f.title.trim(), format: f.format, scheduledAt: at && !isNaN(at) ? at.toISOString() : '', externalUrl: f.url.trim(), structureCardKey: f.card, cohortId: f.cohort || '' };
+  el.disabled = true; const r = await call('teacher_create_lesson', { p }, { quiet: true }); el.disabled = false;
+  if (!r.ok) return toast(r.error === 'NOT_ASSIGNED' ? '這個班別不是你帶的，沒辦法建課。' : errText(r), true);
+  S.ui.lf = null; toast('已建立這堂課，學生的「課程」頁會出現。'); viewLessons();   // 清單重新向 teacher_lessons 讀
+};
+// ── 補充用語 ──
+function viewTerms() {
+  const f = S.ui.tf = S.ui.tf || { term: '', dept: '' };
+  view(`<div class="card"><h2>補充能力用語</h2><p class="muted" style="margin:0 0 6px">系統只能從「校系指引」「學群通用」「老師補充」三個來源的詞裡提議能力標籤。你補的詞只對你帶的學生生效。</p>
+    <label class="f" for="t-term">用語（必填，最多 30 字）</label><input type="text" id="t-term" data-in="tf" data-k="term" maxlength="30" value="${esc(f.term)}">
+    <label class="f" for="t-dept">對應校系代碼（選填）</label><input type="text" id="t-dept" data-in="tf" data-k="dept" maxlength="20" value="${esc(f.dept)}">
+    <div style="margin-top:12px"><button class="btn" data-act="addTerm">加入</button></div></div>
+    <div class="card"><h3 style="margin-top:0">這次登入加的用語（${S.terms.length}）</h3>${S.terms.map((t) => `<div style="padding:3px 0"><b>${esc(t.term)}</b> ${t.dept ? `<span class="pill">${esc(t.dept)}</span>` : ''}<span class="muted small">編號 ${esc(t.id)}</span></div>`).join('') || '<span class="muted">還沒有。</span>'}</div>`);
+}
+IN.tf = (el) => { S.ui.tf[el.dataset.k] = el.value; };
+ACT.addTerm = async (el) => {
+  const f = S.ui.tf; if (!f.term.trim()) return toast('用語要寫。', true); el.disabled = true;
+  const r = await call('teacher_add_term', { p_term: f.term.trim(), p_dept_code: f.dept.trim() }); el.disabled = false; if (!r.ok) return;
+  S.terms.unshift({ term: f.term.trim(), dept: f.dept.trim(), id: r.termId }); S.ui.tf = null; toast('已加入用語。'); viewTerms();
+};
+window.addEventListener('beforeunload', (e) => { if (S.ui && S.ui.editKey && S.ui.editText) { e.preventDefault(); e.returnValue = ''; } });
+sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.home) showLogin('已登出。'); });
+(async function boot() { const { data } = await sb.auth.getSession(); if (data && data.session) await enter(); else showLogin(''); })();
+</script>
+</body>
+</html>
