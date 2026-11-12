@@ -13,16 +13,38 @@ var GROUP_WARN = '建議同學檢查既有的學習歷程。因為不同的學�
 var r1 = function (x) { return Math.round(x * 10) / 10; };
 var num = function (x) { var s = String(r1(x)); return s; };
 
-// 一階範圍：照落點通 luodian-analysis/xuece.html predRange（2026-11-07 owner 裁定：±1 級分範圍＋壓線提示）。
-// 門檻規則同 predictCrossYear：單科標準 ≥1.5 保底、≥0 正常；加權總分 ≥3 保底、≥0 正常；其餘夢幻。合科未達：下緣一律夢幻。
+// 一階範圍（2026-11-07 owner 裁定：±1 級分範圍＋壓線提示；字用保底／正常／夢幻，設計稿 B2）。
+// 2026-11-12 落點引擎改版（luodian-analysis/OUTPUTS/07_落點引擎改法設計_v0.2.md §三③）：切點改跟引擎同一套——
+// 差距→級照 luodian_core.js levelOfMargin（單科：≥2 五級、≥1 四級、≥0 三級、≥−1 二級、≥−2 一級；合科／加權總分的五級要 ≥3），
+// 級→三格照 verdictOfLevel（5、4＝保底；3、2＝正常；1、0＝夢幻）。範圍＝門檻下修／上修 1 級分時各落哪一格。
+// 這兩支是引擎的複本（本檔不呼叫引擎），test_assess_pure.mjs 逐點比對兩邊一致。
+function levelOf(m, kind) {
+  if (m >= (kind === 'std' ? 2 : 3)) return 5;
+  if (m >= 1) return 4;
+  if (m >= 0) return 3;
+  if (m >= -1) return 2;
+  if (m >= -2) return 1;
+  return 0;
+}
+function verdictOf(lv) { return lv >= 4 ? 'safe' : (lv >= 2 ? 'reach' : 'dream'); }
+// 決定級別的那一項（同引擎 gradeOf：各條件各自算級、取最低一級，同級取差距小的）；舊格式的 pred 沒有 parts 時看門檻型別
+function decidingKind(pred) {
+  var best = null;
+  (pred.parts || []).forEach(function (p) {
+    var lv = levelOf(p.margin, p.kind);
+    if (!best || lv < best.lv || (lv === best.lv && p.margin < best.m)) best = { lv: lv, m: p.margin, kind: p.kind };
+  });
+  if (best) return best.kind;
+  return (!pred.passStandard && pred.passTotal !== null && pred.passTotal !== undefined) ? 'total' : 'std';
+}
 function predRange(pred) {
   if (!pred || !pred.verdict || pred.margin === null || pred.margin === undefined) return null;
-  var byTotal = !pred.passStandard && pred.passTotal !== null && pred.passTotal !== undefined;
-  var hi = byTotal ? 3 : 1.5;
-  var v = function (m) { return m >= hi ? 'safe' : (m >= 0 ? 'reach' : 'dream'); };
-  var lo = v(pred.margin - 1), up = v(pred.margin + 1);
-  if (pred.comboOverride) lo = 'dream';
-  return { lo: lo, up: up, edge: (pred.margin - 1 < 0 && pred.margin + 1 >= 0), byTotal: byTotal, hi: hi,
+  var kind = decidingKind(pred), byTotal = kind !== 'std';
+  var v = function (m) { return verdictOf(levelOf(m, kind)); };
+  var lo, up;
+  if (pred.floor) { lo = 'safe'; up = 'safe'; }   // 要看的科目全部 15 級分：引擎保底給五級，門檻不會比滿級分高
+  else { lo = v(pred.margin - 1); up = v(pred.margin + 1); }   // 合科未達時 margin 就是合科差距（<0），下緣自然落夢幻，不另外強制
+  return { lo: lo, up: up, edge: !pred.floor && pred.margin >= -1 && pred.margin < 1, byTotal: byTotal, kind: kind, hi: 1, floor: !!pred.floor,
     label: lo === up ? LP[lo] : LP[lo] + '～' + LP[up],
     lowMargin: r1(pred.margin - 1), highMargin: r1(pred.margin + 1) };
 }
@@ -37,14 +59,26 @@ function tierOf(pred, range) {
   if (range.lo === 'safe') return 'high';
   return 'near';
 }
-function tierLine(tier, pred, range) {
+// 不給範圍的原因（2026-11-12 引擎 assessDept 的狀態；文字同 luodian_core.js STATUS_TEXT）。一句學生看得懂的說明
+var NORANGE = {
+  nodata: { head: '沒有去年資料', line: '這系沒有去年的第一階段通過分數，不給範圍。' },
+  checkOnly: { head: '過檢定就進二階', line: '這系第一階段只看檢定、不篩人：過了檢定就進第二階段，不用比分數。' },
+  dataFlag: { head: '資料待校', line: '這系去年的通過分數還在核對，先不給範圍。' },
+  changed: { head: '今年標準有變', line: '這系今年的第一階段標準跟去年不一樣，拿去年的分數比不準，先不給範圍。' },
+  missing: { head: '沒考這個系要看的科目', line: '' },
+  mathRule: { head: '資格規則待確認', line: '這系檢定同時列數A、數B，你只過了其中一科；要兩科都過還是擇一，要等老師對過簡章才知道。' },
+  fail: { head: '檢定或英聽未達', line: '這版成績沒過這系 115 年第一階段的檢定標準，要先補到檢定才有機會。' }
+};
+function tierLine(tier, pred, range, why) {
   var y = pred && pred.basisYear, m = pred ? pred.margin : null;
+  if (tier === 'high' && range && range.floor) return '這系要看的科目你都是 15 級分（滿級分），門檻不會比這更高。';
   if (tier === 'high') return '你的等值分比 ' + y + ' 年門檻高出 ' + num(m) + ' 級分，就算門檻上跳 1 級分也還在。';
   if (tier === 'near') return '跟 ' + y + ' 年門檻差不多（' + (m >= 0 ? '高出 ' : '差 ') + num(Math.abs(m)) + ' 級分），門檻跳一下就會變。';
   if (tier === 'below') {
     if (pred && pred.comboOverride) return '合科加總還沒到 ' + y + ' 年的門檻，要門檻往下掉才有機會。';
     return y + ' 年門檻你還差 ' + num(Math.abs(m)) + ' 級分，要門檻往下掉才有機會。';
   }
+  if (why && NORANGE[why] && NORANGE[why].line) return NORANGE[why].line;
   return '這個系沒有往年門檻資料，只看 115 年第一階段檢定，不給範圍。';
 }
 var EDGE_LINE = '剛好在邊上，今年可能過、也可能不過。';
@@ -102,21 +136,29 @@ function facts116Line(has116, y116) {
 }
 
 // 一張系卡的全部文字（評估頁畫面與 AI 輸入共用）。d＝CAAC_DEPTS 一筆；cls＝classify() 結果（退回用）；hist＝CAAC_HISTORY[d.id]；
-// pass1＝這版成績過不過該系 115 第一階段檢定（false 時一律「還不到門檻」，先說檢定沒過）
-function deptCard(d, pred, cls, hist, has116, y116, pass1) {
-  var range = predRange(pred), tier = pass1 === false ? 'below' : tierOf(pred, range);
+// s1＝這版成績的狀態：舊呼叫傳 true／false（過不過 115 第一階段檢定）；2026-11-12 起傳引擎 assessDept 的 {status, missing}
+//    （fail／missing／mathRule＝第一階段過不了或待確認；nodata／checkOnly／dataFlag／changed＝不給範圍；ok＝照範圍）。
+//    非 ok 一律不給範圍（不拿部分科目或待校的數字硬算）。
+function deptCard(d, pred, cls, hist, has116, y116, s1) {
+  var st = s1 === false ? 'fail' : (s1 && typeof s1 === 'object' && s1.status) || 'ok';
+  var range = st === 'ok' ? predRange(pred) : null;
+  if (st === 'ok' && !range && cls && cls.code === 'na' && cls.label === '過檢定就進二階') st = 'checkOnly';
+  var tier = (st === 'fail' || st === 'missing') ? 'below' : tierOf(pred, range);
+  var miss = st === 'missing' ? (s1.missing || []).map(function (k) { return SUBJ[k] || k; }).join('、') : '';
   var c = { deptId: d.id, school: d.school, dept: d.dept, group: d.group, tier: tier, tierName: TIER[tier], edge: !!(range && range.edge),
     range: range ? range.label : null, basisYear: range ? pred.basisYear : null, margin: range ? pred.margin : null, byTotal: !!(range && range.byTotal),
-    fallback: range ? null : (cls && cls.code ? LP[cls.code] : null) };
+    fallback: range ? null : (cls && LP[cls.code] ? LP[cls.code] : null), status: st,
+    noRange: range ? null : (NORANGE[st] ? NORANGE[st].head : null) };
   c.lines = {
-    tier: pass1 === false ? '這版成績沒過這系 115 年第一階段的檢定標準，要先補到檢定才有機會。' : tierLine(tier, pred, range),
+    tier: st === 'missing' ? '這版成績沒有這系要看的' + (miss || '科目') + '，第一階段過不了。' : (st === 'fail' ? NORANGE.fail.line : tierLine(tier, pred, range, st)),
     edge: c.edge ? EDGE_LINE : '',
     equiv: range ? equivLine(pred) : '',
     trend: range ? trendLine(hist, pred) : '',
     stage2: stage2Line(d.stage2),
     facts116: facts116Line(has116, y116),
     basis: range ? '依據：' + pred.basisYear + ' 年門檻＋你的等值分；門檻每年約上下 1 級分，所以給範圍不給單一答案。'
-      : '依據：115 年第一階段檢定標準與篩選倍率' + (c.fallback ? '（判在「' + c.fallback + '」）' : '') + '；沒有往年門檻資料，不給範圍。',
+      : (c.fallback ? '依據：115 年第一階段檢定標準與篩選倍率（判在「' + c.fallback + '」）；沒有往年門檻資料，不給範圍。'
+        : '依據：115 年第一階段檢定標準' + (c.noRange ? '（' + c.noRange + '）' : '') + '；不給範圍。'),
     unknown: '不知道的：115 實際錄取了誰、正備取幾人（查榜還沒有名單）。',
   };
   if (has116 && y116) { c.quota116 = y116.quota != null ? y116.quota : null; c.interview116 = y116.expectedInterview != null ? y116.expectedInterview : null; }
@@ -193,7 +235,7 @@ function scoreBrief(scores, listen) {
   return ORDER.filter(function (k) { return k !== 'nat' && s[k] != null; }).map(function (k) { return SUBJ[k] + ' ' + s[k]; }).join('、') + (listen ? '｜英聽 ' + listen : '');
 }
 
-root.AP = { LP: LP, TIER: TIER, GROUP_WARN: GROUP_WARN, EDGE_LINE: EDGE_LINE, predRange: predRange, tierOf: tierOf, tierLine: tierLine, equivLine: equivLine,
+root.AP = { LP: LP, TIER: TIER, NORANGE: NORANGE, GROUP_WARN: GROUP_WARN, EDGE_LINE: EDGE_LINE, levelOf: levelOf, verdictOf: verdictOf, predRange: predRange, tierOf: tierOf, tierLine: tierLine, equivLine: equivLine,
   trendLine: trendLine, stage2Line: stage2Line, facts116Line: facts116Line, deptCard: deptCard, ruleSummary: ruleSummary, dist222: dist222,
   overallLines: overallLines, compareVersions: compareVersions, closest222: closest222, scanAssertive: scanAssertive, scoreBrief: scoreBrief };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -35,9 +35,11 @@ function asVersion(v) {
   const depts = (v.picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => {
     const d = LD.byCode.get(String(p.deptCode));
     if (!d) return { missing: true, deptCode: String(p.deptCode), rank: p.rank };
-    const pred = predictCrossYear(v.scores || {}, d), cls = classify(v.scores || {}, d), hist = (typeof CAAC_HISTORY !== 'undefined' && CAAC_HISTORY[d.id]) || null;
+    // 2026-11-12 落點引擎改版：每系一個狀態由引擎 assessDept 給（檢定未過、缺考、數A／數B 待確認、資料待校、沒有去年資料、只看檢定、可評估），卡片照狀態寫
+    const sc = v.scores || {}, a = typeof assessDept === 'function' ? assessDept(sc, v.listen || '', d) : null;
+    const pred = a ? a.pred : predictCrossYear(sc, d), cls = classify(sc, d), hist = (typeof CAAC_HISTORY !== 'undefined' && CAAC_HISTORY[d.id]) || null;
     const info = S.dinfo && S.dinfo.items[String(p.deptCode)];
-    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, passesStage1(v.scores || {}, v.listen || '', d));
+    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, a ? { status: a.status, missing: a.missing } : passesStage1(sc, v.listen || '', d));
     c.deptCode = String(p.deptCode); c.rank = p.rank; c.rulesUrl = info && info.y ? info.y.rulesUrl : null;
     return c;
   });
@@ -46,7 +48,7 @@ function asVersion(v) {
 }
 function cardHtml(c) {
   if (c.missing) return `<div class="acard"><b>${c.rank}. 系代碼 ${esc(c.deptCode)}</b><div class="small muted">這個系在 115 資料裡找不到（可能改名或停招），請看甄選會公告。</div></div>`;
-  const L = c.lines, head = c.range ? `一階門檻推估：${c.range}` : `一階門檻推估：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : '資料不足'}`;
+  const L = c.lines, head = c.range ? `一階門檻推估：${c.range}` : `一階門檻推估：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : (c.noRange || '資料不足')}`;
   return `<div class="acard t-${c.tier}"><div class="row spread"><b>${c.rank}. ${esc(c.school)} ${esc(c.dept)}</b><span><span class="tierpill t-${c.tier}">${esc(head)}</span>${c.edge ? ' <span class="pill warn">壓線</span>' : ''}</span></div>
     <div class="small"><b>${esc(c.tierName)}</b>　${esc(L.tier)}${L.edge ? ' ' + esc(L.edge) : ''}</div>
     ${L.equiv ? `<div class="small">一階｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}

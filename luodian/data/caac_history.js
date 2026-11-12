@@ -42837,11 +42837,17 @@ var CAAC_HISTORY = {
       "quota": 59,
       "thresholds": {},
       "mults": {},
-      "passStandard": {
-        "eng": 16
-      },
+      "passStandard": null,
       "passTotal": null,
-      "passCombo": null
+      "passCombo": [
+        {
+          "subjects": [
+            "eng",
+            "nat"
+          ],
+          "threshold": 16
+        }
+      ]
     },
     "114": {
       "quota": 59,
@@ -48336,7 +48342,8 @@ var CAAC_HISTORY = {
         {
           "subjects": [
             "chi",
-            "eng"
+            "eng",
+            "nat"
           ],
           "threshold": 42
         }
@@ -48716,7 +48723,8 @@ var CAAC_HISTORY = {
         {
           "subjects": [
             "chi",
-            "eng"
+            "eng",
+            "nat"
           ],
           "threshold": 43
         },
@@ -105747,9 +105755,7 @@ var CAAC_HISTORY = {
       "quota": 87,
       "thresholds": {},
       "mults": {},
-      "passStandard": {
-        "chi": 12
-      },
+      "passStandard": null,
       "passTotal": null,
       "passCombo": [
         {
