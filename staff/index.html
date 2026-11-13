@@ -35,6 +35,10 @@
   .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--main); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; } @keyframes sp { to { transform:rotate(360deg); } }
   .center { text-align:center; padding:30px 0; } .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
   @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } .trow { grid-template-columns:1fr 1fr; } .trow.head { display:none; } .rrow { grid-template-columns:1fr; } }
+  /* 11-12 訂單與額度（28n） */
+  .orow { display:grid; grid-template-columns:1.4fr 1.6fr 1fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:start; font-size:14px; word-break:break-word; }
+  .orow.p3 { grid-template-columns:2fr 1fr 130px; align-items:center; } .orow .full { grid-column:1/-1; }
+  @media (max-width:760px) { .orow, .orow.p3 { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -51,7 +55,7 @@
 </div>
 <div id="app" class="hidden">
   <header class="top"><span class="brand">NOPQ通・staff 後台</span><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
-  <nav class="tabs" id="tabs"><a href="#/" data-t="cases">案件總覽</a><a href="#/import" data-t="import">匯入名單</a><a href="#/account" data-t="account">建帳號</a><a href="#/consent" data-t="consent">同意登錄</a><a href="#/age" data-t="age">年齡</a><a href="#/assign" data-t="assign">指派老師</a><a href="#/guide" data-t="guide">校系指引</a></nav>
+  <nav class="tabs" id="tabs"><a href="#/" data-t="cases">案件總覽</a><a href="#/import" data-t="import">匯入名單</a><a href="#/account" data-t="account">建帳號</a><a href="#/consent" data-t="consent">同意登錄</a><a href="#/age" data-t="age">年齡</a><a href="#/assign" data-t="assign">指派老師</a><a href="#/guide" data-t="guide">校系指引</a><a href="#/orders" data-t="orders">訂單與額度</a></nav>
   <main id="view"></main>
 </div>
 <div id="toast" class="toast hidden"></div>
@@ -121,7 +125,7 @@ var SG = (function () {
   var opt = function (v, cur, t) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + t + '</option>'; };
   function renderEditor(rec) {
     rec = rec || {}; var g = rec.guide || {}, f = toFields(g), s = statusOf(rec), cf = g.confidence || {}, src = g.source || {};
-    var school = rec.schoolName || src.schoolName || '', dept = rec.name || src.deptName || '', yr = g.year || rec.year || 115;
+    var school = rec.schoolName || src.schoolName || '', dept = rec.name || src.deptName || '', yr = g.year || rec.year || 116;
     var url = httpsUrl(rec.guideSourceUrl) || httpsUrl(src.url), rules = httpsUrl(rec.rulesUrl);
     var h = '<div class="card" id="rg-card"><h2>' + esc(school) + ' ' + esc(dept) + '</h2><div class="muted small">校系代碼 ' + esc(rec.deptCode) + '｜' + esc(rec.year || yr) + ' 學年度｜' + esc(rec.channel === 'TECH' ? '技專' : '一般大學') + '｜指引來源：' + esc(SRC[rec.guideSource] || '還沒有指引') + (rec.guideFetchedAt ? '｜抓取 ' + esc(day(rec.guideFetchedAt)) : '') + '</div>';
     h += '<div style="margin-top:8px">' + (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(school) + ' ' + esc(dept) + ' ' + esc(yr) + ' 學年度審查資料準備指引（官方）</a>' : '<span class="muted">這系沒有官方指引連結</span>') + (rules ? '｜<a href="' + esc(rules) + '" target="_blank" rel="noopener noreferrer">校系分則</a>' : '') + '</div>';
@@ -231,7 +235,7 @@ async function loadBase() {
   S.cases = c.items || []; S.teachers = t.items || []; S.cohorts = h.items || [];
 }
 window.addEventListener('hashchange', () => { if (S.me) route(); });
-const VIEWS = { '#/': 'cases', '#/import': 'import', '#/account': 'account', '#/consent': 'consent', '#/age': 'age', '#/assign': 'assign', '#/guide': 'guide' };
+const VIEWS = { '#/': 'cases', '#/import': 'import', '#/account': 'account', '#/consent': 'consent', '#/age': 'age', '#/assign': 'assign', '#/guide': 'guide', '#/orders': 'orders' };
 function route() {
   window.scrollTo(0, 0); const k = VIEWS[location.hash || '#/'] || 'cases';
   document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === k)); (VIEW[k])();
@@ -394,8 +398,131 @@ ACT.assignTeacher = async (el) => {
   const v = $('as-' + el.dataset.id).value; el.disabled = true; const r = await call('staff_update_case', { p_case_id: el.dataset.id, p: { teacherId: v } }); el.disabled = false; if (!r.ok) return;
   await loadBase(); viewAssign(); toast(v ? '已指派' : '已取消指派');
 };
+// ── 訂單與額度（28n：開訂單＝待收款 → 收到轉帳或現金後按「已收款」→ 額度才出現；未成年或年齡未確認要記付款的家長）──
+// 對內叫「後台收款紀錄」；收款主體與對外文件等會計（設計稿 16.1 第 12 條），畫面不出現對外憑證的字眼。
+const KIND = { reviewRound: ['批改', '輪'], autoDept: ['Auto 產稿', '科系'], tutorHour: ['一對一', '小時'] };
+const ORDER_STATUS = { pending: ['待收款', 'warn'], paid: ['已收款', 'ok'], cancelled: ['已取消', ''], refunded: ['已退款', 'bad'], partiallyRefunded: ['部分退款', 'bad'] };
+const PAY_METHOD = { transfer: '轉帳', cash: '現金', other: '其他' }, AGE = { adult: '成年', minor: '未成年', unknown: '年齡未確認' };
+const PAYER_FIELD = { name: '付款人姓名', relation: '與學生關係', contact: '聯絡方式' };
+const money = (n) => `${Number(n || 0).toLocaleString('zh-TW')} 元`;
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const OD0 = () => ({ student: '', qty: {}, payer: { name: '', relation: '', contact: '', guard: false }, channel: '', note: '', reqId: '', sq: null, filter: '', orders: null, products: null, paying: '', pay: null });
+const odErr = (r) => {
+  if (r.error === 'PAYER_REQUIRED') return `這位學生${r.ageStatus === 'minor' ? '未成年' : '的年齡還沒確認'}，要填付款的家長：還缺${(r.detail || []).map((k) => PAYER_FIELD[k] || k).join('、')}。`;
+  if (r.error === 'PAYER_GUARDIAN_CONFIRM_REQUIRED') return '這位學生未成年或年齡未確認：要勾「付款人是學生的法定代理人，同意這筆購買」。';
+  if (r.error === 'ORDER_NOT_PENDING') return `這張訂單已經不是待收款（${(ORDER_STATUS[r.detail] || [r.detail])[0]}），請重新整理。`;
+  if (r.error === 'AMOUNT_MISMATCH') return '收到的金額跟訂單金額不一樣，請確認。';
+  return ({ PRODUCT_NOT_FOUND: '找不到這個商品，或已經下架。', DUPLICATE_PRODUCT: '同一樣商品只要寫一次，數量改多一點。', QTY_INVALID: '數量要 1～20。', ITEMS_REQUIRED: '至少選一樣商品。', ORDER_NOT_FOUND: '找不到這張訂單。', STUDENT_NOT_FOUND: ERRS.STUDENT_NOT_FOUND })[r.error] || errText(r);
+};
+async function odCall(fn, args) { const r = await call(fn, args, { quiet: true }); if (!r.ok) toast(odErr(r), true); return r; }
+const odTotal = () => { const o = S.ui.od; return (o.products || []).filter((p) => p.active).reduce((s, p) => s + (Number(o.qty[p.code]) || 0) * p.priceTwd, 0); };
+function viewOrders() {
+  const o = S.ui.od = S.ui.od || OD0();
+  // 11-13：登入後學生名單（loadBase）還沒回來就點進這頁，下拉會是空的；先顯示讀取中，名單到了 enter() 會再 route() 一次
+  if (!S.cases) { view('<div class="card center muted"><span class="spin"></span>讀取學生名單…（一直沒出來請重新整理）</div>'); return; }
+  if (o.products && o.orders) { renderOrders(); odRefresh().catch(() => { /* 錯誤已由 call 顯示 */ }); return; }   // 回到這一頁時先畫舊的，再撈最新的訂單與額度
+  view('<div class="card center muted"><span class="spin"></span>讀取訂單…</div>');
+  Promise.all([o.products ? null : call('staff_list_products'), o.orders ? null : call('staff_list_orders', { p: {} })]).then(([p, l]) => {
+    if (p) o.products = p.ok ? p.items : []; if (l) o.orders = l.ok ? l.items : []; if (location.hash === '#/orders') renderOrders();
+  }).catch(() => { /* 錯誤已由 call 顯示 */ });
+}
+const quotaHtml = () => {
+  const sq = S.ui.od.sq; if (!sq) return ''; const b = sq.balances || [], st = sq.student || {};
+  return `<div class="small" id="od-quota-line" style="margin-top:6px">${esc(st.nickname)}　<span class="pill ${st.ageStatus === 'adult' ? 'ok' : 'warn'}">${esc(AGE[st.ageStatus] || st.ageStatus)}</span>　現有額度：${b.length ? b.map((x) => `<b>${esc((KIND[x.quotaKind] || [x.quotaKind])[0])} 剩 ${x.remainingUnits} ${esc((KIND[x.quotaKind] || ['', ''])[1])}</b>`).join('、') : '沒有'}</div>`;
+};
+const orderRows = () => {
+  const o = S.ui.od, list = (o.orders || []).filter((x) => !o.filter || x.status === o.filter);
+  return list.map((x) => {
+    const st = ORDER_STATUS[x.status] || [x.status, ''], pay = (x.payments || []).find((p) => p.kind === 'payment'), q = x.quota || {};
+    return `<div class="orow" data-order="${esc(x.id)}"><div><b>${esc(x.studentNickname)}</b><div class="muted small">訂單 ${esc(x.orderNo)}｜${esc(when(x.createdAt))}</div>
+      <div class="muted small">付款人：${x.payerName ? `${esc(x.payerName)}（${esc(x.payerRelation || '')}）${x.payerIsGuardian ? '｜法定代理人' : ''}` : '學生本人'}${x.channelCode ? `｜通路 ${esc(x.channelCode)}` : ''}</div></div>
+      <div>${(x.items || []).map((i) => `${esc(i.productName)} × ${i.qty}`).join('<br>')}<div><b>${money(x.totalTwd)}</b></div>
+        ${pay ? `<div class="muted small">已收：${esc(PAY_METHOD[pay.method] || pay.method)}｜${esc(when(pay.receivedAt))}${pay.externalRef ? `｜${esc(pay.externalRef)}` : ''}｜確認人 ${esc(pay.confirmedBy)}</div>` : ''}
+        ${['paid', 'refunded', 'partiallyRefunded'].includes(x.status) ? `<div class="muted small">額度：用掉 ${q.usedUnits || 0}／${q.totalUnits || 0}${x.status === 'paid' ? '' : '（剩下的已收回）'}</div>` : ''}</div>
+      <div><span class="pill ${st[1]}">${esc(st[0])}</span>${x.status === 'pending' ? `<div class="row" style="margin-top:4px"><button class="btn sm" data-act="odPayOpen" data-id="${esc(x.id)}">已收款</button><button class="btn sm ghost" data-act="odCancel" data-id="${esc(x.id)}">取消</button></div>` : ''}</div>
+      ${o.paying === x.id ? payFormHtml(x) : ''}</div>`;
+  }).join('') || '<p class="muted">還沒有訂單。</p>';
+};
+function payFormHtml(x) {
+  const p = S.ui.od.pay;
+  return `<div class="ok-box full" id="pay-form"><b>登錄後台收款紀錄</b>｜訂單 ${esc(x.orderNo)}｜${esc(x.studentNickname)}｜應收 ${money(x.totalTwd)}
+    <div class="grid2"><div><label class="f" for="pay-method">收款方式</label><select id="pay-method" data-in="odPay" data-k="method">${Object.entries(PAY_METHOD).map(([v, t]) => `<option value="${v}" ${p.method === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div><label class="f" for="pay-at">收到的日期</label><input type="date" id="pay-at" data-in="odPay" data-k="at" value="${esc(p.at)}"></div>
+      <div><label class="f" for="pay-ref">對帳備註（例如轉帳帳號後五碼）</label><input type="text" id="pay-ref" data-in="odPay" data-k="ref" value="${esc(p.ref)}" maxlength="60"></div>
+      <div><label class="f" for="pay-note">備註</label><input type="text" id="pay-note" data-in="odPay" data-k="note" value="${esc(p.note)}" maxlength="300"></div></div>
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="odPayGo" data-id="${esc(x.id)}">確認已收到 ${money(x.totalTwd)}</button><button class="btn ghost" data-act="odPayClose">先不要</button></div>
+    <div class="muted small" style="margin-top:4px">按下去之後這位學生的額度就會出現；同一張訂單只能按一次。</div></div>`;
+}
+const productRows = () => (S.ui.od.products || []).map((p) => `<div class="orow p3"><div>${esc(p.name)}${p.active ? '' : ' <span class="pill">已下架</span>'}<div class="muted small">每份含 ${p.unitsPerQty} ${esc((KIND[p.quotaKind] || ['', ''])[1])}</div></div>
+  <div><label class="f" for="pr-${esc(p.code)}" style="margin:0">價格（元）</label><input type="number" min="0" step="1" id="pr-${esc(p.code)}" value="${p.priceTwd}"></div><div><button class="btn sm ghost" data-act="prSave" data-code="${esc(p.code)}">存價格</button></div></div>`).join('');
+function renderOrders() {
+  const o = S.ui.od, act = (o.products || []).filter((p) => p.active), minorish = !!(o.sq && o.sq.student && o.sq.student.ageStatus !== 'adult'), pi = (k, label, ph = '') => `<div><label class="f" for="od-p-${k}">${label}</label><input type="text" id="od-p-${k}" data-in="odPayer" data-k="${k}" value="${esc(o.payer[k])}" placeholder="${esc(ph)}"></div>`;
+  view(`<div class="card"><h2>開訂單</h2><p class="muted" style="margin:0 0 6px">錢照舊人工收：先在這裡開訂單（待收款），收到轉帳或現金後，在下面「訂單」那一列按「已收款」，學生的額度才會出現。</p>
+    <label class="f" for="od-student">學生</label><select id="od-student" data-in="odStudent"><option value="">請選…</option>${studentOptions(o.student)}</select><div id="od-quota">${quotaHtml()}</div>
+    <h3>買什麼</h3>${act.map((p) => `<div class="orow p3"><div>${esc(p.name)}<div class="muted small">每份含 ${p.unitsPerQty} ${esc((KIND[p.quotaKind] || ['', ''])[1])}</div></div><div class="small">${money(p.priceTwd)}／份</div>
+      <div><label class="f" for="od-q-${esc(p.code)}" style="margin:0">數量</label><input type="number" min="0" max="20" step="1" id="od-q-${esc(p.code)}" data-in="odQty" data-k="${esc(p.code)}" value="${esc(o.qty[p.code] || 0)}"></div></div>`).join('') || '<p class="muted">沒有上架中的商品。</p>'}
+    <div class="row spread" style="margin-top:6px;border-top:1px solid var(--line);padding-top:8px"><span class="muted">合計</span><b id="od-total">${money(odTotal())}</b></div>
+    <h3>付款人</h3><div id="od-payer-hint">${minorish ? '<div class="bad-box small" style="margin-top:0">這位學生未成年或年齡未確認：一定要填付款的家長，並勾法定代理人。</div>' : '<p class="muted small" style="margin:0">成年學生自己付可以不填；家長付請填。年齡在「年齡」分頁確認。</p>'}</div>
+    <div class="grid2">${pi('name', '付款人姓名')}${pi('relation', '與學生關係', '例如：母、父、監護人')}${pi('contact', '聯絡方式', '電話或 email')}</div>
+    <label class="chk"><input type="checkbox" id="od-guard" data-in="odGuard" ${o.payer.guard ? 'checked' : ''}> 付款人是學生的法定代理人，同意這筆購買</label>
+    <div class="grid2"><div><label class="f" for="od-channel">通路來源（選填，英數字代號）</label><input type="text" id="od-channel" data-in="odField" data-k="channel" value="${esc(o.channel)}" maxlength="40"></div>
+      <div><label class="f" for="od-note">備註（選填）</label><input type="text" id="od-note" data-in="odField" data-k="note" value="${esc(o.note)}" maxlength="500"></div></div>
+    <p class="muted small" style="margin:4px 0 0">通路分潤目前不啟用，只記這位學生從哪裡來。</p>
+    <div style="margin-top:10px"><button class="btn" id="od-create" data-act="odCreate">開訂單（待收款）</button></div></div>
+    <div class="card"><div class="row spread"><h2 style="margin:0">訂單</h2><select id="od-filter" data-in="odFilter" style="width:auto"><option value="">全部</option>${Object.entries(ORDER_STATUS).map(([v, t]) => `<option value="${v}" ${o.filter === v ? 'selected' : ''}>${t[0]}</option>`).join('')}</select></div><div id="od-list">${orderRows()}</div></div>
+    <div class="card"><h2>商品與價格</h2><p class="muted small" style="margin:0 0 6px">價格是 owner 11-12 給的暫定價。改了只影響之後開的訂單；已開的訂單照開單時的價格與輪數。</p><div id="pr-list">${productRows()}</div></div>`);
+}
+async function odRefresh() {
+  const o = S.ui.od, [l, q] = await Promise.all([call('staff_list_orders', { p: {} }), o.student ? call('staff_get_student_quota', { p_student_id: o.student }) : null]);
+  if (l.ok) o.orders = l.items; if (q) o.sq = q.ok ? q : null;
+  if ($('od-list')) $('od-list').innerHTML = orderRows(); if ($('od-quota')) $('od-quota').innerHTML = quotaHtml();
+}
+IN.odStudent = async (el) => {
+  const o = S.ui.od; o.student = el.value; o.sq = null; o.reqId = '';
+  if (el.value) { try { const r = await call('staff_get_student_quota', { p_student_id: el.value }); o.sq = r.ok ? r : null; } catch (e) { return; } }
+  if (o.student === el.value) renderOrders();
+};
+IN.odQty = (el) => { S.ui.od.qty[el.dataset.k] = Math.max(0, Math.min(20, parseInt(el.value, 10) || 0)); S.ui.od.reqId = ''; $('od-total').textContent = money(odTotal()); };
+IN.odPayer = (el) => { S.ui.od.payer[el.dataset.k] = el.value; S.ui.od.reqId = ''; };
+IN.odGuard = (el) => { S.ui.od.payer.guard = el.checked; S.ui.od.reqId = ''; };
+IN.odField = (el) => { S.ui.od[el.dataset.k] = el.value; S.ui.od.reqId = ''; };
+IN.odFilter = (el) => { S.ui.od.filter = el.value; $('od-list').innerHTML = orderRows(); };
+IN.odPay = (el) => { S.ui.od.pay[el.dataset.k] = el.value; };
+ACT.odCreate = async (el) => {
+  const o = S.ui.od; if (!o.student) return toast('先選學生。', true);
+  const items = (o.products || []).filter((p) => p.active && (o.qty[p.code] || 0) > 0).map((p) => ({ productCode: p.code, qty: o.qty[p.code] }));
+  if (!items.length) return toast('至少選一樣商品，數量填 1 以上。', true);
+  const payer = { isGuardian: !!o.payer.guard }; ['name', 'relation', 'contact'].forEach((k) => { if (o.payer[k].trim()) payer[k] = o.payer[k].trim(); });
+  o.reqId = o.reqId || `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;   // 同一份表單連按兩次只開一張
+  el.disabled = true; const r = await odCall('staff_create_order', { p: { studentId: o.student, items, payer, channelCode: o.channel.trim() || null, note: o.note.trim() || null, clientRequestId: o.reqId } }); el.disabled = false;
+  if (!r.ok) return;
+  toast(`已開訂單 ${r.order.orderNo}：待收款 ${money(r.order.totalTwd)}`);
+  S.ui.od = { ...OD0(), products: o.products, orders: o.orders, student: o.student, sq: o.sq }; renderOrders(); await odRefresh();
+};
+ACT.odPayOpen = (el) => { const o = S.ui.od; o.paying = el.dataset.id; o.pay = { method: 'transfer', at: todayStr(), ref: '', note: '' }; $('od-list').innerHTML = orderRows(); const f = $('pay-form'); if (f) f.scrollIntoView({ block: 'nearest' }); };
+ACT.odPayClose = () => { S.ui.od.paying = ''; $('od-list').innerHTML = orderRows(); };
+ACT.odPayGo = async (el) => {
+  const o = S.ui.od, p = o.pay, x = (o.orders || []).find((y) => y.id === el.dataset.id); if (!x || !p) return;
+  el.disabled = true;
+  const r = await odCall('staff_mark_order_paid', { p_order_id: x.id, p: { method: p.method, receivedAt: p.at ? `${p.at}T12:00:00+08:00` : null, externalRef: p.ref.trim() || null, note: p.note.trim() || null } });
+  el.disabled = false; if (!r.ok) { if (r.error === 'ORDER_NOT_PENDING') { o.paying = ''; await odRefresh(); } return; }
+  o.paying = '';
+  if (o.student !== x.studentId) { o.student = x.studentId; renderOrders(); }
+  await odRefresh(); toast(`已收款：${x.studentNickname} 的額度已出現`);   // 11-13：畫面上的額度與訂單列先更新好再跳提示（原本提示先跳、畫面慢一兩秒才變）
+};
+ACT.odCancel = async (el) => {
+  const x = (S.ui.od.orders || []).find((y) => y.id === el.dataset.id); if (!x || !window.confirm(`確定取消訂單 ${x.orderNo}（${x.studentNickname}，${money(x.totalTwd)}）？取消後不能再按已收款。`)) return;
+  el.disabled = true; const r = await odCall('staff_cancel_order', { p_order_id: x.id, p: {} }); el.disabled = false; if (!r.ok) return;
+  toast('訂單已取消'); await odRefresh();
+};
+ACT.prSave = async (el) => {
+  const code = el.dataset.code, v = $('pr-' + code).value.trim(), price = Number(v);
+  if (!/^\d+$/.test(v) || price > 1000000) return toast('價格要填 0 以上的整數。', true);
+  el.disabled = true; const r = await odCall('staff_set_product', { p: { code, priceTwd: price } }); el.disabled = false; if (!r.ok) return;
+  const pl = await call('staff_list_products'); if (pl.ok) S.ui.od.products = pl.items; renderOrders(); toast(`已存：${r.product.name} 之後開的訂單用 ${money(r.product.priceTwd)}`);
+};
 // ── 校系指引（確認頁）：搜系 → 看機器抽的結果 → 改 → 存／確認；staff_get_review_guide／staff_set_review_guide ──
-const RG0 = () => ({ year: '115', ch: 'UNI', q: '', found: [], rec: null, only: false, cohort: '', list: null, status: {}, busy: false });
+const RG0 = () => ({ year: '116', ch: 'UNI', q: '', found: [], rec: null, only: false, cohort: '', list: null, status: {}, busy: false });
 const rgFoundHtml = () => (S.ui.rg.found || []).map((d) => `<div class="rrow" style="grid-template-columns:2fr 1fr 80px"><div>${esc(d.schoolName)} ${esc(d.name)}</div><div class="muted small">${esc(d.deptCode)}</div><button class="btn sm ghost" data-act="rgPick" data-code="${esc(d.deptCode)}">看這系</button></div>`).join('');
 const rgListHtml = () => { const r = S.ui.rg; return r.busy ? '<p class="muted"><span class="spin"></span>讀取這一班的志願…</p>' : r.list ? SG.renderClassList(r.list, r.status) : ''; };
 function viewGuide() {
@@ -419,7 +546,7 @@ function viewGuide() {
 }
 const foundHtml = () => (S.ui.gd.found || []).map((d) => `<div class="rrow" style="grid-template-columns:2fr 1fr 80px"><div>${esc(d.schoolName)} ${esc(d.name)}</div><div class="muted small">${esc(d.deptCode)}</div><button class="btn sm ghost" data-act="pickDept" data-code="${esc(d.deptCode)}">選這個</button></div>`).join('');
 IN.gd = (el) => { S.ui.gd[el.dataset.k] = el.value; };
-ACT.findDept = async () => { const g = S.ui.gd, r = await call('search_dept', { p_year: +g.year || 115, p_channel: g.ch, p_q: g.q }); if (!r.ok) return; g.found = r.items || []; $('gd-found').innerHTML = foundHtml() || '<p class="muted">找不到。</p>'; };
+ACT.findDept = async () => { const g = S.ui.gd, r = await call('search_dept', { p_year: +g.year || 116, p_channel: g.ch, p_q: g.q }); if (!r.ok) return; g.found = r.items || []; $('gd-found').innerHTML = foundHtml() || '<p class="muted">找不到。</p>'; };
 ACT.pickDept = (el) => { S.ui.gd.dept = el.dataset.code; $('gd-dept').value = el.dataset.code; };
 ACT.saveGuide = async (el) => {
   const g = S.ui.gd, terms = g.terms.split(/[\n,，、]/).map((s) => s.trim()).filter(Boolean); if (!g.dept.trim()) return toast('先填校系代碼。', true); if (!terms.length) return toast('至少一個用語。', true);
@@ -430,7 +557,7 @@ IN.rg = async (el) => { S.ui.rg[el.dataset.k] = el.value; if (el.dataset.k === '
 IN.rgOnly = async (el) => { const r = S.ui.rg; r.only = el.checked; show('rg-classbox', r.only); if (r.only && !r.list) await loadClassList(); };
 ACT.rgFind = async () => {
   const r = S.ui.rg; if (r.q.trim().length < 2) return toast(ERRS.QUERY_TOO_SHORT, true);
-  const d = await call('search_dept', { p_year: +r.year || 115, p_channel: r.ch, p_q: r.q.trim() }); if (!d.ok) return;
+  const d = await call('search_dept', { p_year: +r.year || 116, p_channel: r.ch, p_q: r.q.trim() }); if (!d.ok) return;
   r.found = d.items || []; $('rg-found').innerHTML = rgFoundHtml() || '<p class="muted">找不到。</p>';
 };
 async function openRG(code) {
@@ -474,7 +601,7 @@ async function loadClassList() {
   } catch (e) { /* call() 已經提示過 */ } finally { r.busy = false; if ($('rg-class')) $('rg-class').innerHTML = rgListHtml(); }
 }
 ACT.rgReload = async () => { S.ui.rg.list = null; await loadClassList(); };
-const VIEW = { cases: viewCases, import: viewImport, account: viewAccount, consent: viewConsent, age: viewAge, assign: viewAssign, guide: viewGuide };
+const VIEW = { cases: viewCases, import: viewImport, account: viewAccount, consent: viewConsent, age: viewAge, assign: viewAssign, guide: viewGuide, orders: viewOrders };
 sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.me) showLogin('已登出。'); });
 (async function boot() { const { data } = await sb.auth.getSession(); if (data && data.session) await enter(); else showLogin(''); })();
 </script>

@@ -1,6 +1,8 @@
 'use strict';   // 2026-11-08 拆檔（W0）：原本整支包在一個函式裡；拆成多個一般 script 後頂層名稱整頁共用，已查過與落點引擎的 31 個全域名稱不撞名
 // SUPABASE_URL、SUPABASE_ANON_KEY 定義在 index.html 的小段 script：本機伺服器與雲端打包只替換 .html 裡的佔位字
-const YEAR = 115, CHANNEL = 'UNI';
+// 2026-11-12 換 116（OUTPUTS/nopq_cac116_update_plan_v0.1.md §九）：YEAR＝校系代碼年（志願、P／Q 文件、存版都用這一年的代碼；後端 nopq_code_year() 同值）；
+// SCORE_YEAR＝級分尺度年（116 五標公布前仍是 115；後端 nopq_score_year()、落點引擎 INPUT_YEAR 同值）。
+const YEAR = 116, SCORE_YEAR = 115, CHANNEL = 'UNI';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nlen = (s) => String(s || '').replace(/\s/g, '').length;   // 字數＝去空白字元數（同資料庫 nopq_nonspace_len）
@@ -16,6 +18,7 @@ const ERRS = {
   AI_CONSENT_MISSING: '沒有 AI 處理同意，這一步改由老師進行。', STATE_INVALID: '現在這一步不能這樣做，已為你更新畫面。',
   STALE: '畫面已過期（別處有更新），已為你重新載入。', QUOTA_EXCEEDED: '今天的系統次數用完了，請明天再試或請老師接手。', VALIDATION: '資料不完整或格式不對',
   HAS_WISH_EVENT: '這版存過志願，會留著，不能刪。', ACK_REQUIRED: '請先看完落點分析的說明並勾選，再存成志願。', AI_DISABLED: 'AI 解讀目前沒有開放，請按「請老師看」。',
+  AI_OFF: '這一步由老師接手（目前沒有開 AI）。',   // 2026-11-12 28l：AI 總開關關著
 };
 const FIELD_NAMES = { inventory: '八類盤點還沒做完，請聯絡育才仕協助', gridTemplate: '這一篇的欄位還沒準備好', answer: '回答不可空白（最多 2000 字）', turnId: '這一題已不存在',
   text: '內容不可空白或太長', assetIds: '文字或檔案至少要一項', decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '能力標籤不在詞庫', freeText: '整段文字不可空白（最多 5000 字）',
@@ -34,23 +37,62 @@ let toastTimer = 0;
 function toast(msg, bad) {
   const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4200);
 }
+// ── 2026-11-12 楊老師試用回饋 階段 0②④（OUTPUTS/nopq_yang_feedback_revision_v0.1.md 第四節）──
+// 每一次跟資料庫要資料都有等待上限；「載入中」說得出在等什麼，久了加一句「還在讀」；失敗時把「載入中」換成一句話＋重新載入鈕（不再一直轉）。
+// 首頁資料 me_home 換分頁不重撈：讀過 60 秒內直接用；只要叫了會寫資料的 RPC（存檔、交出…）就作廢，回首頁會重讀；首頁有「更新」鈕。
+const RPC_LIMIT = 25000, HOME_TTL = 60000;
+const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|luodian_ai_status|ai_switch_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢
+let homeCache = null, homeAt = 0, lastFailMsg = '';
+const WAIT_MSG = { me_home: '正在讀你的資料…', get_doc_state: '正在打開這一篇…', open_doc: '正在打開這一篇…', my_inventory: '正在讀你的東西…', my_wishlist: '正在讀你的志願…',
+  my_files: '正在讀你的檔案…', my_materials: '正在讀老師整理出的事…', list_terms: '正在讀能力標籤…', list_luodian_versions: '正在讀你存過的落點版本…' };
+async function rpcLimited(fn, args) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null; let timer = 0, late = false;
+  const limit = new Promise((res) => { timer = setTimeout(() => { late = true; if (ctl) ctl.abort(); res({ data: null, error: { message: 'TIMEOUT' } }); }, RPC_LIMIT); });
+  let b = sb.rpc(fn, args || {}); if (ctl && b && typeof b.abortSignal === 'function') b = b.abortSignal(ctl.signal);
+  try { const r = await Promise.race([b, limit]); return late ? { data: null, error: { message: 'TIMEOUT' }, late: true } : r; } finally { clearTimeout(timer); }
+}
 async function call(fn, args, opts = {}) {
-  const { data, error } = await sb.rpc(fn, args || {});
+  if (fn === 'me_home' && !opts.fresh && homeCache && Date.now() - homeAt < HOME_TTL) return structuredClone(homeCache);
+  if (!READ_RPC.test(fn)) homeAt = 0;
+  if (WAIT_MSG[fn]) setLoadingMsg(WAIT_MSG[fn]);
+  const my = S.rt, { data, error, late } = await rpcLimited(fn, args);
   if (error) {
     if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin(bootQuiet ? '' : '登入已過期，請重新登入。'); throw new Error('AUTH'); }
     if (error.status === 403 || error.code === '42501') { if (!opts.quiet) toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
-    if (!opts.quiet) toast('連線失敗，請稍後再試。', true);
+    const msg = late || error.message === 'TIMEOUT' ? '等太久沒有回應，請檢查網路再試一次。' : '連線失敗，請檢查網路再試一次。';
+    lastFailMsg = msg;   // guard 接到例外時用這句說原因
+    if (!opts.quiet) { toast(msg, true); loadFail(msg, my); }
     throw new Error('NET');
   }
   if (data && data.ok === false) {
     const code = data.error;
     if (code === 'NOT_STUDENT' || code === 'NOT_TEACHER' || code === 'NOT_STAFF') { await toLogin(bootQuiet ? '' : (ERRS[code] || '這個帳號不能使用此頁。')); throw new Error(code); }   // 開機時存的登入是舊的（帳號已不是學生）：靜默回登入頁；老師手動輸入帳密登進來才顯示這句
-    if (!opts.quiet) toast(errText(data), true);
+    if (!opts.quiet) { toast(errText(data), true); loadFail(errText(data), my); }
     if ((code === 'STALE' || code === 'STATE_INVALID') && S.docId && !opts.noRefresh) refreshDoc();
   }
+  if (fn === 'me_home' && data && data.ok) { homeCache = structuredClone(data); homeAt = Date.now(); }
   if (data && data.ok !== false && typeof keepAfterSave === 'function') keepAfterSave(fn, args || {});
   return data || { ok: false, error: 'EMPTY' };
 }
+// 「載入中」：各頁都用同一個 loading（下面）。setLoadingMsg 改它的字；loadFail 把還在畫面上的「載入中」換成失敗卡（已經換頁就不動）；
+// 看門狗每秒看一次：轉超過 6 秒加一句「還在讀，沒有壞掉」，超過等待上限＋10 秒還在轉就直接換成失敗卡（下載校系大檔時只加句子、不判失敗）。
+function setLoadingMsg(text) { document.querySelectorAll('#view [data-loading] .ld-msg').forEach((el) => { el.textContent = text; }); }
+const failCard = (msg) => `<div class="card" data-ldfail="1"><h2>這一頁沒有載入</h2><p class="muted">${esc(msg)}</p><button type="button" class="btn" data-act="reload">重新載入</button></div>`;
+function loadFail(msg, my) {
+  setTimeout(() => {
+    if (my != null && my !== S.rt) return;
+    document.querySelectorAll('#view [data-loading]').forEach((el) => { el.outerHTML = failCard(msg); });
+  }, 0);
+}
+const ldSeen = new WeakMap();
+setInterval(() => {
+  document.querySelectorAll('#view [data-loading]').forEach((el) => {
+    if (!ldSeen.has(el)) ldSeen.set(el, Date.now());
+    const age = Date.now() - ldSeen.get(el), slow = el.querySelector('.ld-slow');
+    if (age > 6000 && slow) slow.classList.remove('hidden');
+    if (age > RPC_LIMIT + 10000 && !ldBusy) el.outerHTML = failCard('等太久沒有回應，請檢查網路再按「重新載入」。');
+  });
+}, 1000);
 // 存進伺服器成功 → 清掉對應的本機暫存（W1）
 function keepAfterSave(fn, args) {
   const doc = S.docId ? 'doc:' + S.docId + ':' : '';
@@ -71,11 +113,13 @@ document.addEventListener('input', async (ev) => {   // select、checkbox、file
 // 暫存鍵＝ycs-keep:<帳號>:<範圍>；範圍：mine:text1／mine:text2、doc:<文件>:answer｜assign｜free｜cell:<格>。
 // 存進伺服器成功才清（見 call 的 KEEP_CLEAR）；按登出清這個帳號全部；超過 14 天自動丟。
 // 接回條件：暫存的「起點」＝現在框裡的字（伺服器那邊沒被別人改過），才把暫存的字放回去，避免蓋掉老師改過的版本。
-const KEEP_DAYS = 14, KEEP_WORD = new Set(['mtext', 'invText', 'answer', 'assignText', 'free']), keepOrig = new WeakMap(), keepTimers = {};
+const KEEP_DAYS = 14, KEEP_WORD = new Set(['mtext', 'invText', 'invEditText', 'invNewText', 'answer', 'assignText', 'free']), keepOrig = new WeakMap(), keepTimers = {};
 function keepScope(el) {
   const k = el.dataset.in;
   if (k === 'mtext') return 'mine:text' + el.dataset.n;
   if (k === 'invText') return 'mine:inv:' + el.dataset.k;   // W3 盤點頁「在這裡補寫」
+  if (k === 'invEditText') return 'mine:edit:' + el.dataset.id;   // 2026-11-12 階段 1：改一份
+  if (k === 'invNewText') return 'mine:swap:' + el.dataset.id;   // 2026-11-12 階段 1：換一份
   if (!S.docId) return '';
   if (k === 'answer') return 'doc:' + S.docId + ':answer';
   if (k === 'assignText') return 'doc:' + S.docId + ':assign';
@@ -119,7 +163,7 @@ function keepScan() {
     }
     if (KEEP_WORD.has(el.dataset.in)) {
       const nx = el.nextElementSibling;
-      if (!(nx && nx.classList.contains('keeprow'))) el.insertAdjacentHTML('afterend', '<div class="keeprow"><button type="button" class="btn ghost sm" data-act="wordIn">用 Word 檔帶入</button><span class="muted small">這台電腦會暫時記住你打的字，用公用電腦記得登出。</span></div>');
+      if (!(nx && nx.classList.contains('keeprow'))) el.insertAdjacentHTML('afterend', '<div class="keeprow"><button type="button" class="btn ghost sm" data-act="wordIn">用檔案帶入（Word、PDF、文字檔）</button><span class="muted small">這台電腦會暫時記住你打的字，用公用電腦記得登出。</span></div>');
     } else if (!firstCell) firstCell = el.closest('.cell');
   });
   if (firstCell && !(firstCell.previousElementSibling && firstCell.previousElementSibling.classList.contains('keephint'))) firstCell.insertAdjacentHTML('beforebegin', '<div class="keephint muted small">這台電腦會暫時記住你打的字，按「儲存」才算存好；用公用電腦記得登出。</div>');
@@ -147,29 +191,79 @@ async function docxText(file) {
   }
   throw new Error('NOTDOCX');
 }
+// 2026-11-12 楊老師回饋階段 1（D3）：在瀏覽器裡讀字，從 Word 擴到文字型 PDF、純文字（.txt／.md）。不上傳、雲端也能用。
+// PDF 用 pdf.js（第一次讀 PDF 才從 CDN 載入，同 supabase-js 的 CDN）；掃描檔、圖片讀不到字就請他貼上。
+const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
+let pdfjsLoad = null;
+function pdfjsReady() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!pdfjsLoad) {
+    pdfjsLoad = new Promise((res, rej) => { const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = () => res(window.pdfjsLib); s.onerror = () => { pdfjsLoad = null; s.remove(); rej(new Error('PDFJS')); }; document.head.appendChild(s); })
+      .then((lib) => { lib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; return lib; });
+  }
+  return pdfjsLoad;
+}
+async function pdfText(file) {
+  const lib = await pdfjsReady(), doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, out = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const tc = await (await doc.getPage(i)).getTextContent();
+    out.push(tc.items.map((x) => (x.str || '') + (x.hasEOL ? '\n' : '')).join(''));
+  }
+  return out.join('\n\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+const FILE_KIND = (f) => { const n = (f.name || '').toLowerCase(); return n.endsWith('.docx') ? 'docx' : n.endsWith('.pdf') ? 'pdf' : /\.(txt|md)$/.test(n) ? 'txt' : n.endsWith('.doc') ? 'doc' : 'other'; };
+async function fileText(f) {   // 回 {text} 或 {err: 給學生看的一句話}
+  const k = FILE_KIND(f);
+  try {
+    if (k === 'docx') return { text: await docxText(f) };
+    if (k === 'txt') return { text: (await f.text()).replace(/^﻿/, '').replace(/\r\n/g, '\n').trim() };
+    if (k === 'pdf') { const t = await pdfText(f); return t ? { text: t } : { err: '這份 PDF 沒有讀到文字（可能是掃描檔或圖片），請直接把文字貼上來。' }; }
+  } catch (e) {
+    if (e && e.message === 'PDFJS') return { err: '讀 PDF 的工具沒有載入，請檢查網路，或直接把文字貼上來。' };
+    return { err: k === 'docx' ? '讀不到這個 Word 檔。請確認是 .docx（舊的 .doc 請先另存成 .docx），或直接把文字貼上來。' : '讀不到這個檔案，請直接把文字貼上來。' };
+  }
+  return { err: k === 'doc' ? '舊的 .doc 讀不到，請先在 Word 另存成 .docx，或直接把文字貼上來。' : '這種檔案讀不到字（Word、PDF、文字檔才行；圖片、PPT 請把文字貼上來）。' };
+}
 ACT.wordIn = (el) => {
   const ta = el.closest('.keeprow') && el.closest('.keeprow').previousElementSibling; if (!ta || ta.tagName !== 'TEXTAREA' || ta.disabled) return;
-  const pick = document.createElement('input'); pick.type = 'file'; pick.accept = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const pick = document.createElement('input'); pick.type = 'file'; pick.accept = '.docx,.pdf,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,text/plain';
   pick.addEventListener('change', async () => {
     const f = pick.files && pick.files[0]; if (!f) return;
-    let text = '';
-    try { text = await docxText(f); } catch (e) { toast('讀不到這個 Word 檔。請確認是 .docx（舊的 .doc 請先另存成 .docx），或直接把文字貼上來。', true); return; }
-    if (!text) { toast('這個 Word 檔裡沒有讀到文字，請直接貼上來。', true); return; }
-    if (ta.value.trim() && !window.confirm('框裡已經有字了。要換成 Word 檔裡的內容嗎？')) return;
+    el.disabled = true; const r = await fileText(f); el.disabled = false;
+    let text = r.text || '';
+    if (r.err) { toast(r.err, true); return; }
+    if (!text) { toast('這個檔案裡沒有讀到文字，請直接貼上來。', true); return; }
+    if (ta.value.trim() && !window.confirm('框裡已經有字了。要換成檔案裡的內容嗎？')) return;
     const max = +ta.getAttribute('maxlength') || 0;
-    if (max && text.length > max) { text = text.slice(0, max); toast(`Word 內容超過 ${max} 字，只帶入前 ${max} 字。`, true); } else toast('已帶入 Word 的內容，看過再存。');
+    if (max && text.length > max) { text = text.slice(0, max); toast(`檔案內容超過 ${max} 字，只帶入前 ${max} 字。`, true); } else toast('已帶入檔案的內容，看過再存。');
     ta.value = text; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
   });
   pick.click();
 };
-// 落點引擎與資料檔用 defer 載入：要等頁面解析完（DOMContentLoaded）才確定都跑過了
+// 落點引擎與五標小檔用 defer 載入：要等頁面解析完（DOMContentLoaded）才確定都跑過了
 let ldDone = document.readyState === 'complete';
 document.addEventListener('DOMContentLoaded', () => { ldDone = true; });
-const ldReady = () => (ldDone ? Promise.resolve() : new Promise((res) => document.addEventListener('DOMContentLoaded', () => res(), { once: true })));
+const domReady = () => (ldDone ? Promise.resolve() : new Promise((res) => document.addEventListener('DOMContentLoaded', () => res(), { once: true })));
+// 2026-11-12 楊老師回饋階段 0④：兩個落點大檔（校系約 1.7 MB、歷年約 2.0 MB）不在開頁時下載，第一次用到落點資料（落點分析三頁、要交什麼、匯入志願）才下載。
+// 檔名寫在 index.html 的 <script type="text/x-lazy" data-src>（換年度只改那裡）。下載失敗：畫面換成重新載入鈕，再按會重下。用到大檔的地方一律先 await ldReady()。
+let ldLoad = null, ldBusy = false;
+function ldScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => { s.remove(); rej(new Error('LDLOAD')); }; document.head.appendChild(s); });
+}
+function ldReady() {
+  if (ldLoad) return ldLoad;
+  ldLoad = domReady().then(() => {
+    const lazy = Array.from(document.querySelectorAll('script[type="text/x-lazy"][data-src]')).map((s) => s.getAttribute('data-src'));
+    if (!lazy.length || typeof CAAC_DEPTS !== 'undefined') return undefined;
+    ldBusy = true; setLoadingMsg('正在下載校系資料，第一次比較久…');
+    return Promise.all(lazy.map(ldScript)).finally(() => { ldBusy = false; });
+  }).catch((e) => { ldLoad = null; ldBusy = false; loadFail('校系資料沒有下載成功，請檢查網路再按「重新載入」。'); throw e; });
+  return ldLoad;
+}
 // ── 登入／開機／路由 ──
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function showLogin(msg) {
-  S.home = null; S.doc = null; S.docId = null; S.ui = {}; S.sc = null; S.ack = null; S.lv = null; S.dinfo = null; S.mine = null; S.reqSeen = null; S.uid = ''; S.imp = null; stopPoll(); show('boot', false); show('app', false); show('login', true);
+  S.home = null; S.doc = null; S.docId = null; S.ui = {}; S.sc = null; S.ack = null; S.lv = null; S.dinfo = null; S.mine = null; S.reqSeen = null; S.uid = ''; S.imp = null; S.aiOn = null; homeCache = null; homeAt = 0; stopPoll(); show('boot', false); show('app', false); show('login', true);
   $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false; loginBanner();
 }
 async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
@@ -190,49 +284,64 @@ function hashLd1() { const m = hashParts().q.match(/(?:^|&)ld1=([^&]*)/); if (!m
 function capturePending() { const c = hashLd1(); if (c) ssSet(c); return c; }
 function decodeLd1(raw) {   // 解碼不連網；年度、檢查碼不對就回 ld1_code.js 的原句
   if (typeof LD1 === 'undefined' || !LD1.decode) return { ok: false, message: '匯入功能還沒載入，請重新整理再試。' };
-  const d = LD1.decode(raw, { openYear: YEAR }); if (!d.ok) return d;
+  let d = LD1.decode(raw, { openYear: YEAR });
+  if (!d.ok) {   // 2026-11-12：落點通改版前產生的 LD1-115 代碼，照 115→116 對照（同校＋系名）換成 116 碼；對不到的列出來請學生重選（D4，不替學生換）
+    const old = LD1.decode(raw, { openYear: YEAR - 1 }); if (!old.ok) return d;
+    d = Object.assign({}, old, { fromYear: YEAR - 1, codes115: old.codes.slice(), codes: [], unmapped: [] });
+    if (typeof ldIndex === 'function' && typeof CAAC_DEPTS !== 'undefined') {
+      const L = ldIndex(); old.codes.forEach((c) => { const x = L.by115.get(String(c)); if (x) d.codes.push(codeOf(x.id)); else d.unmapped.push(String(c)); });
+    } else d.unmapped = old.codes.slice();
+  }
   if (d.apiChannel !== CHANNEL) return { ok: false, message: '這份志願代碼不是大學申請入學的，NOPQ通目前只收大學申請，也可以改用手選。' };
   return d;
 }
 function loginBanner() {
   const el = $('l-import'); if (!el) return; const raw = ssGet(); let n = 0;
-  if (raw && typeof LD1 !== 'undefined' && LD1.decode) { const d = decodeLd1(raw); if (d.ok) n = d.codes.length; }
+  if (raw && typeof LD1 !== 'undefined' && LD1.decode) { const d = decodeLd1(raw); if (d.ok) n = (d.codes115 || d.codes).length; }
   el.textContent = n ? `你帶了 ${n} 個志願過來，登入後就會存好。` : ''; show('l-import', !!n);
 }
 capturePending();
 window.addEventListener('load', loginBanner);
+// 開機：連不上（網路斷、系統暫停）時開機畫面不再一直轉，改成一句話＋「再試一次」。同時問一次 AI 總開關（28l；舊資料庫沒有這支就當不知道）
+const BOOT_HTML = $('boot').innerHTML;
+function bootFail() {
+  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">可能是網路斷了，或系統暫時休息中。請檢查網路，再按「再試一次」。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
+}
+ACT.bootRetry = () => { $('boot').innerHTML = BOOT_HTML; enter(); };
 async function enter() {
   show('login', false); show('boot', true);
   try {
     const ss = await sb.auth.getSession(); S.uid = (ss.data && ss.data.session && ss.data.session.user && ss.data.session.user.id) || '';
-    const h = await call('me_home'); if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h;
-  } catch (e) { return; }
+    const [h, sw] = await Promise.all([call('me_home', {}, { fresh: true }), call('ai_switch_status', {}, { quiet: true }).catch(() => null)]);
+    if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h; S.aiOn = sw && sw.ok ? !!sw.enabled : null;
+  } catch (e) { if (!(e && (e.message === 'AUTH' || /^NOT_/.test(e.message)))) bootFail(); return; }
   show('boot', false); show('app', true); $('who').textContent = S.home.nickname;
   if (ssGet() && hashParts().path !== '#/import') { try { history.replaceState(null, '', '#/import'); } catch (e) { location.hash = '#/import'; } }   // 帶著志願代碼登入：直接到匯入頁，由它接手
   route();
 }
 window.addEventListener('hashchange', () => { capturePending(); if (S.home) route(); else loginBanner(); });
 function route() {
-  flushSave(); stopPoll(); S.rt++; window.scrollTo(0, 0); if (typeof modalClose === 'function') modalClose();
+  flushSave(); stopPoll(); S.rt++; lastFailMsg = ''; window.scrollTo(0, 0); if (typeof modalClose === 'function') modalClose();
   const h = hashParts().path; const m = h.match(/^#\/doc\/([\w-]+)$/);
-  if (m) return viewDoc(m[1]);
+  if (m) return guard(() => viewDoc(m[1]));   // 2026-11-12：開一篇也經過 guard（原本失敗會停在「載入中」）
   S.docId = null; S.doc = null;
   // 2026-11-09 落點分析改版 L0：三個子分頁共用「落點分析」那一格（setTab('score')）
-  const f = { '#/score': viewScore, '#/score/history': viewScoreHistory, '#/score/assess': viewScoreAssess, '#/wish': viewWish, '#/need': viewNeed, '#/mine': viewMine, '#/write': viewWrite, '#/import': viewImport }[h];
+  const f = { '#/score': viewScore, '#/score/history': viewScoreHistory, '#/score/assess': viewScoreAssess, '#/wish': viewWish, '#/need': viewNeed, '#/mine': viewMine, '#/write': viewWrite, '#/import': viewImport,
+    '#/deliver': viewDeliver }[h];   // 2026-11-12 階段 1：我要交的（write.js）
   return guard(f || viewHome);
 }
 // 每一頁載入失敗（連線斷了等）都給一個重試鈕，不要停在「載入中」
 function guard(f) {
   return Promise.resolve().then(f).catch((e) => {
     if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return;   // 已經回到登入頁
-    $('view').innerHTML = '<div class="card"><h2>這一頁沒有載入</h2><p class="muted">請檢查網路，再按「重新載入」。</p><button type="button" class="btn" data-act="reload">重新載入</button></div>';
+    $('view').innerHTML = failCard(lastFailMsg || '請檢查網路，再按「重新載入」。');
     console.warn('view', e && e.message);
   });
 }
-ACT.reload = () => route();
+ACT.reload = () => { homeAt = 0; route(); };
 function setTab(t) { document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === t)); show('tabs', t !== 'doc'); }
 const view = (html) => { $('view').innerHTML = html; };
-const loading = '<div class="center muted"><span class="spin"></span>載入中…</div>';
+const loading = '<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">載入中…</span><div class="ld-slow small hidden" style="margin-top:6px">還在讀，沒有壞掉；第一次打開會比較久。</div></div>';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ── 名稱對照 ──
 const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' };
@@ -309,9 +418,11 @@ async function viewHome() {
     + (step <= 2 ? '<p class="muted small" style="margin:10px 0 0">已經在落點通挑好志願了？<a href="#/import">匯入志願</a></p>' : '');
   view(`<div class="card"><h2>${esc(h.nickname)}，你好。</h2><div>我們先看成績落點，再決定要寫什麼。</div>
     ${h.consent.general ? '' : '<div class="hint">同意書還沒登錄完成，暫時不能開始寫。請聯絡育才仕。</div>'}</div>
-  <div class="card active"><h2>下一步</h2><p style="margin:0 0 10px">${esc(todo.t)}</p>${btn}</div>
+  <div class="card active"><h2>下一步</h2><p style="margin:0 0 10px">${esc(todo.t)}</p>${btn}
+    <p class="muted small" style="margin:10px 0 0">${homeAt ? esc(when(new Date(homeAt).toISOString())) + ' 讀的資料。' : ''}老師那邊剛改過？<button type="button" class="btn ghost sm" data-act="homeFresh">更新</button></p></div>
   ${rows.length ? `<div class="card"><h3 style="margin-top:0">走過的</h3>${rows.map((r) => `<div class="done-row"><div><b>${esc(r[0])}</b>　${esc(r[1])}</div><a href="${esc(r[2])}">${esc(r[3])}</a></div>`).join('')}</div>` : ''}`);
 }
+ACT.homeFresh = () => { homeAt = 0; route(); };
 ACT.openDoc = async (el) => {
   const id = el.dataset.id; el.disabled = true;
   try {

@@ -10,14 +10,14 @@ async function viewScoreAssess() {
   if (typeof CAAC_DEPTS === 'undefined' || typeof predictCrossYear !== 'function') { view('<div class="card"><h2>落點資料沒有載入</h2><p class="muted">請重新整理；還是不行就聯絡育才仕。</p></div>'); return; }
   ldIndex();
   const r = await call('list_luodian_versions'); if (!r.ok || my !== S.rt) return;
-  const items = r.items || [];
+  const items = normVersions(r.items || []);   // 2026-11-12：115 存的舊版本換成 116 代碼
   const m = hashParts().q.match(/(?:^|&)v=([^&]*)/);
   let raw = ''; if (m) { try { raw = decodeURIComponent(m[1]); } catch (e) { raw = ''; } }   // 網址參數壞掉就當沒給（Codex 審查 P1-4）
   let ids = raw ? raw.split(',') : ((S.as && S.as.ids) || []);
   ids = ids.filter((id, i, a) => a.indexOf(id) === i && items.some((v) => v.id === id)).slice(0, 3);
   if (!ids.length) { const v = items.find((x) => x.status === 'active') || items[0]; if (v) ids = [v.id]; }
   const vs = ids.map((id) => items.find((v) => v.id === id));
-  try { await deptInfo(vs.flatMap((v) => (v.picks || []).map((p) => String(p.deptCode)))); } catch (e) { /* 116 與分則連結拿不到：卡片照樣畫，116 行寫未匯入 */ }
+  try { await deptInfo(vs.flatMap((v) => (v.picks || []).filter((p) => !p.unmapped).map((p) => String(p.deptCode)))); } catch (e) { /* 116 與分則連結拿不到：卡片照樣畫，116 行寫未匯入 */ }
   let ai = null;
   if (h.consent && h.consent.ai) { try { const s = await call('luodian_ai_status', {}, { quiet: true }); if (s.ok) ai = s; } catch (e) { /* 拿不到就當沒開 */ } }
   let job = null;
@@ -39,22 +39,22 @@ function asVersion(v) {
     const sc = v.scores || {}, a = typeof assessDept === 'function' ? assessDept(sc, v.listen || '', d) : null;
     const pred = a ? a.pred : predictCrossYear(sc, d), cls = classify(sc, d), hist = (typeof CAAC_HISTORY !== 'undefined' && CAAC_HISTORY[d.id]) || null;
     const info = S.dinfo && S.dinfo.items[String(p.deptCode)];
-    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, a ? { status: a.status, missing: a.missing } : passesStage1(sc, v.listen || '', d));
-    c.deptCode = String(p.deptCode); c.rank = p.rank; c.rulesUrl = info && info.y ? info.y.rulesUrl : null;
+    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, a ? { status: a.status, missing: a.missing, checkEdge: a.checkEdge, listen: v.listen || '' } : passesStage1(sc, v.listen || '', d));
+    c.deptCode = String(p.deptCode); c.rank = p.rank; c.rulesUrl = info && info.y ? info.y.rulesUrl : null; c.rulesYear = info && info.y && info.y.year ? info.y.year : null;   // 2026-11-12：換 116 後是 116 分則，照實標年度
     return c;
   });
   const rules = AP.ruleSummary((v.picks || []).map((p) => ({ deptCode: p.deptCode, group: p.group, code: p.code })), (v.rules && v.rules.groupsSelected) || 0);
   return { v, depts, rules, lines: AP.overallLines(rules, v.scoreKind) };
 }
 function cardHtml(c) {
-  if (c.missing) return `<div class="acard"><b>${c.rank}. 系代碼 ${esc(c.deptCode)}</b><div class="small muted">這個系在 115 資料裡找不到（可能改名或停招），請看甄選會公告。</div></div>`;
+  if (c.missing) return `<div class="acard"><b>${c.rank}. 系代碼 ${esc(c.deptCode)}</b><div class="small muted">這個系在 116 簡章裡找不到同名系組（可能改名、拆組或停招），請看甄選會公告。</div></div>`;
   const L = c.lines, head = c.range ? `一階門檻推估：${c.range}` : `一階門檻推估：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : (c.noRange || '資料不足')}`;
   return `<div class="acard t-${c.tier}"><div class="row spread"><b>${c.rank}. ${esc(c.school)} ${esc(c.dept)}</b><span><span class="tierpill t-${c.tier}">${esc(head)}</span>${c.edge ? ' <span class="pill warn">壓線</span>' : ''}</span></div>
-    <div class="small"><b>${esc(c.tierName)}</b>　${esc(L.tier)}${L.edge ? ' ' + esc(L.edge) : ''}</div>
+    <div class="small"><b>${esc(c.tierName)}</b>　${esc(L.tier)}${L.edge ? ' ' + esc(L.edge) : ''}</div>${L.listen ? `<div class="small">${c.listenChecked === false ? '<span class="pill warn">英聽沒有檢查</span> ' : ''}${esc(L.listen)}</div>` : ''}${L.checkEdge ? `<div class="small"><span class="pill warn">檢定壓線</span> ${esc(L.checkEdge)}</div>` : ''}
     ${L.equiv ? `<div class="small">一階｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}
     <div class="small">二階（事實）｜${esc(L.facts116)}；${esc(L.stage2)}</div>
     <div class="muted small">${esc(L.basis)}</div><div class="muted small">${esc(L.unknown)}</div>
-    ${NG.safeUrl(c.rulesUrl) ? `<div class="small"><a href="${esc(c.rulesUrl)}" target="_blank" rel="noopener noreferrer">115 校系分則（甄選會）</a></div>` : ''}</div>`;
+    ${NG.safeUrl(c.rulesUrl) ? `<div class="small"><a href="${esc(c.rulesUrl)}" target="_blank" rel="noopener noreferrer">${esc(c.rulesYear || 115)} 校系分則（甄選會）</a></div>` : ''}</div>`;
 }
 function asRender() {
   const A = S.as;

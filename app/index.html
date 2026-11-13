@@ -31,8 +31,9 @@
 <div id="toast" class="toast hidden"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="../luodian/data/wubiao_multi_year.js"></script>
-<script defer src="../luodian/data/caac_history.js"></script>
-<script defer src="../luodian/data/caac_115_full.js"></script>
+<!-- 2026-11-12 楊老師回饋階段 0④：兩個落點大檔點到落點相關頁才下載（core.js 的 ldReady 讀 data-src 注入）；換年度改這兩行 -->
+<script type="text/x-lazy" data-src="../luodian/data/caac_history_116.js?v=20261112"></script>
+<script type="text/x-lazy" data-src="../luodian/data/caac_116_full.js?v=20261112"></script>
 <script defer src="luodian_core.js"></script>
 <script defer src="../luodian/js/ld1_code.js"></script>
   <script src="guide_pure.js"></script>
@@ -51,6 +52,7 @@
   <script src="wish.js"></script>
   <script src="need.js"></script>
   <script src="mine.js"></script>
+  <script src="text_diff.js"></script>
   <script src="write.js"></script>
   <script src="main.js"></script>
 </body>

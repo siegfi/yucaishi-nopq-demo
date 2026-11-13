@@ -7,13 +7,20 @@ const DOC_STEP = {
 };
 async function viewWrite() {
   setTab('write'); view(loading); const my = S.rt;
-  const h = await call('me_home'); if (!h.ok || my !== S.rt) return; S.home = h;
+  const [h, w] = await Promise.all([call('me_home'), call('my_wishlist', {}, { quiet: true }).catch(() => null)]); if (!h.ok || my !== S.rt) return; S.home = h;
   const j = h.journey || {}, step = j.step || 2, docs = h.docs || [], early = step >= 2 && step < 6 ? STEP_CARD[step] : null;
-  view(`<div class="card"><h2>寫</h2>
+  view(`<div class="card"><div class="row spread"><h2 style="margin:0">寫</h2><a class="btn ghost sm" href="#/deliver">我要交的（每個志願一張清單）</a></div>
     ${early ? `<div class="hint">前面還有一步沒走完：${esc(early.t)} <a href="${esc(early.href)}">去看看</a></div>` : ''}
+    ${aiStatementHint(w && w.ok ? w.items : [], !!h.consent.ai)}
     ${h.consent.general ? '' : '<div class="hint">同意書還沒登錄完成，暫時不能開始寫。請聯絡育才仕。</div>'}
-    ${h.consent.ai ? '' : '<div class="hint">目前沒有 AI 處理同意：你回答後，會由老師接著出題。</div>'}
+    ${!h.consent.ai ? '<div class="hint">目前沒有 AI 處理同意：你回答後，會由老師接著出題。</div>' : S.aiOn === false ? '<div class="hint">目前沒有開 AI：你回答、交稿之後，這一步由老師接手，不用在畫面上等。</div>' : ''}
     ${docs.length ? docListHtml(docs) : '<p class="muted">老師還沒幫你建立文件。</p>'}</div>`);
+}
+// 2026-11-12 換 116（owner 拍板 D7：提醒、不代填）：志願裡有系要交 AI 使用聲明時，在「寫」頁提醒；聲明是學生自己寫，系統不替他判斷
+function aiStatementHint(items, aiOn) {
+  const need = (items || []).filter((it) => NG.needsAiStatement(it)); if (!need.length) return '';
+  const names = need.map((it) => (it.schoolName || '') + ' ' + (it.name || '')).join('、');
+  return `<div class="hint"><b>你的志願裡有 ${need.length} 系要交「AI 使用聲明」</b>（${esc(names)}）。聲明要你自己寫${aiOn ? '；你在 NOPQ通用 AI 補問、拆格寫過的篇章，聲明時要照實寫' : ''}。怎麼交、檔案在哪下載，看<a href="#/need">「要交什麼」</a>裡那幾系的說明。</div>`;
 }
 // 2026-11-08 架構稿 W4：P、Q 每個志願系各一篇（整段稿）；已不在志願的系收在最下面，稿都還在
 const isPQ = (d) => d.nopqType === 'P_motivation' || d.nopqType === 'Q_futurePlan';
@@ -42,18 +49,20 @@ async function refreshDoc() { if (!S.docId) return null; const d = await GET(); 
 async function runAi(jobId, label, silent) {
   if (!jobId) return;
   const my = ++S.poll, fired = new Set(); S.ui.waiting = label || '老師在看，通常幾秒鐘…'; renderDoc();
+  let dead = false;   // 2026-11-12 楊老師回饋階段 0①：AI 那一支叫不起來（雲端沒部署、連不上）就不再空等 60 秒，直接說由老師接手
   const fire = async (id) => {
     fired.add(id);
-    try { const { error } = await sb.functions.invoke('nopq-ai', { body: { jobId: id } }); if (error && !silent) toast('這一步沒有成功。你寫的內容都還在，可以繼續，或請老師接手。', true); }
-    catch (e) { if (!silent) toast('暫時連不上，稍後再試。', true); }
+    try { const { error } = await sb.functions.invoke('nopq-ai', { body: { jobId: id } }); if (error) dead = true; }
+    catch (e) { dead = true; }
   };
   await fire(jobId);
-  for (let i = 0; i < 30 && S.poll === my; i++) {   // 每 2 秒查一次，最多 60 秒，直到沒有進行中的任務
-    const d = await GET(); if (!d.ok) break; S.doc = d;
+  for (let i = 0; i < 30 && S.poll === my && !dead; i++) {   // 每 2 秒查一次，最多 60 秒，直到沒有進行中的任務
+    const d = await GET().catch(() => ({ ok: false })); if (!d.ok) break; S.doc = d;
     if (!d.pendingJobId) break;
     if (!fired.has(d.pendingJobId)) { await fire(d.pendingJobId); continue; }   // 資料庫接著建的下一個任務也要叫起來
     await sleep(2000);
   }
+  if (dead && S.poll === my) { await GET().then((d) => { if (d.ok) S.doc = d; }).catch(() => null); if (!silent) toast('這一步由老師接手，你寫的內容都已保留。'); }
   if (S.poll === my) { S.ui.waiting = null; if (S.doc && termsStale()) await loadTerms(); syncUi(); renderDoc(); }
 }
 // 畫面輸入的暫存：伺服器端版本或題目變了才重設，其餘重畫時保留使用者打到一半的字
@@ -81,29 +90,31 @@ const HINTS = {
   finalized: '這篇定稿了。稿件已鎖定。',
 };
 const PQ_HINTS = {
-  draft_open: '照這系的題目寫。寫一段按「儲存」，確定了按「交給老師」。也可以用 Word 檔帶入。',
+  draft_open: '照這系的題目寫。寫一段按「儲存」，確定了按「交給老師」。也可以用檔案帶入（Word、PDF、文字檔）。',
   review_pending: '已交給老師改，稿件鎖定，等老師的話。',
   finalized: '這篇定稿了。稿件已鎖定。',
 };
-const JOB_ERR = { CONSENT: '沒有 AI 處理同意', QUOTA: '今天的次數用完了' };
+const JOB_ERR = { CONSENT: '沒有 AI 處理同意', QUOTA: '今天的次數用完了', STALE: '等太久沒有回應' };
 function headCard() {
   const d = S.doc, home = ((S.home || {}).docs || []).find((x) => x.caseDocId === d.caseDocId), lj = d.lastJob, jobFail = lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected');
+  const aiOff = d.aiSwitch === false || (lj && lj.error === 'AI_OFF');   // 28l：AI 總開關關著（或上一次因為沒開而停掉）
   const hint = (d.docMode === 'free' ? PQ_HINTS : HINTS)[d.state];
   return `<div class="card active"><a href="#/write" class="small" style="text-decoration:none">← 回到「寫」</a>
     <h2 style="margin-top:4px">${esc(home ? docTitle(home) : (TYPE_NAME[d.nopqType] || d.nopqType) + (d.schoolName ? '｜' + d.schoolName + ' ' + (d.deptName || '') : ''))}</h2>
     ${hint ? `<div class="hint" style="margin-top:0">${esc(hint)}</div>` : ''}
     ${S.ui.waiting ? `<div class="hint" style="border-color:var(--accent)"><span class="spin"></span>${esc(S.ui.waiting)}</div>` : ''}
-    ${jobFail ? `<div class="issue">上一次沒有成功${lj.error ? '（' + esc(JOB_ERR[lj.error] || '暫時出錯') + '）' : ''}。你的內容都已保留，可以請老師接手。</div>` : ''}</div>`;
+    ${jobFail && aiOff && d.docMode !== 'free' ? '<div class="hint">這一步由老師接手：你交出去的回答和稿都已保留，老師看過會回你，不用在畫面上等。</div>'
+      : jobFail ? `<div class="issue">上一次沒有成功${lj.error ? '（' + esc(JOB_ERR[lj.error] || '暫時出錯') + '）' : ''}。你的內容都已保留，可以請老師接手。</div>` : ''}</div>`;
 }
 function renderDoc() {
   if (!S.doc || S.doc.caseDocId !== S.docId) return;
   const y = window.scrollY, d = S.doc; let main;
-  if (d.docMode === 'free') { view(headCard() + reviewCard() + pqCard() + versionsCard()); window.scrollTo(0, y); return; }   // P、Q：整段稿，不經問答
+  if (d.docMode === 'free') { view(headCard() + finalCard() + reviewCard() + pqCard() + versionsCard()); window.scrollTo(0, y); return; }   // P、Q：整段稿，不經問答
   if (d.state === 'warmup') main = warmupCard();
   else if (d.state === 'interviewing') main = teacherCard();
   else if (['assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published'].includes(d.state)) main = assignmentCard();
   else main = reviewCard() + draftCard();
-  view(headCard() + main + (d.state === 'interviewing' || d.state === 'warmup' ? '' : assignmentRest()) + pointsCard() + chatCard() + historyCard() + versionsCard());
+  view(headCard() + finalCard() + main + (d.state === 'interviewing' || d.state === 'warmup' ? '' : assignmentRest()) + pointsCard() + chatCard() + historyCard() + versionsCard());
   window.scrollTo(0, y);
 }
 const assignmentRest = () => (['assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published'].includes(S.doc.state) ? '' : assignmentCard());
@@ -148,7 +159,7 @@ function teacherCard() {
       <div class="row spread" style="margin-top:6px"><span class="muted small" id="ans-cnt">${nlen(u.answer)} 字</span><button class="btn" data-act="sendAnswer" ${u.waiting ? 'disabled' : ''}>交給老師</button></div>`;
   } else if (!u.waiting) {
     tail = !d.aiEnabled || u.teacherAsks
-      ? '<div class="hint">你的回答老師收到了，老師會接著出下一題。也可以按「今天先到這」。</div>'
+      ? `<div class="hint">${d.aiSwitch === false ? '這一步由老師接手：' : ''}你的回答老師收到了，老師會接著出下一題。也可以按「今天先到這」。</div>`
       : '<div class="hint">老師沒有接著出題。你可以按「今天先到這」，等老師準備下一個題目。</div>';
   }
   if (!u.waiting) tail += u.confirmStop
@@ -167,7 +178,7 @@ ACT.sendAnswer = async (el) => {
   if (!r.ok) { el.disabled = false; return; }
   S.ui.teacherAsks = !!r.teacherAsks; await refreshDoc();
   if (r.jobId) await runAi(r.jobId, '老師在讀你寫的，通常幾秒鐘…');
-  else if (r.teacherAsks) toast(r.quotaExceeded ? '今天的系統次數用完了，這題由老師接手。' : '這題由老師出，你的回答已存好。');
+  else if (r.teacherAsks) toast(r.quotaExceeded ? '今天的系統次數用完了，這題由老師接手。' : r.aiOff ? '這一步由老師接手，你的回答已存好。' : '這題由老師出，你的回答已存好。');
 };
 ACT.stopInterview = async () => {
   S.ui.confirmStop = false; const r = await call('interview_stop', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion }); if (!r.ok) return;
@@ -213,7 +224,7 @@ function assignmentCard() {
     ${pq.length ? `<div class="muted small">老師針對你的問題</div><ul class="plain">${pq.map((q) => `<li>${esc(itemText(q))}</li>`).join('')}</ul>` : ''}
     ${a.dueAt ? `<div class="muted small">截止：${esc(when(a.dueAt))}</div>` : ''}
     ${sub ? `<h3>我交的（第 ${sub.revision} 版，${esc(when(sub.submittedAt))}）</h3><div class="cell"><div class="ro">${esc(sub.text || '（沒有文字）')}</div></div>` : ''}
-    ${canSubmit ? `<label class="f" for="asg-text">把答案貼在這裡（檔案上傳這個版本先不做，請貼成文字）</label>
+    ${canSubmit ? `<label class="f" for="asg-text">把答案貼在這裡（Word、PDF、文字檔可以用框下面的「用檔案帶入」）</label>
       <textarea id="asg-text" data-in="assignText" maxlength="5000" style="min-height:140px" ${d.pendingJobId ? 'disabled' : ''}>${esc(S.ui.assignText || '')}</textarea>
       <div class="row spread" style="margin-top:6px"><span class="muted small" id="asg-cnt">${nlen(S.ui.assignText)} 字</span><button class="btn" data-act="submitAssign" ${S.ui.waiting ? 'disabled' : ''}>交給老師</button></div>` : ''}
     ${a.feedback ? feedbackHtml(a.feedback) : (sub ? '<div class="hint">已交給老師，等老師的話。</div>' : '')}</details>`;
@@ -406,7 +417,7 @@ ACT.selfCheck = async (el) => {
       return;
     }
     S.ui.sqlIssues = null; await refreshDoc();
-    if (r.jobId) await runAi(r.jobId, '老師在看你的稿，通常幾秒鐘…'); else if (r.manualCheck) toast('已交給老師（沒有 AI 處理同意，由老師直接看）。');
+    if (r.jobId) await runAi(r.jobId, '老師在看你的稿，通常幾秒鐘…'); else if (r.manualCheck) toast(S.doc && S.doc.aiSwitch === false ? '已交給老師，這一步由老師接手。' : '已交給老師（沒有 AI 處理同意，由老師直接看）。');
   } finally { el.disabled = false; }
 };
 ACT.sendReview = async () => { const r = await call('submit_for_review', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion }); if (r.ok) { await refreshDoc(); toast('已交給老師。'); } };
@@ -419,9 +430,145 @@ function reviewCard() {
     ${rv.summary ? `<p style="white-space:pre-wrap;margin:8px 0">${esc(rv.summary)}</p>` : ''}${items ? `<h3>逐句意見</h3>${items}` : ''}${edits ? `<h3>老師改字（黃底）</h3>${edits}` : ''}
     ${rv.decision && LOCAL_SERVER ? '<div class="row" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="dlReview">下載老師批改的 Word（含追蹤修訂）</button></div>' : ''}</details>`;
 }
-function versionsCard() {
-  const vs = (S.doc.draft && S.doc.draft.versions) || []; if (!vs.length) return ''; const cur = S.doc.draft.currentVersion;
-  return `<details class="card"><summary>版本紀錄（${vs.length}）</summary><ul class="plain">${vs.slice().reverse().map((v) => `<li>第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '整段寫' : '分欄寫'}｜${esc(when(v.createdAt))}${cur && cur.id === v.id ? ' <span class="pill ok">目前</span>' : ''}</li>`).join('')}</ul></details>`;
+// ── 2026-11-12 楊老師試用回饋 階段 1②（D6）：版本紀錄每一版可以點開看、挑兩版並排比、把某一版設回目前的版本（照那一版的內容存成新的一版；不做自動合併）──
+// 讀一版全文用 get_draft_version（28m）；資料庫還沒有這支時只說「還打不開」，清單照舊。
+document.addEventListener('toggle', (ev) => { if (ev.target.id === 'ver-card' && S.ui) S.ui.verOpen = ev.target.open; }, true);
+const verUi = () => (S.ui.ver = S.ui.ver || { cache: {} });
+function verPlain(d, ver) {   // 一版的文字（比較用）：整段稿＝原文；分欄稿＝每一欄「【欄位】＋內容」
+  const t = (ver && ver.textBySection) || {};
+  if (typeof t._free === 'string' && t._free.trim()) return t._free;
+  const spec = d.grid && d.grid.spec; if (!spec) return '';
+  return expandCells(spec, segCount(spec, t)).filter((c) => c.kind === 'text' && String(t[c.key] || '').trim()).map((c) => `【${c.child !== 'text' ? c.secLabel + '・' : ''}${c.label}】\n${t[c.key]}`).join('\n\n');
 }
+async function verGet(id) {
+  const vu = verUi(); if (vu.cache[id]) return vu.cache[id];
+  let r; try { r = await call('get_draft_version', { p_case_doc_id: S.docId, p_version_id: id }, { quiet: true }); } catch (e) { r = null; }
+  if (!r || !r.ok) { toast(r && r.error === 'NOT_FOUND' ? '找不到這一版。' : '這一版現在還打不開（系統還沒更新到這個功能）。', true); return null; }
+  return (vu.cache[id] = r.version);
+}
+const verName = (v) => `第 ${v.versionNumber} 版（${AUTHOR[v.authorType] || v.authorType}，${when(v.createdAt)}）`;
+const segHtml = (segs) => segs.map((x) => x.t === '-' ? `<del style="background:#fde2e2;color:#9b1c1c">${esc(x.s)}</del>` : x.t === '+' ? `<ins style="background:#dcfce7;color:#14532d;text-decoration:none">${esc(x.s)}</ins>` : esc(x.s)).join('');
+function versionsCard() {
+  const d = S.doc, vs = (d.draft && d.draft.versions) || []; if (!vs.length) return ''; const cur = d.draft.currentVersion, vu = verUi(), canSet = d.state === 'draft_open';
+  const isCur = (v) => !!cur && cur.id === v.id, newest = vs.slice().reverse();
+  const a = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), b = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
+  const opts = (sel) => newest.map((v) => `<option value="${esc(v.id)}" ${sel === v.id ? 'selected' : ''}>第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}）${isCur(v) ? '・目前' : ''}</option>`).join('');
+  const rows = newest.map((v) => `<div class="doc-row"><div class="dmain">第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '整段寫' : '分欄寫'}｜${esc(when(v.createdAt))}${isCur(v) ? ' <span class="pill ok">目前</span>' : ''}</div>
+    <div class="row"><button type="button" class="btn sm ghost" data-act="verView" data-id="${esc(v.id)}">看</button>${canSet && !isCur(v) ? `<button type="button" class="btn sm ghost" data-act="verSet" data-id="${esc(v.id)}">設回這一版</button>` : ''}</div></div>`).join('');
+  return `<details id="ver-card" class="card" ${S.ui.verOpen ? 'open' : ''}><summary>版本紀錄（${vs.length}）</summary>
+    <p class="muted small" style="margin:6px 0">每存一次就多一版。每一版都可以點開看、挑兩版並排比。${canSet ? '也可以把某一版「設回」目前的版本：照那一版的內容存成新的一版，現在這版也還留在紀錄裡。' : '輪到你寫稿的時候，還可以把某一版設回目前的版本。'}</p>
+    ${rows}
+    ${vs.length > 1 ? `<div class="row" style="margin-top:8px;align-items:center"><select data-in="verA" aria-label="比較：左邊那一版">${opts(a)}</select><span>和</span><select data-in="verB" aria-label="比較：右邊那一版">${opts(b)}</select><button type="button" class="btn sm" data-act="verCmp">並排比</button></div>` : ''}
+    <div id="ver-out">${vu.html || ''}</div></details>`;
+}
+IN.verA = (el) => { verUi().a = el.value; }; IN.verB = (el) => { verUi().b = el.value; };
+function verShow(html) { const vu = verUi(); vu.html = html; S.ui.verOpen = true; const box = $('ver-out'); if (box) box.innerHTML = html; else renderDoc(); }
+ACT.verView = async (el) => {
+  el.disabled = true;
+  try {
+    const v = await verGet(el.dataset.id); if (!v) return;
+    verShow(`<h3>${esc(verName(v))}${v.isCurrent ? ' <span class="pill ok">目前</span>' : ''}</h3><div class="cell"><div class="ro" style="white-space:pre-wrap">${esc(verPlain(S.doc, v)) || '（沒有內容）'}</div></div>`);
+  } finally { el.disabled = false; }
+};
+ACT.verCmp = async (el) => {
+  const vs = S.doc.draft.versions || [], cur = S.doc.draft.currentVersion, vu = verUi();
+  const aId = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), bId = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
+  if (aId === bId) { toast('選兩個不一樣的版本才比得出差別。', true); return; }
+  el.disabled = true;
+  try {
+    const [A, B] = [await verGet(aId), await verGet(bId)]; if (!A || !B) return;
+    const [o, n] = A.versionNumber <= B.versionNumber ? [A, B] : [B, A], df = TD.diffText(verPlain(S.doc, o), verPlain(S.doc, n));
+    verShow(`<div class="muted small" style="margin-top:10px">左邊是較早的第 ${o.versionNumber} 版、右邊是第 ${n.versionNumber} 版：<del style="background:#fde2e2;color:#9b1c1c">紅底劃線</del>＝後來拿掉的，<ins style="background:#dcfce7;color:#14532d;text-decoration:none">綠底</ins>＝後來加的。</div>
+      ${df.changed ? '' : '<div class="hint">這兩版的內容一樣。</div>'}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:6px">
+        <div><h3 style="margin-top:0">${esc(verName(o))}</h3><div class="cell"><div class="ro" style="white-space:pre-wrap">${segHtml(df.left) || '（沒有內容）'}</div></div></div>
+        <div><h3 style="margin-top:0">${esc(verName(n))}</h3><div class="cell"><div class="ro" style="white-space:pre-wrap">${segHtml(df.right) || '（沒有內容）'}</div></div></div></div>`);
+  } finally { el.disabled = false; }
+};
+ACT.verSet = async (el) => {
+  const d = S.doc, v = await verGet(el.dataset.id); if (!v || d.state !== 'draft_open') return;
+  const curV = d.draft.currentVersion, teacherLater = (d.draft.versions || []).filter((x) => x.versionNumber > v.versionNumber && x.authorType === 'teacher').map((x) => x.versionNumber);
+  const msg = `設回第 ${v.versionNumber} 版：會照第 ${v.versionNumber} 版的內容存成新的一版，現在這版也還留在紀錄裡。`
+    + (teacherLater.length ? `\n\n注意：老師在第 ${teacherLater.join('、')} 版改的字，設回之後就不在稿裡了（老師改字的紀錄還在）。` : '')
+    + (S.ui.dirty ? '\n\n你還沒儲存的字也會不見。' : '') + '\n\n確定嗎？';
+  if (!window.confirm(msg)) return;
+  el.disabled = true;
+  try {
+    const t = Object.assign({}, v.textBySection || {}), free = typeof t._free === 'string' ? t._free : null; delete t._free;
+    const base = curV ? curV.id : null;
+    const r = free != null && free.trim()
+      ? await call('save_draft_free', { p_case_doc_id: S.docId, p_free_text: free, p_section_map: t, p_base_version_id: base })
+      : await call('save_draft_grid', { p_case_doc_id: S.docId, p_text_by_section: v.textBySection || {}, p_base_version_id: base });
+    if (!r.ok) return;
+    S.ui.draftBase = undefined; S.ui.dirty = false; S.ui.ver = { cache: {} }; await refreshDoc();
+    toast(r.unchanged ? '內容跟現在這版一樣，沒有多一版。' : `設回了：第 ${r.versionNumber} 版＝第 ${v.versionNumber} 版的內容。`);
+  } finally { el.disabled = false; }
+};
+// ══ 2026-11-12 楊老師試用回饋 階段 1③④（D7）：定稿後拿得到一份乾淨的全文；「我要交的」一頁照志願列出每一系要交哪幾篇、哪幾篇定稿了 ══
+// 乾淨全文：整段稿＝原文；分欄稿＝依欄位順序，每段一個小標，標籤欄與成績表不放（那是給老師看的，不是要交的字）。
+function fullTextOf(d, ver) {
+  const t = (ver && ver.textBySection) || {};
+  if (typeof t._free === 'string' && t._free.trim()) return t._free.trim();
+  const spec = d.grid && d.grid.spec; if (!spec) return '';
+  const cells = expandCells(spec, segCount(spec, t)).filter((c) => c.kind === 'text'), out = []; let last = '';
+  cells.forEach((c) => {
+    const v = String(t[c.key] || '').trim(); if (!v) return;
+    if (c.section !== last) { out.push((out.length ? '\n' : '') + '【' + c.secLabel + '】'); last = c.section; }
+    out.push(v);
+  });
+  return out.join('\n');
+}
+async function copyText(text) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* 改用下面的舊方法 */ }
+  const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); return ok;
+}
+const COPY_NOTE = '複製出去再改的字，系統裡的定稿不會跟著變；要改請回這一篇，請老師重開。';
+function finalCard() {   // 定稿那一篇：複製全文＋看全文（D7 先給複製全文；Word 等雲端匯出）
+  const d = S.doc; if (!d || d.state !== 'finalized') return '';
+  const text = fullTextOf(d, d.draft && d.draft.currentVersion), open = !!S.ui.showFull;
+  return `<div class="card active"><h2 style="margin-top:0">確定版</h2><p style="margin:0 0 8px">這篇定稿了，全文 ${nlen(text)} 字。按「複製全文」貼到你的排版檔（PPT、Canva、Word）。</p>
+    <div class="row"><button type="button" class="btn" data-act="copyFull" ${text ? '' : 'disabled'}>複製全文</button><button type="button" class="btn ghost" data-act="toggleFull">${open ? '收起全文' : '看全文'}</button><a class="btn ghost" href="#/deliver">我要交的</a></div>
+    <div class="muted small" style="margin-top:6px">${esc(COPY_NOTE)}</div>
+    ${open ? `<div class="cell" style="margin-top:8px"><div class="ro" style="white-space:pre-wrap">${esc(text) || '（沒有內容）'}</div></div>` : ''}</div>`;
+}
+ACT.toggleFull = () => { S.ui.showFull = !S.ui.showFull; renderDoc(); };
+ACT.copyFull = async () => { const d = S.doc, t = fullTextOf(d, d.draft && d.draft.currentVersion); toast((await copyText(t)) ? '全文複製好了，可以貼到你的排版檔。' : '這個瀏覽器不讓我複製，請按「看全文」自己選取複製。', !t); };
+// 「我要交的」：首頁資料（me_home 的 docs）＋志願（my_wishlist 的指引：哪幾篇必交／選交）。N、O 每一系共用一份；P、Q 每系各一篇。
+const DLV_TYPES = [['N', 'N_diverseSummary'], ['O', 'O_reflection'], ['P', 'P_motivation'], ['Q', 'Q_futurePlan']];
+const REQ_TEXT = { must: '必交', opt: '選交', none: '指引沒列' };
+async function viewDeliver() {
+  setTab('write'); view(loading); const my = S.rt;
+  const [h, w] = await Promise.all([call('me_home'), call('my_wishlist')]); if (!h.ok || !w.ok || my !== S.rt) return; S.home = h;
+  const docs = h.docs || [], items = (w.items || []).slice().sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  const docOf = (type, code) => docs.find((d) => d.nopqType === type && (type === 'N_diverseSummary' || type === 'O_reflection' || d.deptCode === code));
+  const row = (letter, d, req) => {
+    const st = d ? (DOC_STEP[d.state] || [d.state])[0] : '還沒有這一篇', fin = d && d.state === 'finalized';
+    return `<div class="doc-row"><div class="dmain"><b>${esc(DOC_SHORT[letter])}</b> <span class="pill ${req === 'must' ? 'main' : ''}">${esc(REQ_TEXT[req] || '')}</span>
+      <div class="muted small">${fin ? '<span class="pill ok">定稿了</span>' : esc(st)}${d && d.freeLen ? '｜' + d.freeLen + ' 字' : ''}</div></div>
+      ${d ? `<div class="row">${fin ? `<button type="button" class="btn sm" data-act="dlvCopy" data-id="${esc(d.caseDocId)}">複製全文</button>` : ''}<button type="button" class="btn sm ghost" data-act="openDoc" data-id="${esc(d.caseDocId)}" data-state="${esc(d.state)}">${fin ? '看' : '去寫'}</button></div>` : ''}</div>`;
+  };
+  const cards = items.map((it) => {
+    const has = NG.hasGuide(it), g = has ? it.guide : null;   // 同「要交什麼」頁（guide_pure.js 的 hasGuide／reqState）
+    const list = DLV_TYPES.map(([L, type]) => ({ L, d: docOf(type, it.deptCode), req: has ? NG.reqState(g, L) : 'must' })).filter((x) => x.req !== 'none' || x.d && x.d.state === 'finalized');
+    const need = list.filter((x) => x.req === 'must'), fin = list.filter((x) => x.d && x.d.state === 'finalized');
+    return `<div class="card"><h2 style="margin-top:0">第 ${esc(it.rank)} 志願｜${esc(it.schoolName || '')} ${esc(it.name || '')}</h2>
+      <p style="margin:0 0 6px">要交 ${list.length} 篇${need.length !== list.length ? `（必交 ${need.length}）` : ''}，定稿 <b>${fin.length}</b> 篇${fin.length >= need.length && need.length ? '　<span class="pill ok">必交的都定稿了</span>' : ''}。${has ? '' : '<span class="muted small">這系還沒有建指引，先當四篇都要交，以官方分則為準。</span>'}</p>
+      ${list.map((x) => row(x.L, x.d, x.req)).join('')}</div>`;
+  });
+  view(`<div class="card active"><h2>我要交的</h2><p style="margin:0">照你的志願，一系一張：每一系要交哪幾篇、哪幾篇定稿了。N、O 每一系用同一份；P、Q 每系各寫一篇。定稿的可以直接「複製全文」。</p>
+    <p class="muted small" style="margin:6px 0 0">${esc(COPY_NOTE)} 排版（PPT、Canva）之後才做。</p></div>
+    <div id="deliver-checklist" class="hidden"></div>
+    ${cards.join('') || '<div class="card muted">還沒有存志願。先到「落點分析」挑系、存成志願。</div>'}`);
+  // ↑ deliver-checklist：留給商業版本設計稿 T2（nopq_biz_versions_design_v0.1.md 16.1 第 8 條）的「定稿前檢查清單」；等楊老師確認原句才填，現在不顯示
+}
+ACT.dlvCopy = async (el) => {
+  el.disabled = true;
+  try {
+    const d = await call('get_doc_state', { p_case_doc_id: el.dataset.id }); if (!d.ok) return;
+    const t = fullTextOf(d, d.draft && d.draft.currentVersion);
+    toast(!t ? '這一篇沒有讀到內容。' : (await copyText(t)) ? '全文複製好了，可以貼到你的排版檔。' : '這個瀏覽器不讓我複製，請點「看」打開那一篇再複製。', !t);
+  } finally { el.disabled = false; }
+};
 window.addEventListener('beforeunload', (e) => { if (S.ui && S.ui.dirty) { e.preventDefault(); e.returnValue = ''; } });
 sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.home) showLogin('已登出。'); });

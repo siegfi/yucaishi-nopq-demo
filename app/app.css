@@ -123,3 +123,39 @@
 .overall { margin:4px 0 6px; padding-left:20px; font-size:14px; } .overall li { margin:2px 0; }
 .aibox { background:var(--soft); border-radius:6px; padding:8px 12px; } .aibox .small { margin:4px 0; }
 .tablewrap { overflow-x:auto; } table.cmp { border-collapse:collapse; width:100%; font-size:13px; } table.cmp th, table.cmp td { border:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:top; }
+/* 2026-11-12 工單 M1 已選志願列（設計稿 nopq_biz_versions_design_v0.1.md §9.2；owner 11:28「已經選取的科系視窗應該要浮在最上層」）。
+   手機：一行收合列貼在底部分頁列正上方（分頁列實測高 45px），點開是從底部升起的面板。誰蓋誰：蓋版視窗 60＞提示訊息 50＞面板 45＞半透明底 44＞收合列 12＞分頁列 10＞頁面 */
+.selline { position:fixed; left:0; right:0; bottom:calc(46px + env(safe-area-inset-bottom)); z-index:12; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-height:48px; max-height:56px; padding:4px 14px; background:#fff; border:0; border-top:2px solid var(--main); box-shadow:0 -2px 10px rgba(0,0,0,.12); font:inherit; color:var(--text); }
+button.selline { width:100%; cursor:pointer; text-align:left; }
+.selline.lv .btn { min-height:40px; }
+.selline.bump { animation:selbump .6s ease-out; } @keyframes selbump { 0% { background:var(--yellow); } 100% { background:#fff; } }
+.seldots { display:inline-flex; gap:5px; margin-left:10px; vertical-align:middle; }
+.seldots i { display:inline-block; width:12px; height:12px; border-radius:50%; border:2px solid var(--line); background:#fff; }
+.seldots i.on { border-color:var(--muted); background:var(--muted); } .seldots i.on.safe { border-color:var(--ok); background:var(--ok); }
+.seldots i.on.reach { border-color:var(--warn); background:var(--warn); } .seldots i.on.dream { border-color:var(--dream); background:var(--dream); }
+.selback { position:fixed; inset:0; background:rgba(20,28,40,.45); z-index:44; }
+.selsheet { position:fixed; left:0; right:0; bottom:0; max-height:70vh; z-index:45; display:flex; flex-direction:column; background:#fff; border-radius:12px 12px 0 0;
+  box-shadow:0 -4px 18px rgba(0,0,0,.22); padding-bottom:env(safe-area-inset-bottom); }
+.selsheet .shead { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line); }
+.selsheet .shead .btn { min-height:44px; }
+.selsheet .sbody { flex:1; overflow:auto; overscroll-behavior:contain; padding:6px 14px 10px; }
+.selsheet .sfoot { display:flex; gap:8px; padding:8px 14px; border-top:1px solid var(--line); }
+.selsheet .sfoot .btn { flex:1; min-height:44px; }
+.slot { border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; background:#fff; }
+.slot.empty { border-style:dashed; color:var(--muted); text-align:center; font-size:14px; }
+.slot details { margin-top:4px; } .slot summary { cursor:pointer; color:var(--sub); }
+.slot .sbtns { display:flex; gap:6px; margin-top:6px; } .slot .sbtns .btn { flex:1; min-height:44px; padding:6px 8px; }
+.selundo { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 14px 6px; padding:8px 12px; border-radius:6px; background:var(--text); color:#fff; font-size:14px; }
+.selundo .linkbtn { color:#fff; font-weight:700; min-height:32px; }
+.selpanel .selundo { margin:6px 0; }
+.drow.full input[type=checkbox] { opacity:.35; }
+.drow.full .dmain::after { content:"已滿 6 個"; display:block; font-size:12px; color:var(--muted); }
+body.has-selbar { padding-bottom:calc(46px + 56px + 32px + env(safe-area-inset-bottom)); }
+body.has-selbar .toast { bottom:calc(46px + 56px + 10px + env(safe-area-inset-bottom)); }
+body.sel-open { overflow:hidden; } html:has(body.sel-open) { overflow:hidden; }
+@media (max-width:899px) { .selwrap { position:static; z-index:auto; } }   /* 手機上收合列與面板自己 fixed；外層 sticky 會自成一層、把面板壓到分頁列底下（實測按鈕點不到） */
+@media (min-width:900px) {
+  body.has-selbar { padding-bottom:24px; } body.has-selbar .toast { bottom:24px; }
+  .selpanel .slot .sbtns { max-width:360px; }
+}

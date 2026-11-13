@@ -6,12 +6,12 @@ async function viewScoreHistory() {
   if (!(await ensureAck()) || my !== S.rt) return;
   const r = await call('list_luodian_versions'); if (!r.ok || my !== S.rt) return;
   const items = r.items || [], keep = S.lv || {};
-  if (typeof CAAC_DEPTS !== 'undefined') ldIndex();
+  if (typeof CAAC_DEPTS !== 'undefined') { ldIndex(); normVersions(items); }   // 2026-11-12：115 存的舊版本換成 116 代碼再顯示
   S.lv = { items, limit: r.limit || 30, sel: (keep.sel || []).filter((id) => items.some((v) => v.id === id)), cmp: null, edit: null };
   lvRender();
 }
 const lvById = (id) => S.lv.items.find((v) => v.id === id);
-const deptName = (code) => { const d = LD.byCode && LD.byCode.get(String(code)); return d ? d.school + ' ' + d.dept : '系代碼 ' + code; };
+const deptName = (code) => { const s = String(code), m = /^(\d{3}):(\d{6})$/.exec(s); if (m) return `${m[1]} 學年的系 ${m[2]}（116 沒有同名系組）`; const d = LD.byCode && LD.byCode.get(s); return d ? d.school + ' ' + d.dept : '系代碼 ' + s; };
 function lvPicks(v) { return (v.picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => `${p.rank}. ${deptName(p.deptCode)}${p.code ? '（' + LPN[p.code] + '）' : ''}`).join('、'); }
 function lvMixLine(v) {
   const m = (v.rules && v.rules.mix) || {}, gp = (v.rules && v.rules.groupsPicked) || 0;
@@ -31,9 +31,11 @@ function lvCard(v) {
       : `<div class="row" style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="lvLoad" data-id="${id}">載回新作</button><button type="button" class="btn sm ghost" data-act="lvEdit" data-id="${id}">改名／備註</button><button type="button" class="btn sm" data-act="lvWish" data-id="${id}">用這版存成志願</button><button type="button" class="btn sm warn" data-act="lvDel" data-id="${id}" ${ev ? 'disabled' : ''}>刪除</button></div>
       ${ev ? '<div class="muted small">這版存過志願，會留著，不能刪。</div>' : ''}`}</div>`;
 }
+// 2026-11-12 工單 M1（設計稿 §9.2「跟歷史頁那條不打架」）：手機上改用新作頁同一款的一行列（只有列、沒有面板），高度位置一樣；寬螢幕維持原本那一條
 function lvBar() {
   const n = S.lv.sel.length;
   if (!n) return '';
+  if (selMobile()) return `<div class="selline lv"><span class="small"><b>已勾 ${n} 版</b>${n > 3 ? '（評估最多 3 版）' : ''}</span><span class="row"><button type="button" class="btn sm ghost" data-act="lvCmp" ${n === 2 ? '' : 'disabled'}>比較這兩版</button><button type="button" class="btn sm" data-act="lvAssess" ${n >= 1 && n <= 3 ? '' : 'disabled'}>去評估</button></span></div>`;
   return `<div class="selbar"><div class="row spread"><span class="small">已勾 ${n} 版${n > 3 ? '（評估最多 3 版）' : ''}</span><span class="row">
     <button type="button" class="btn ghost" data-act="lvCmp" ${n === 2 ? '' : 'disabled'}>比較這兩版</button><button type="button" class="btn" data-act="lvAssess" ${n >= 1 && n <= 3 ? '' : 'disabled'}>去評估</button></span></div>
     <div class="muted small">勾 2 版可以比較；勾 1～3 版可以去評估。</div></div>`;
@@ -45,15 +47,17 @@ function lvRender() {
   view(`${subTabsHtml('history')}${tip}
     <div class="card"><h2>我存的版本</h2><p class="muted small" style="margin:0 0 6px">最多留 ${L.limit} 版；滿了以後，最舊、沒存過志願的那一版會移到下面「更早的版本」，不會不見。</p>
       ${act.map(lvCard).join('') || '<p class="muted">目前的版本都在「更早的版本」裡。</p>'}</div>
-    <div id="lv-bar" class="selwrap">${lvBar()}</div>
+    <div id="lv-bar" class="selwrap">${lvBar()}</div>${lvFlag()}
     ${L.cmp ? lvCompareHtml() : ''}
     ${old.length ? `<details class="card" id="lv-old"><summary>更早的版本（${old.length}）</summary>${old.map(lvCard).join('')}</details>` : ''}`);
 }
 IN.lvPick = (el) => {
   const L = S.lv, id = el.dataset.id, at = L.sel.indexOf(id);
   if (el.checked && at < 0) L.sel.push(id); else if (!el.checked && at >= 0) L.sel.splice(at, 1);
-  const bar = $('lv-bar'); if (bar) bar.innerHTML = lvBar();
+  const bar = $('lv-bar'); if (bar) bar.innerHTML = lvBar(); lvFlag();
 };
+// 手機上有列時，頁面底部多留一條、提示訊息移到列上方（同新作頁 selBodyFlags）
+function lvFlag() { selBodyFlags(!!(S.lv && S.lv.sel.length && selMobile()), false); return ''; }
 // 比較兩版（AP.compareVersions）：成績逐科差、篩選差、只有 A 有／只有 B 有／都有但落點變了、2／2／2、學群數
 function lvCompareHtml() {
   const a = lvById(S.lv.cmp.a), b = lvById(S.lv.cmp.b); if (!a || !b) return '';

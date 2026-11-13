@@ -66,6 +66,7 @@ var NORANGE = {
   dataFlag: { head: '資料待校', line: '這系去年的通過分數還在核對，先不給範圍。' },
   changed: { head: '今年標準有變', line: '這系今年的第一階段標準跟去年不一樣，拿去年的分數比不準，先不給範圍。' },
   missing: { head: '沒考這個系要看的科目', line: '' },
+  otherExam: { head: '要看 APCS 或術科', line: '這系第一階段要看 APCS 或術科成績，學測級分算不出來，不給範圍。' },
   mathRule: { head: '資格規則待確認', line: '這系檢定同時列數A、數B，你只過了其中一科；要兩科都過還是擇一，要等老師對過簡章才知道。' },
   fail: { head: '檢定或英聽未達', line: '這版成績沒過這系 115 年第一階段的檢定標準，要先補到檢定才有機會。' }
 };
@@ -149,7 +150,15 @@ function deptCard(d, pred, cls, hist, has116, y116, s1) {
     range: range ? range.label : null, basisYear: range ? pred.basisYear : null, margin: range ? pred.margin : null, byTotal: !!(range && range.byTotal),
     fallback: range ? null : (cls && LP[cls.code] ? LP[cls.code] : null), status: st,
     noRange: range ? null : (NORANGE[st] ? NORANGE[st].head : null) };
+  // 2026-11-12：引擎 assessDept 的 checkEdge＝級分剛好等於檢定那一標的科目（116 五標公布前用 115 五標估，五標一動就可能過不了）
+  var ce = s1 && typeof s1 === 'object' && Array.isArray(s1.checkEdge) ? s1.checkEdge.map(function (k) { return SUBJ[k] || k; }) : [];
+  // 2026-11-12 owner「評估卡加上英聽門檻提醒」：這系有英聽門檻就寫出來；學生沒填英聽時，引擎不檢查英聽（學生頁英聽選單寫明未填就忽略），要特別點出來。
+  // s1.listen＝這版填的英聽級（'' 或 null＝沒填）；舊呼叫（s1 是 true／false）不知道學生填了什麼，只寫門檻。
+  var lt = d && d.listen ? String(d.listen) : '', known = !!(s1 && typeof s1 === 'object' && 'listen' in s1), sl = known && s1.listen ? String(s1.listen) : '';
+  c.listenNeed = lt || null; c.listenChecked = lt ? (known ? !!sl : null) : null;
   c.lines = {
+    listen: lt ? '這系要英聽 ' + lt + ' 級' + (sl ? '（你填的是 ' + sl + ' 級）。' : known ? '。你還沒填英聽，這系的英聽門檻沒有檢查。' : '。') : '',
+    checkEdge: ce.length ? '檢定壓線：' + ce.join('、') + ' 剛好等於這系的檢定標準；116 五標公布後標準的級分可能變，要再看一次。' : '',
     tier: st === 'missing' ? '這版成績沒有這系要看的' + (miss || '科目') + '，第一階段過不了。' : (st === 'fail' ? NORANGE.fail.line : tierLine(tier, pred, range, st)),
     edge: c.edge ? EDGE_LINE : '',
     equiv: range ? equivLine(pred) : '',

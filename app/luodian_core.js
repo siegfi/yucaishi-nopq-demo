@@ -1,6 +1,6 @@
-/* 來源 luodian-analysis/xuece.html 第 339–642 行，2026-11-12 複製；落點通改版要同步。
+/* 來源 luodian-analysis/xuece.html 第 340–652 行，2026-11-12 複製；落點通改版要同步。
  * 這是原文複製（只加這個檔頭），不要在這裡改引擎；要改請改 xuece.html，再重新複製這一段。
- * 載入順序：wubiao_multi_year.js、caac_history.js、caac_115_full.js 載入之後才能載入本檔。 */
+ * 載入順序：wubiao_multi_year.js、歷年門檻檔（caac_history_116.js）、校系檔（caac_116_full.js）載入之後才能載入本檔；歷年檔的鍵要跟校系檔同一年的代碼。 */
 function buildWubiao115() {
   var map = { chi:'chi', eng:'eng', math_a:'math_a', math_b:'math_b', soc:'soc', sci:'nat' };
   var wb = {};
@@ -22,7 +22,7 @@ var ALL_SUBJ    = ['chi','eng','math_a','math_b','soc','sci'];
 var COL_SUBJ    = ['chi','eng','math_a','math_b','soc','sci'];
 var REGION_ORDER= ['北','中','南','東','離島'];
 var REGION_NAME = { '北':'北部','中':'中部','南':'南部','東':'東部','離島':'離島' };
-var LD1_YEAR = 115; // 116 資料上線時改 116
+var LD1_YEAR = 116; // 志願代碼年度＝校系資料年度（2026-11-12 起 116；落點通與 NOPQ通 同一天換）
 var LD1_CHANNEL = 'U';
 /* 落點基準（2026-11-12 依 luodian-analysis/OUTPUTS/07_落點引擎改法設計_v0.2.md 改）
    BASIS_YEAR：拿哪一年的第一階段實際通過分數來比；只用這一年，不往回找（這一年沒有通過分數的系不拿更早的年份頂）。
@@ -32,9 +32,9 @@ var INPUT_YEAR = '115';
 /* 五級落點（07 v0.2 §三③ 刻度 A）：依「比基準年通過分數差幾級分」切；0 級收到「不建議填」區 */
 var GRADE_NAME = ['差太遠', '夢', '衝', '壓線', '偏穩', '穩'];
 /* 每系只給一個狀態（07 v0.2 §八 05），優先序照陣列順序 */
-var STATUS_ORDER = ['fail', 'missing', 'mathRule', 'dataFlag', 'changed', 'nodata', 'checkOnly', 'ok'];
-var STATUS_TEXT = { fail:'檢定或英聽未達', missing:'沒考這個系要看的科目', mathRule:'資格規則待確認', dataFlag:'資料待校',
-                    changed:'今年標準有變', nodata:'沒有去年資料', checkOnly:'過檢定就進二階', ok:'' };
+var STATUS_ORDER = ['fail', 'missing', 'otherExam', 'mathRule', 'dataFlag', 'changed', 'nodata', 'checkOnly', 'ok'];
+var STATUS_TEXT = { fail:'檢定或英聽未達', missing:'沒考這個系要看的科目', otherExam:'要看 APCS 或術科成績', mathRule:'資格規則待確認',
+                    dataFlag:'資料待校', changed:'今年標準有變', nodata:'沒有去年資料', checkOnly:'過檢定就進二階', ok:'' };
 /* 檢定同時列數A、數B 的系：兩科都要（'both'）或擇一（'either'）。等對過簡章再逐系填；沒填的＝待確認（unknown） */
 var MATH_RULE = {};
 /* 基準年通過分數待對原圖的系（07 v0.2 §三① 第 3 項）：對完之前標「資料待校」，不給落點 */
@@ -77,9 +77,10 @@ function mathRuleOf(dept) {
 }
 /* 第一階段資格（2026-11-12 改，07 v0.2 §三⑥、§八 03）
    status：'fail' 檢定或英聽未達｜'missing' 沒考要看的科目｜'mathRule' 數A／數B 規則待確認｜'ok'
-   failed：未達的科目（英聽記 'listen'）；missing：沒考的科目。 */
+   failed：未達的科目（英聽記 'listen'）；missing：沒考的科目；
+   checkEdge：級分剛好等於檢定那一標的科目（檢定用 115 五標暫估，116 五標公布前提醒「檢定壓線」，07 v0.2 §三⑦5） */
 function stage1Check(scores, listenGrade, dept) {
-  var thresh = dept.thresholds || {}, failed = [], missing = [], ambiguous = false;
+  var thresh = dept.thresholds || {}, failed = [], missing = [], checkEdge = [], ambiguous = false;
   var rule = mathRuleOf(dept), pairLoose = (rule === 'either' || rule === 'unknown');
   var met = function(k){ return scores[k] !== undefined && getStudentLevel(k, scores[k]) >= LEVEL_IDX[thresh[k]]; };
   for (var key in thresh) {
@@ -107,17 +108,23 @@ function stage1Check(scores, listenGrade, dept) {
     if (pairLoose && (k === 'math_a' || k === 'math_b')) continue;
     if (scores[k] === undefined && missing.indexOf(k) < 0) missing.push(k);
   }
+  for (var ek in thresh) {
+    if (!thresh.hasOwnProperty(ek) || !WUBIAO[ek] || scores[ek] === undefined) continue;
+    if (scores[ek] === WUBIAO[ek][thresh[ek]]) checkEdge.push(ek);
+  }
   var status = failed.length ? 'fail' : (missing.length ? 'missing' : (ambiguous ? 'mathRule' : 'ok'));
-  return { status: status, failed: failed, missing: missing };
+  return { status: status, failed: failed, missing: missing, checkEdge: checkEdge };
 }
-/* 舊介面（NOPQ通也在用）：true＝檢定、英聽都過，要看的科目都有考，數A／數B 規則沒有疑義 */
+/* 舊介面（NOPQ通也在用）：true＝檢定、英聽都過，要看的科目都有考，數A／數B 規則沒有疑義，也不看 APCS 或術科 */
 function passesStage1(scores, listenGrade, dept) {
-  return stage1Check(scores, listenGrade, dept).status === 'ok';
+  return stage1Check(scores, listenGrade, dept).status === 'ok' && !dept.otherExam;
 }
 
-/* 一階只看檢定、不篩人的系（沒有篩選倍率、也沒有相加項） */
+/* 一階只看檢定、不篩人的系：沒有篩選倍率、也沒有相加項。
+   116 資料（有 match115 欄）另要求配得到 115 的系（07 v0.2 §八 10）；115 也有篩選的系已先歸「今年標準有變」。 */
 function isCheckOnly(dept) {
-  return !dept.minMult && !dept.combined && !Object.keys(dept.mults || {}).length;
+  if (dept.minMult || dept.combined || Object.keys(dept.mults || {}).length) return false;
+  return !('match115' in dept) || !!dept.match115;
 }
 /* 沒有基準年通過分數的系不估落點（2026-11-12 依 07 v0.2 §三④ 改）。
    舊判法（比檢定高幾級＋倍率）沒有實際通過資料撐著，滿分也會判夢，已停用；函式留給舊介面，一律回 code:'na'。 */
@@ -178,7 +185,7 @@ function positionToScore(subj, pos, year){
    2026-11-12（07 v0.2 §三⑤ 第一步）：滿級分換到哪一年都是滿級分；同一年不換；結果夾在 0–15 */
 function convertScore(subj, score, fromY, toY){
   if(score >= 15) return 15;
-  if(String(fromY) === String(toY)) return score;
+  if(String(fromY) === String(toY)) return Math.max(0, score);
   var p = scoreToPosition(subj, score, fromY);
   if(p===null) return null;
   var e = positionToScore(subj, p, toY);
@@ -291,7 +298,9 @@ function gradeOf(pred){
    回傳 status（STATUS_ORDER 其中之一）、failed、missing、pred、grade、level、name。 */
 function assessDept(scores, listenGrade, dept){
   var s1 = stage1Check(scores, listenGrade, dept);
-  var out = { status:s1.status, failed:s1.failed, missing:s1.missing, pred:null, grade:null, level:null, name:null };
+  var out = { status:s1.status, failed:s1.failed, missing:s1.missing, checkEdge:s1.checkEdge, pred:null, grade:null, level:null, name:null };
+  if(s1.status === 'fail' || s1.status === 'missing') return out;
+  if(dept.otherExam){ out.status = 'otherExam'; return out; }   // 一階要看 APCS 或術科：本工具沒收這些成績，不評估
   if(s1.status !== 'ok') return out;
   if(DATA_SUSPECT[dept.id]){ out.status = 'dataFlag'; return out; }
   var pred = predictCrossYear(scores, dept);

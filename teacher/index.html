@@ -74,6 +74,7 @@
 </div>
 <div id="toast" class="toast hidden"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../app/text_diff.js"></script>
 <script>
 'use strict';
 const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL
@@ -90,11 +91,11 @@ const ERRS = {
   NOT_TEACHER: '這個帳號不是老師帳號。學生請到學生頁登入。', NOT_STUDENT: '這個帳號不是學生帳號。', NOT_STAFF: '這個帳號不是 staff。',
   CASE_NOT_FOUND: '找不到這一篇。', NOT_ASSIGNED: '這位學生不是你帶的，看不到也不能動。', CONSENT_MISSING: '這位學生的同意書還沒登錄完成。',
   AI_CONSENT_MISSING: '這位學生沒有 AI 處理同意。', STATE_INVALID: '現在這一步不能這樣做，已為你更新畫面。', STALE: '畫面已過期（學生或別處剛更新過），已為你重新載入，請再操作一次。',
-  QUOTA_EXCEEDED: '這位學生今天的系統次數用完了。', VALIDATION: '資料不完整或格式不對',
+  QUOTA_EXCEEDED: '這位學生今天的系統次數用完了。', VALIDATION: '資料不完整或格式不對', AI_OFF: '目前沒有開 AI，這一步由你接手。',
 };
-const FIELD_NAMES = { decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '能力標籤不在詞庫', text: '文字不可空白或太長', type: '作業類型', prompt: '題目（必填，最多 2000 字）', dueAt: '截止時間（必填）',
-  fromSuggestionJobId: '系統建議的編號不對', body: '回饋內容不可空白', next: '下一步沒選', fieldKey: '格子不存在', sectionKey: '格子不存在', newText: '新文字太長', reason: '改字理由（必填，最多 300 字）',
-  quote: '選取的文字不在這一格裡（請在同一格內重新框選）', issue: '意見不可空白', items: '意見清單格式不對', decision: '決定沒選', summary: '退回與重開要寫總評', term: '用語不可空白（最多 30 字）' };
+const FIELD_NAMES = { decisions: '沒有選任何重點', pointId: '找不到這個重點', termIds: '能力標籤不在詞庫', text: '文字不可空白或太長', type: '作業類型', prompt: '題目（必填，最多 2000 字）', dueAt: '截止時間（必填）',
+  fromSuggestionJobId: '系統建議的編號不對', body: '回饋內容不可空白', next: '下一步沒選', fieldKey: '欄位不存在', sectionKey: '欄位不存在', newText: '新文字太長', reason: '改字理由（必填，最多 300 字）',
+  quote: '選取的文字不在這一欄裡（請在同一欄內重新框選）', issue: '意見不可空白', items: '意見清單格式不對', decision: '決定沒選', summary: '退回與重開要寫總評', term: '用語不可空白（最多 30 字）' };
 function detailText(x) {
   if (Array.isArray(x)) { const t = x.map(detailText).filter(Boolean); return t.length > 4 ? t.slice(0, 4).join('、') + `…等共 ${t.length} 項（完整清單看下面的卡片）` : t.join('、'); }
   if (x && typeof x === 'object') return x.kind === 'no_term' ? gapText(x) : x.note || x.kind || '';
@@ -105,20 +106,44 @@ function detailText(x) {
 const errText = (d) => (ERRS[d.error] || `這一步沒有成功（${d.error}）`) + (d.error === 'VALIDATION' && d.detail != null ? '：' + detailText(d.detail) : '');
 let toastTimer = 0;
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4500); }
+// 2026-11-12 楊老師試用回饋 階段 0②（OUTPUTS/nopq_yang_feedback_revision_v0.1.md 第四節 (b) 第 9–11 項）：每次跟資料庫要資料都有等待上限；
+// 失敗時把畫面上的「載入中」換成一句話＋重新載入鈕（不再一直轉）；轉超過 6 秒加一句「還在讀」。同學生頁 core.js 的做法。
+const RPC_LIMIT = 25000;
+let RT = 0, lastFailMsg = '';   // 換頁計數：慢回應不蓋掉新頁；最近一次失敗的原因
+async function rpcLimited(fn, args) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null; let timer = 0, late = false;
+  const limit = new Promise((res) => { timer = setTimeout(() => { late = true; if (ctl) ctl.abort(); res({ data: null, error: { message: 'TIMEOUT' } }); }, RPC_LIMIT); });
+  let b = sb.rpc(fn, args || {}); if (ctl && b && typeof b.abortSignal === 'function') b = b.abortSignal(ctl.signal);
+  try { const r = await Promise.race([b, limit]); return late ? { data: null, error: { message: 'TIMEOUT' }, late: true } : r; } finally { clearTimeout(timer); }
+}
 async function call(fn, args, opts = {}) {
-  const { data, error } = await sb.rpc(fn, args || {});
+  const my = RT, { data, error, late } = await rpcLimited(fn, args);
   if (error) {
     if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin('登入已過期，請重新登入。'); throw new Error('AUTH'); }
     if (error.status === 403 || error.code === '42501') { toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
-    toast('連線失敗，請稍後再試。', true); throw new Error('NET');
+    const msg = late || error.message === 'TIMEOUT' ? '等太久沒有回應，請檢查網路再試一次。' : '連線失敗，請檢查網路再試一次。';
+    lastFailMsg = msg;
+    if (!opts.quiet) { toast(msg, true); loadFail(msg, my); }
+    throw new Error('NET');
   }
   if (data && data.ok === false) {
     if (/^NOT_/.test(data.error) && data.error !== 'NOT_ASSIGNED') { await toLogin(ERRS[data.error] || '這個帳號不能使用此頁。'); throw new Error(data.error); }
-    if (!opts.quiet) toast(errText(data), true);
+    if (!opts.quiet) { toast(errText(data), true); loadFail(errText(data), my); }
     if ((data.error === 'STALE' || data.error === 'STATE_INVALID') && S.docId && !opts.noRefresh) refreshDoc();
   }
   return data || { ok: false, error: 'EMPTY' };
 }
+const failCard = (msg) => `<div class="card"><h2>這一頁沒有載入</h2><p class="muted">${esc(msg)}</p><button type="button" class="btn" data-act="reloadView">重新載入</button></div>`;
+function loadFail(msg, my) { setTimeout(() => { if (my !== RT) return; document.querySelectorAll('#view [data-loading]').forEach((el) => { el.outerHTML = failCard(msg); }); }, 0); }
+const ldSeen = new WeakMap();
+setInterval(() => {
+  document.querySelectorAll('#view [data-loading]').forEach((el) => {
+    if (!ldSeen.has(el)) ldSeen.set(el, Date.now());
+    const age = Date.now() - ldSeen.get(el), slow = el.querySelector('.ld-slow');
+    if (age > 6000 && slow) slow.classList.remove('hidden');
+    if (age > RPC_LIMIT + 10000) el.outerHTML = failCard('等太久沒有回應，請檢查網路再按「重新載入」。');
+  });
+}, 1000);
 document.addEventListener('click', async (ev) => {
   const el = ev.target.closest('[data-act]'); if (!el || el.disabled || !ACT[el.dataset.act]) return;
   try { await ACT[el.dataset.act](el, ev); } catch (e) { if (!KNOWN.has(e.message) && !/^NOT_/.test(e.message)) { toast('發生預期外的問題，請重新整理再試。', true); console.warn('act', el.dataset.act, e.message); } }
@@ -139,28 +164,41 @@ $('login-form').addEventListener('submit', async (ev) => {
   await enter();
 });
 ACT.logout = async () => { await toLogin(''); };
+// 開機：連不上時開機畫面不再一直轉，改成一句話＋「再試一次」（2026-11-12）
+const BOOT_HTML = $('boot').innerHTML;
+function bootFail() {
+  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">可能是網路斷了，或系統暫時休息中。請檢查網路，再按「再試一次」。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
+}
+ACT.bootRetry = () => { $('boot').innerHTML = BOOT_HTML; enter(); };
 async function enter() {
   show('login', false); show('boot', true);
-  try { const h = await call('teacher_home'); if (!h.ok) return; S.home = h; } catch (e) { return; }
+  try { const h = await call('teacher_home'); if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h; }
+  catch (e) { if (!(e && (e.message === 'AUTH' || /^NOT_/.test(e.message)))) bootFail(); return; }
   show('boot', false); show('app', true); route();
 }
 window.addEventListener('hashchange', () => { if (S.home) route(); });
 function route() {
-  window.scrollTo(0, 0); const h = location.hash || '#/'; const m = h.match(/^#\/doc\/([\w-]+)$/);
+  RT++; lastFailMsg = ''; window.scrollTo(0, 0); const h = location.hash || '#/'; const m = h.match(/^#\/doc\/([\w-]+)$/);
   document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === (m ? '#/students' : h)));
-  if (m) return viewDoc(m[1]);
+  const go = (f) => Promise.resolve().then(f).catch((e) => {   // 每一頁載入時出預期外的錯，也換成重試卡，不停在「載入中」
+    if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return;
+    view(failCard(lastFailMsg || '請檢查網路，再按「重新載入」。'));
+    console.warn('view', e && e.message);
+  });
+  if (m) return go(() => viewDoc(m[1]));
   S.docId = null; S.doc = null;
-  if (h === '#/students') return viewStudents(); if (h === '#/materials') return viewMaterials(); if (h === '#/lessons') return viewLessons(); if (h === '#/terms') return viewTerms();
-  return viewHome();
+  if (h === '#/students') return go(viewStudents); if (h === '#/materials') return go(viewMaterials); if (h === '#/lessons') return go(viewLessons); if (h === '#/terms') return go(viewTerms);
+  return go(viewHome);
 }
+ACT.reloadView = () => route();
 const view = (html) => { $('view').innerHTML = html; };
-const loading = '<div class="center muted"><span class="spin"></span>載入中…</div>';
+const loading = '<div class="center muted" data-loading="1"><span class="spin"></span>載入中…<div class="ld-slow small hidden" style="margin-top:6px">還在讀，沒有壞掉；第一次打開會比較久。</div></div>';
 const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' }, TRACK = { bigClass: '大班', oneOnOne: '1 對 1' };
 const AGE = { adult: '成年', minor: '未成年', unknown: '年齡未確認' };
 const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 // ── 今天要做 ──
-const TILES = [['pendingPoints', '待審要點', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '待出作業', ['assignment_pending']],
-  ['pendingFeedback', '待回饋', ['feedback_pending']], ['pendingReviews', '待批改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '待准寫初稿', ['feedback_published']]];
+const TILES = [['pendingPoints', '待看重點', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '待出作業', ['assignment_pending']],
+  ['pendingFeedback', '待回饋', ['feedback_pending']], ['pendingReviews', '待批改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '待決定開始寫', ['feedback_published']]];
 async function viewHome() {
   view(loading); const h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
   view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}</div>
@@ -220,7 +258,7 @@ function stuDocsHtml(s, states, live) {
   return no.concat(busy).map((d) => stuDocRow(d, states, live)).join('') + (rest > 0 ? `<div class="muted small" style="padding:3px 0">另有 P、Q ${rest} 篇學生還在寫（還沒交來）</div>` : '');
 }
 // ── 素材待回（W5）：學生把課程學習成果、多元表現交來看；老師回一段意見，或請學生補一下 ──
-const KIND_NAME = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現', statement: '學習歷程自述' }, MAT_STATUS = { pending: '待回', replied: '已回', needMore: '請學生補' };
+const KIND_NAME = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現', statement: '學習歷程自述' }, MAT_STATUS = { pending: '待回', replied: '已回', needMore: '請學生補', withdrawn: '學生收回' };   // withdrawn：28m 學生在老師回之前收回
 async function viewMaterials() {
   view(loading); S.matFilter = S.matFilter || 'pending'; S.matNote = S.matNote || {}; S.matMore = S.matMore || {};
   const r = await call('teacher_material_reviews', { p_status: S.matFilter }); if (!r.ok) return;
@@ -242,7 +280,7 @@ ACT.matReply = async (el) => {
   el.disabled = true; const r = await call('teacher_reply_material', { p_review_id: id, p_note: note, p_need_more: !!S.matMore[id] });
   if (!r.ok) { el.disabled = false; return; } delete S.matNote[id]; delete S.matMore[id]; toast(r.status === 'needMore' ? '已請學生補一下。' : '已回覆學生。'); viewMaterials();
 };
-// ── 格子規格展開（同資料庫 nopq_grid_fields／nopq_seg_count 的規則）與詞庫名稱 ──
+// ── 欄位規格展開（同資料庫 nopq_grid_fields／nopq_seg_count 的規則）與詞庫名稱 ──
 function expandCells(spec, segs) {
   const out = [], four = (segs || 0) >= 4;
   ((spec && spec.sections) || []).forEach((s) => {
@@ -264,7 +302,7 @@ const ORIGIN_NAME = { cluster: '學群通用', guide: '校系指引', teacher: '
 const termName = (id) => { const t = (S.dTerms || []).find((x) => x.id === id); return t ? t.term : '（未知用語）'; };
 const termOptions = () => S.dTerms || [];
 const termIdsUsed = () => (((S.doc && S.doc.cycle) || {}).pointCard ? S.doc.cycle.pointCard.points || [] : []).reduce((a, p) => a.concat(p.termIds || [], p.termCandidates || []), []);
-const termsStale = () => termIdsUsed().some((id) => !termOptions().some((t) => t.id === id) && !(S.termsMiss || {})[id]);   // 要點用到清單裡沒有的詞 → 重讀一次；讀完還沒有就不再重讀
+const termsStale = () => termIdsUsed().some((id) => !termOptions().some((t) => t.id === id) && !(S.termsMiss || {})[id]);   // 重點用到清單裡沒有的詞 → 重讀一次；讀完還沒有就不再重讀
 async function loadTerms() {
   const id = S.docId, r = await call('list_terms', { p_case_doc_id: id }, { quiet: true, noRefresh: true }); if (!r.ok || id !== S.docId) return;
   S.dTerms = r.terms || []; S.termsMiss = {}; termIdsUsed().forEach((x) => { if (!S.dTerms.some((t) => t.id === x)) S.termsMiss[x] = 1; });
@@ -275,10 +313,11 @@ const cellKeyOf = (e) => (e.sectionKey === '_free' ? '_free' : !e.fieldKey || e.
 const FREE_CELL = { section: '_free', secLabel: '整段稿', key: '_free', child: '_free', label: '整段稿（學生上傳或整段寫的）', limit: 5000, req: false, kind: 'text' };
 const hasFree = () => { const v = S.doc && S.doc.draft && S.doc.draft.currentVersion; const t = (v && v.textBySection) || {}; return typeof t._free === 'string' && t._free.trim() !== ''; };
 // ── 一篇的載入 ──
+const JOB_NAME = { interview: '追問', ability: '挑能力標籤', assignment_suggest: '出題建議', grid_check: '送出前檢查', material_parse: '整理素材' };
 const STATES = ['warmup', 'interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published', 'draft_open', 'self_check_pending', 'review_pending', 'finalized'];
-const NEXT_HINT = { warmup: '學生還沒開始這一篇。', interviewing: '學生在回答問題。你可以審要點、對某個要點追問。', assignment_pending: '輪到你出作業。可以參考系統建議。', submission_pending: '作業已出，等學生繳交。',
-  feedback_pending: '學生交了作業，輪到你回饋，並決定再問一輪或准寫初稿。', feedback_published: '回饋已發。輪到你決定准寫初稿（條件滿足才能開）。', draft_open: '學生在寫初稿。你可以直接改字，也可以等學生送批改。',
-  self_check_pending: '學生的稿件在自檢中。', review_pending: '學生送批改了：可以直接改字、寫逐句意見，最後退回／重開問答／定稿。', finalized: '這一篇已定稿。' };
+const NEXT_HINT = { warmup: '學生還沒開始這一篇。', interviewing: '學生在回答問題。你可以看重點、對某個重點追問。', assignment_pending: '輪到你出作業（有系統建議會列在下面）。', submission_pending: '作業已出，等學生繳交。',
+  feedback_pending: '學生交了作業，輪到你回饋，並決定再問一輪，或讓學生開始寫。', feedback_published: '回饋已發。輪到你決定是不是「可以開始寫了」（條件滿足才能按）。', draft_open: '學生在寫稿。你可以直接改字，也可以等學生交來批改。',
+  self_check_pending: '學生的稿正在做送出前檢查。', review_pending: '學生把稿交來了：可以直接改字、寫逐句意見，最後退回／重開問答／定稿。', finalized: '這一篇已定稿。' };
 async function viewDoc(id) {
   S.docId = id; S.ui = { pr: {}, tool: 'edit' }; S.sel = null; S.localEdits = {}; S.dTerms = []; S.termsMiss = {}; view(loading);
   const d = await call('teacher_doc', { p_case_doc_id: id }, { noRefresh: true }); if (!d.ok) { location.hash = '#/students'; return; }
@@ -300,9 +339,9 @@ function headCard() {
   return `<div class="card active"><a href="#/students" class="small" style="text-decoration:none">← 我的學生</a>
     <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(TYPE_NAME[d.nopqType] || d.nopqType)}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
-      ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : '學生沒有 AI（你要自己出題）'}</span></div>
-    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇的任務，等一下按「重新整理」。</div>' : ''}
-    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? `<div class="issue">最近一次系統任務沒有成功（${esc(lj.purpose)}）：學生的內容都在，可由你接手。</div>` : ''}
+      ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? 'AI 沒有開（你要自己出題、自己選能力標籤）' : '學生沒有 AI 同意（你要自己出題）'}</span></div>
+    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇（通常一分鐘內會好），等一下按「重新整理」。</div>' : ''}
+    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你接手（目前沒有開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）沒有成功：學生的內容都在，可由你接手。</div>`) : ''}
     <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="reload">重新整理</button></div></div>`;
 }
 ACT.reload = async () => { await refreshDoc(); toast('已更新'); };
@@ -312,7 +351,7 @@ function dialogueCard() {
   return `<details class="card" ${live ? 'open' : ''}><summary>問答紀錄（第 ${c.round} 輪，${turns.length} 題）</summary><div class="chat">${turns.map((t) => `<div class="bub q"><span class="who">${esc(who[t.role] || '系統問')}｜${esc(cellLabel(t.sectionKey, t.fieldKey))}</span>${esc(t.question)}</div>
     ${t.answered ? `<div class="bub a"><span class="who">學生回答</span>${esc(t.answer || '（略過）')}</div>` : '<div class="muted small">（還沒回答）</div>'}`).join('') || '<div class="muted">沒有題目。</div>'}</div></details>`;
 }
-// ── 要點審閱 ──
+// ── 重點審閱 ──
 const prOf = (p) => (S.ui.pr[p.id] = S.ui.pr[p.id] || { action: '' });
 const ptTerms = (p) => { const x = prOf(p); return x.termIds || (p.termIds && p.termIds.length ? p.termIds : p.termCandidates || []); };
 function pointsCard() {
@@ -329,7 +368,7 @@ function pointsCard() {
       ${x.action === 'adopt' ? `<textarea data-in="prText" data-id="${esc(p.id)}" maxlength="500" style="margin-top:6px">${esc(x.text != null ? x.text : p.text)}</textarea><div>${termOptions().map((o) => `<button type="button" class="pill ${sel.includes(o.id) ? 'on' : ''}" data-act="prTerm" data-id="${esc(p.id)}" data-term="${esc(o.id)}" title="${esc(ORIGIN_NAME[o.origin] || '')}">${esc(o.term)}</button>`).join('')}</div>` : ''}
       ${x.action === 'ask' ? `<input type="text" data-in="prAsk" data-id="${esc(p.id)}" maxlength="500" placeholder="你要追問學生什麼？" value="${esc(x.ask || '')}" style="margin-top:6px">` : ''}</div>`;
   }).join('');
-  return `<details class="card ${open ? 'active' : ''}" ${open ? 'open' : ''}><summary>要點審閱（${pts.length}）</summary>${html}<div class="row" style="margin-top:8px"><button class="btn" data-act="prSubmit" ${n ? '' : 'disabled'}>送出審閱（${n} 項）</button></div></details>`;
+  return `<details class="card ${open ? 'active' : ''}" ${open ? 'open' : ''}><summary>重點審閱（${pts.length}）</summary>${html}<div class="row" style="margin-top:8px"><button class="btn" data-act="prSubmit" ${n ? '' : 'disabled'}>送出審閱（${n} 項）</button></div></details>`;
 }
 IN.prAct = (el) => { prOfId(el.dataset.id).action = el.value; renderDoc(); };
 IN.prText = (el) => { prOfId(el.dataset.id).text = el.value; }; IN.prAsk = (el) => { prOfId(el.dataset.id).ask = el.value; };
@@ -349,7 +388,7 @@ ACT.prSubmit = async (el) => {
   S.ui.pr = {}; await refreshDoc(); toast(`已審閱：採用 ${r.adopted}、刪除 ${r.deleted}、追問 ${r.asked}`);
 };
 // ── 出作業 ──
-const ASG_TYPE = { worksheet: '學習單（針對缺口的幾題）', reply: '回覆老師針對這個人的問題', write_section: '試寫某一格' };
+const ASG_TYPE = { worksheet: '學習單（針對缺口的幾題）', reply: '回覆老師針對這個人的問題', write_section: '試寫某一欄' };
 const pad = (n) => String(n).padStart(2, '0'), localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const itemText = (x) => (typeof x === 'string' ? x : x && typeof x === 'object' ? (x.note || x.text || x.issue || x.question || '') : String(x));
 function defaultAsg() { const due = new Date(Date.now() + 7 * 86400000); due.setHours(18, 0, 0, 0); return { type: 'reply', prompt: '', pq: '', due: localInput(due), from: null, sectionKey: '' }; }
@@ -364,7 +403,7 @@ function assignCard() {
     ${sg ? (r && r.prompt ? `<div class="hint"><span class="badge ai">系統建議，未經老師審閱</span><p style="margin:6px 0;white-space:pre-wrap">${esc(ASG_TYPE[r.type] || r.type)}：${esc(r.prompt)}</p>${r.why ? `<div class="muted small">原因：${esc(r.why)}</div>` : ''}<button class="btn sm" data-act="useSuggest">採用建議（帶進下面的表單，可再改）</button></div>`
       : `<div class="hint">系統建議${sg.status === 'failed' || sg.status === 'rejected' ? '沒有產生成功' : '還在產生'}，你可以自己出。</div>`) : '<div class="hint">這位學生沒有 AI 建議，請自己出題。</div>'}
     <label class="f" for="a-type">類型</label><select id="a-type" data-in="asg" data-k="type">${Object.entries(ASG_TYPE).map(([k, t]) => `<option value="${k}" ${x.type === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
-    ${x.type === 'write_section' ? `<label class="f" for="a-sec">試寫哪一格</label><select id="a-sec" data-in="asg" data-k="sectionKey"><option value="">（不指定）</option>${secs.map(([k, t]) => `<option value="${esc(k)}" ${x.sectionKey === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}
+    ${x.type === 'write_section' ? `<label class="f" for="a-sec">試寫哪一欄</label><select id="a-sec" data-in="asg" data-k="sectionKey"><option value="">（不指定）</option>${secs.map(([k, t]) => `<option value="${esc(k)}" ${x.sectionKey === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}
     <label class="f" for="a-prompt">題目（必填）</label><textarea id="a-prompt" data-in="asg" data-k="prompt" maxlength="2000">${esc(x.prompt)}</textarea>
     <label class="f" for="a-pq">針對這位學生的問題（選填，一行一題）</label><textarea id="a-pq" data-in="asg" data-k="pq" style="min-height:60px">${esc(x.pq)}</textarea>
     <label class="f" for="a-due">截止時間（必填）</label><input type="datetime-local" id="a-due" data-in="asg" data-k="due" value="${esc(x.due)}">
@@ -397,7 +436,7 @@ function feedbackCard() {
     ${a.feedback ? `<h3><span class="badge ${a.feedback.reviewedLabel === 'ai_unreviewed' ? 'ai' : ''}">${a.feedback.reviewedLabel === 'ai_unreviewed' ? '已發給學生：系統列點，未經老師審閱' : '已發給學生的回饋'}</span></h3>${fbBodyHtml(a.feedback.body || {})}` : ''}
     ${pending ? `<label class="f" for="f-text">回饋（發給學生）</label><textarea id="f-text" data-in="fb" data-k="text">${esc(x.text)}</textarea>
       <label class="f" for="f-items">重點提醒（選填，一行一點）</label><textarea id="f-items" data-in="fb" data-k="items" style="min-height:60px">${esc(x.items)}</textarea>
-      <div class="row" style="margin-top:8px">${[['none', '只發回饋'], ['reopen', '再問一輪（帶缺口）'], ['allow_draft', '直接准寫初稿']].map(([v, t]) => `<label><input type="radio" name="f-next" value="${v}" data-in="fbNext" ${x.next === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+      <div class="row" style="margin-top:8px">${[['none', '只發回饋'], ['reopen', '再問一輪（問還缺的地方）'], ['allow_draft', '直接讓學生開始寫']].map(([v, t]) => `<label><input type="radio" name="f-next" value="${v}" data-in="fbNext" ${x.next === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
       <div style="margin-top:10px"><button class="btn" data-act="sendFb">發佈回饋</button></div>` : ''}</details>`;
 }
 IN.fb = (el) => { S.ui.fb[el.dataset.k] = el.value; }; IN.fbNext = (el) => { S.ui.fb.next = el.value; };
@@ -407,22 +446,23 @@ ACT.sendFb = async (el) => {
   el.disabled = true; const r = await call('teacher_feedback', { p_submission_id: S.doc.assignment.submission.id, p_body: body, p_next: x.next }); if (!r.ok) { el.disabled = false; return; }
   await refreshDoc(); toast('回饋已發佈，目前狀態：' + S.doc.stateLabel);
 };
-// ── 准寫初稿 ──
+// ── 可以開始寫了──
 function gapText(g) {
   if (g.kind === 'no_term') { const c = S.doc && gridSpec() ? expandCells(gridSpec(), 4).find((x) => x.section === g.sectionKey) : null; return (c ? c.secLabel : g.sectionKey) + ' 還沒有能力標籤'; }
   return (g.kind === 'unclear' ? '說不清的事：' : '') + (g.note || g.kind);
 }
 function allowCard() {
   const d = S.doc; if (d.state !== 'feedback_published') return ''; const gaps = (d.cycle.pointCard.gaps || []), hard = gaps.filter((g) => g.kind !== 'unclear'), soft = gaps.filter((g) => g.kind === 'unclear');
-  return `<details class="card active" open><summary>准寫初稿</summary><p class="muted" style="margin:6px 0">條件：每個必填格至少一個已確認要點、每個要點有來源、每段至少一個能力標籤；「說不清的事」可以由你標略過。</p>
-    ${hard.length ? `<div class="muted small">還擋著的缺口（${hard.length}）</div>${hard.map((g) => `<div class="issue">${esc(gapText(g))}</div>`).join('')}` : '<div class="pill ok">硬條件都滿足</div>'}
+  return `<details class="card active" open><summary>讓學生開始寫</summary><p class="muted" style="margin:6px 0">條件：每個必填欄位至少一個學生確認過的重點、每個重點有來源、每段至少一個能力標籤；「說不清的事」可以由你標略過。</p>
+    ${hard.some((g) => g.kind === 'no_term') && !d.aiEnabled ? '<div class="hint">沒有 AI 幫忙挑能力標籤：到上面「重點審閱」，每一點選「採用」、點下面的能力標籤，再按「送出審閱」，這裡就會放行。</div>' : ''}
+    ${hard.length ? `<div class="muted small">還缺的地方（${hard.length}）</div>${hard.map((g) => `<div class="issue">${esc(gapText(g))}</div>`).join('')}` : '<div class="pill ok">條件都滿足了</div>'}
     ${soft.length ? `<div class="muted small">說不清的事（${soft.length}）</div>${soft.map((g) => `<div class="issue">${esc(g.note || g.kind)}</div>`).join('')}<label class="row"><input type="checkbox" data-in="skip" ${S.ui.skip ? 'checked' : ''}> 標略過這些「說不清的事」</label>` : ''}
-    <div style="margin-top:10px"><button class="btn" data-act="allowDraft">准寫初稿</button></div></details>`;
+    <div style="margin-top:10px"><button class="btn" data-act="allowDraft">可以開始寫了</button></div></details>`;
 }
 IN.skip = (el) => { S.ui.skip = el.checked; };
 ACT.allowDraft = async (el) => {
   el.disabled = true; const r = await call('teacher_allow_draft', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion, p_skip_gaps: S.ui.skip ? ['unclear'] : [] });
-  if (!r.ok) { el.disabled = false; return; } await refreshDoc(); toast('已准寫初稿，學生可以開始填格子。');
+  if (!r.ok) { el.disabled = false; return; } await refreshDoc(); toast('已告訴學生：可以開始寫了。');
 };
 // ── 批改頁：左原文、右工具 ──
 const AUTHOR = { student: '學生', teacher: '老師', ai: '系統' }, DECISION = { return: '退回修改', reopen: '重開問答', finalize: '定稿' };
@@ -433,7 +473,7 @@ function editFor(key, val) {
 }
 function gradeCells() {
   const spec = gridSpec(), t = S.doc.draft.currentVersion.textBySection || {}, head = hasFree() || !spec ? [FREE_CELL] : [];
-  if (!spec) return head;   // P／Q 第一版沒有格子範本：只有整段稿一格
+  if (!spec) return head;   // P／Q 第一版沒有分欄範本：只有整段稿一欄
   const segs = segCount(spec, t), seg = spec.segments;
   return head.concat(expandCells(spec, segs).filter((c) => { const m = seg && c.section.startsWith(seg.prefix) && c.section.match(/\[(\d+)\]$/); return !m || +m[1] <= segs; }));
 }
@@ -453,17 +493,17 @@ function toolsHtml(canEdit, rv) {
   let body = '';
   if (u.tool === 'edit') {
     const c = gradeCells().find((x) => x.key === u.editKey);
-    body = !canEdit ? '<div class="hint">現在不能改字（要在「初稿可寫」或「待批改」）。</div>' : c ? `<h3>改「${esc(c.label)}」</h3><textarea data-in="editText" style="min-height:${c.key === '_free' ? 300 : 110}px">${esc(u.editText)}</textarea>
+    body = !canEdit ? '<div class="hint">現在不能改字（要在「學生寫稿中」或「待批改」）。</div>' : c ? `<h3>改「${esc(c.label)}」</h3><textarea data-in="editText" style="min-height:${c.key === '_free' ? 300 : 110}px">${esc(u.editText)}</textarea>
       <div class="muted small" id="edit-cnt">已 ${nlen(u.editText)} 字${c.limit ? '／≤' + c.limit + ' 字' : ''}</div><label class="f" for="edit-reason">改字理由（必填）</label><input type="text" id="edit-reason" data-in="editReason" maxlength="300" value="${esc(u.editReason)}">
-      <div class="row" style="margin-top:8px"><button class="btn" data-act="sendEdit">送出改字</button><button class="btn ghost" data-act="cancelEdit">取消</button></div>` : '<div class="hint">點左邊的一格，就能改那一格的字。改過的格子會變黃底，學生發佈後看得到。</div>';
+      <div class="row" style="margin-top:8px"><button class="btn" data-act="sendEdit">送出改字</button><button class="btn ghost" data-act="cancelEdit">取消</button></div>` : '<div class="hint">點左邊的一欄，就能改那一欄的字。改過的欄位會變黃底，你發佈後學生看得到。</div>';
   } else if (u.tool === 'comment') {
-    body = !review ? '<div class="hint">學生送批改（待批改）後，才能寫逐句意見。</div>' : `<div class="hint" id="sel-box">${selBoxText()}</div>
+    body = !review ? '<div class="hint">學生把稿交來（待批改）後，才能寫逐句意見。</div>' : `<div class="hint" id="sel-box">${selBoxText()}</div>
       <label class="f" for="cm-issue">這句的問題（必填）</label><textarea id="cm-issue" data-in="cmIssue" maxlength="300" style="min-height:60px">${esc(u.cm.issue)}</textarea>
       <label class="f" for="cm-q">想問學生的（選填）</label><input type="text" id="cm-q" data-in="cmQ" maxlength="300" value="${esc(u.cm.question)}"><div style="margin-top:8px"><button class="btn sm" data-act="addCm">加入這則意見</button></div>
       <h3>逐句意見（${u.items.length}）</h3>${u.items.map((i, k) => `<div class="cm">${i.sectionKey ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}<q>${esc(i.quote)}</q><div>${esc(i.issue)}</div>${i.question ? `<div class="muted">問：${esc(i.question)}</div>` : ''}<button class="btn sm warn" data-act="delCm" data-i="${k}">刪</button></div>`).join('') || '<div class="muted">還沒有。</div>'}
       <button class="btn" data-act="saveCm">儲存逐句意見</button><div class="muted small">儲存會取代上一次存的整份意見；發佈前學生看不到。</div>`;
   } else {
-    body = !review ? '<div class="hint">學生送批改後才能發佈。</div>' : `<div class="muted small">學生送審：第 ${rv ? rv.round : 1} 輪</div><div class="row" style="margin:8px 0">${Object.entries(DECISION).map(([k, t]) => `<label><input type="radio" name="dec" value="${k}" data-in="decision" ${u.decision === k ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+    body = !review ? '<div class="hint">學生把稿交來後才能發佈。</div>' : `<div class="muted small">學生送審：第 ${rv ? rv.round : 1} 輪</div><div class="row" style="margin:8px 0">${Object.entries(DECISION).map(([k, t]) => `<label><input type="radio" name="dec" value="${k}" data-in="decision" ${u.decision === k ? 'checked' : ''}> ${t}</label>`).join('')}</div>
       <label class="f" for="sum">總評（退回、重開問答必填；定稿選填）</label><textarea id="sum" data-in="summary" maxlength="3000">${esc(u.summary)}</textarea><div style="margin-top:8px"><button class="btn" data-act="publish">發佈</button></div>`;
   }
   return `<div class="seg-tabs">${tab('edit', '直接改字')}${tab('comment', '逐句意見')}${tab('publish', '退回／重開／定稿')}</div>${body}`;
@@ -474,7 +514,7 @@ function gradeCard() {
   return `<div class="card ${d.state === 'review_pending' ? 'active' : ''}"><h2>批改頁｜第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}寫的）${d.state === 'finalized' ? ' <span class="pill ok">已定稿</span>' : ''}${rv && rv.decision ? ` <span class="pill main">上次：${esc(DECISION[rv.decision] || rv.decision)}</span>` : ''}</h2>
     ${rv && LOCAL_SERVER ? '<div class="row" style="margin:0 0 8px"><button class="btn sm ghost" data-act="dlReview">下載批改版 Word（含追蹤修訂與逐句意見）</button><span class="muted small">發佈前下載＝目前改到哪裡；學生要等你發佈後才下載得到。</span></div>' : ''}
     <div class="two"><div><h3 style="margin-top:0">原文</h3>${cellsHtml(S.ui.tool === 'edit' && canEdit)}</div><div>${toolsHtml(canEdit, rv)}
-      ${sc && sc.status === 'done' ? `<h3>學生自檢結果 <span class="badge ai">系統自檢，未經老師審閱</span></h3>${(sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}</div>`).join('') || '<div class="pill ok">沒有發現問題</div>'}` : ''}</div></div></div>`;
+      ${sc && sc.status === 'done' ? `<h3>送出前檢查結果 <span class="badge ai">系統檢查，未經老師審閱</span></h3>${(sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}</div>`).join('') || '<div class="pill ok">沒有發現問題</div>'}` : ''}</div></div></div>`;
 }
 ACT.tool = (el) => { S.ui.tool = el.dataset.tool; renderDoc(); };
 // W6b：批改版 Word（本機伺服器 /export/review.docx；老師改的字＝追蹤修訂、逐句意見＝Word 註解）
@@ -526,10 +566,53 @@ ACT.publish = async (el) => {
   el.disabled = true; const r = await call('teacher_publish_review', { p_review_id: rv.id, p_decision: u.decision, p_summary: u.summary.trim() || null }); if (!r.ok) { el.disabled = false; return; }
   await refreshDoc(); toast(`已發佈：${DECISION[r.decision]}，目前狀態：${S.doc.stateLabel}`);
 };
-function versionsCard() {
-  const vs = (S.doc.draft && S.doc.draft.versions) || []; if (!vs.length) return ''; const cur = S.doc.draft.currentVersion;
-  return `<details class="card"><summary>版本紀錄（${vs.length}）</summary><ul class="plain">${vs.slice().reverse().map((v) => `<li>第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '自由' : '格子'}｜${esc(when(v.createdAt))}${cur && cur.id === v.id ? ' <span class="pill ok">目前</span>' : ''}</li>`).join('')}</ul></details>`;
+// 2026-11-12 楊老師試用回饋 階段 1②（D6）：版本紀錄每一版可以點開看、挑兩版並排比（設回只有學生端；老師要改字用上面的批改頁）。
+// 讀一版全文用 get_draft_version（28m）；比對用學生頁同一支 ../app/text_diff.js。
+document.addEventListener('toggle', (ev) => { if (ev.target.id === 'ver-card' && S.ui) S.ui.verOpen = ev.target.open; }, true);
+const verUi = () => (S.ui.ver = S.ui.ver || { cache: {} });
+function verPlain(ver) {
+  const t = (ver && ver.textBySection) || {}; if (typeof t._free === 'string' && t._free.trim()) return t._free;
+  const spec = gridSpec(); if (!spec) return '';
+  return expandCells(spec, segCount(spec, t)).filter((c) => c.kind === 'text' && String(t[c.key] || '').trim()).map((c) => `【${c.child !== 'text' ? c.secLabel + '・' : ''}${c.label}】\n${t[c.key]}`).join('\n\n');
 }
+async function verGet(id) {
+  const vu = verUi(); if (vu.cache[id]) return vu.cache[id];
+  const r = await call('get_draft_version', { p_case_doc_id: S.docId, p_version_id: id }, { quiet: true }).catch(() => null);
+  if (!r || !r.ok) { toast('這一版現在還打不開（系統還沒更新到這個功能）。', true); return null; }
+  return (vu.cache[id] = r.version);
+}
+const verName = (v) => `第 ${v.versionNumber} 版（${AUTHOR[v.authorType] || v.authorType}，${when(v.createdAt)}）`;
+const segHtml = (segs) => segs.map((x) => x.t === '-' ? `<del style="background:#fde2e2;color:#9b1c1c">${esc(x.s)}</del>` : x.t === '+' ? `<ins style="background:#dcfce7;color:#14532d;text-decoration:none">${esc(x.s)}</ins>` : esc(x.s)).join('');
+function versionsCard() {
+  const vs = (S.doc.draft && S.doc.draft.versions) || []; if (!vs.length) return ''; const cur = S.doc.draft.currentVersion, vu = verUi(), newest = vs.slice().reverse();
+  const a = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), b = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
+  const opts = (sel) => newest.map((v) => `<option value="${esc(v.id)}" ${sel === v.id ? 'selected' : ''}>第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}）${cur && cur.id === v.id ? '・目前' : ''}</option>`).join('');
+  return `<details id="ver-card" class="card" ${S.ui.verOpen ? 'open' : ''}><summary>版本紀錄（${vs.length}）</summary>
+    ${newest.map((v) => `<div class="row spread" style="padding:3px 0"><span>第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '整段寫' : '分欄寫'}｜${esc(when(v.createdAt))}${cur && cur.id === v.id ? ' <span class="pill ok">目前</span>' : ''}</span><button type="button" class="btn sm ghost" data-act="verView" data-id="${esc(v.id)}">看</button></div>`).join('')}
+    ${vs.length > 1 ? `<div class="row" style="margin-top:8px;align-items:center"><select data-in="verA" aria-label="比較：左邊那一版">${opts(a)}</select><span>和</span><select data-in="verB" aria-label="比較：右邊那一版">${opts(b)}</select><button type="button" class="btn sm" data-act="verCmp">並排比</button></div>` : ''}
+    <div id="ver-out">${vu.html || ''}</div></details>`;
+}
+IN.verA = (el) => { verUi().a = el.value; }; IN.verB = (el) => { verUi().b = el.value; };
+function verShow(html) { verUi().html = html; S.ui.verOpen = true; const box = $('ver-out'); if (box) box.innerHTML = html; else renderDoc(); }
+ACT.verView = async (el) => {
+  el.disabled = true;
+  try { const v = await verGet(el.dataset.id); if (v) verShow(`<h3>${esc(verName(v))}</h3><div class="cellv"><div class="ro" style="white-space:pre-wrap">${esc(verPlain(v)) || '（沒有內容）'}</div></div>`); } finally { el.disabled = false; }
+};
+ACT.verCmp = async (el) => {
+  const vs = S.doc.draft.versions || [], cur = S.doc.draft.currentVersion, vu = verUi();
+  const aId = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), bId = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
+  if (aId === bId) { toast('選兩個不一樣的版本才比得出差別。', true); return; }
+  el.disabled = true;
+  try {
+    const A = await verGet(aId), B = A && await verGet(bId); if (!A || !B) return;
+    const [o, n] = A.versionNumber <= B.versionNumber ? [A, B] : [B, A], df = TD.diffText(verPlain(o), verPlain(n));
+    verShow(`<div class="muted small" style="margin-top:10px">左邊第 ${o.versionNumber} 版、右邊第 ${n.versionNumber} 版：<del style="background:#fde2e2;color:#9b1c1c">紅底劃線</del>＝後來拿掉的，<ins style="background:#dcfce7;color:#14532d;text-decoration:none">綠底</ins>＝後來加的。</div>
+      ${df.changed ? '' : '<div class="hint">這兩版的內容一樣。</div>'}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:6px">
+        <div><h3 style="margin-top:0">${esc(verName(o))}</h3><div class="cellv"><div class="ro" style="white-space:pre-wrap">${segHtml(df.left) || '（沒有內容）'}</div></div></div>
+        <div><h3 style="margin-top:0">${esc(verName(n))}</h3><div class="cellv"><div class="ro" style="white-space:pre-wrap">${segHtml(df.right) || '（沒有內容）'}</div></div></div></div>`);
+  } finally { el.disabled = false; }
+};
 // ── 排課 ──
 const FMT = { onsite: '現場', live: '直播', recorded: '錄影', one_on_one: '1 對 1' };
 async function viewLessons() {

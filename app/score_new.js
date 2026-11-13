@@ -3,13 +3,26 @@
 // 2026-11-09 落點分析改版 L2：原 score.js 原樣搬來（「新作落點分析」子分頁），再加：子分頁列、模考／正式、存成一版、存志願確認框＋留痕、每系「這系在做什麼」
 const GROUPS = ['資訊學群', '工程學群', '數理化學群', '醫藥衛生學群', '生命科學學群', '生物資源學群', '地球與環境學群', '建築與設計學群', '藝術學群', '社會與心理學群', '大眾傳播學群', '外語學群', '文史哲學群', '教育學群', '法政學群', '管理學群', '財經學群', '遊憩與運動學群', '其他學群'];
 const REGIONS = [['北', '北部'], ['中', '中部'], ['南', '南部'], ['東', '東部'], ['離島', '離島']];
-const LD = { byId: null, byCode: null };
+const LD = { byId: null, byCode: null, by115: null };
+// 2026-11-12 換 116：CAAC_DEPTS 是 116 校系；by115＝115 代碼 → 同名的 116 系（caac_116_full.js 的 match115，同校＋系名對照，1,854 對）
 function ldIndex() {
   if (LD.byId) return LD;
-  LD.byId = new Map(); LD.byCode = new Map();
-  for (let i = 0; i < CAAC_DEPTS.length; i++) { const d = CAAC_DEPTS[i]; LD.byId.set(d.id, d); LD.byCode.set(codeOf(d.id), d); }
+  LD.byId = new Map(); LD.byCode = new Map(); LD.by115 = new Map();
+  for (let i = 0; i < CAAC_DEPTS.length; i++) { const d = CAAC_DEPTS[i]; LD.byId.set(d.id, d); LD.byCode.set(codeOf(d.id), d); if (d.match115) LD.by115.set(codeOf(d.match115), d); }
   return LD;
 }
+// 依代碼年找系：目前代碼年直接查；前一年（舊版本、舊志願碼）照對照表換；對不到回 null（不拿同一個 6 碼硬套，代碼每年重排）
+// 舊版本（luodianYear＝前一年）讀進來就把 picks 換成目前代碼年：對得到的換碼；對不到的代碼加前綴「115:」，避免被當成 116 同碼的別系。只改前端記憶體，不回寫。
+function normVersions(list) {
+  (list || []).forEach((v) => {
+    if (!v || v.codeYear || Number(v.luodianYear) === YEAR) return;
+    const y = Number(v.luodianYear);
+    v.picks = (v.picks || []).map((p) => { const d = ldDept(p.deptCode, y); return Object.assign({}, p, d ? { deptCode: codeOf(d.id), fromCode: p.deptCode } : { deptCode: y + ':' + p.deptCode, fromCode: p.deptCode, unmapped: true }); });
+    v.fromYear = y; v.codeYear = YEAR;
+  });
+  return list;
+}
+function ldDept(code, year) { const L = ldIndex(); const y = Number(year) || YEAR; return y === YEAR ? (L.byCode.get(String(code)) || null) : y === YEAR - 1 ? (L.by115.get(String(code)) || null) : null; }
 function scInit(h) {
   const ns = normScores(h.journey);
   S.sc = { scores: ns ? Object.assign({}, ns.scores) : {}, listen: ns ? ns.listen : '', rows: [], byId: new Map(), groups: {}, regions: {}, schools: {}, q: '', zone: 'safe',
@@ -20,15 +33,15 @@ const arrObj = (a) => { const o = {}; (Array.isArray(a) ? a : []).forEach((x) =>
 function scFromVersion(v) {
   ldIndex(); const f = v.filters || {};
   S.sc = { scores: Object.assign({}, v.scores || {}), listen: v.listen || '', rows: [], byId: new Map(), groups: arrObj(f.groups), regions: arrObj(f.regions), schools: arrObj(f.schools), q: f.q || '', zone: 'safe',
-    shown: { safe: 40, reach: 40, dream: 40 }, sel: (v.picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => (LD.byCode.get(String(p.deptCode)) || {}).id).filter(Boolean),
+    shown: { safe: 40, reach: 40, dream: 40 }, sel: (v.picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => (ldDept(p.deptCode, v.codeYear || v.luodianYear) || {}).id).filter(Boolean),
     snapOld: {}, panel: false, saveT: 0, wishLoaded: true, kind: v.scoreKind === 'official' ? 'official' : 'mock', from: { seq: v.seq, at: v.createdAt }, intro: {}, autoZone: true };
 }
-// 落點資料檔版本（存進每一版，之後資料更新時看得出是哪一份算的）：caac_history.js 的 SHA-1 前 8 碼；拿不到就空
+// 落點資料檔版本（存進每一版，之後資料更新時看得出是哪一份算的）：caac_history_116.js 的 SHA-1 前 8 碼；拿不到就空（2026-11-12 換 116 前是 caac_history.js）
 async function dataVersion() {
   if (typeof S.dataVer === 'string') return S.dataVer;
   try {
-    const buf = await (await fetch('../luodian/data/caac_history.js')).arrayBuffer(), h = new Uint8Array(await crypto.subtle.digest('SHA-1', buf));
-    S.dataVer = 'caac_history:' + Array.from(h.slice(0, 4)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const buf = await (await fetch('../luodian/data/caac_history_116.js')).arrayBuffer(), h = new Uint8Array(await crypto.subtle.digest('SHA-1', buf));
+    S.dataVer = 'caac_history_116:' + Array.from(h.slice(0, 4)).map((b) => b.toString(16).padStart(2, '0')).join('');
   } catch (e) { S.dataVer = ''; }
   return S.dataVer;
 }
@@ -38,7 +51,7 @@ async function viewScore() {
   if (!h.ok || my !== S.rt) return; S.home = h;
   if (!(await ensureAck()) || my !== S.rt) return;
   if (typeof CAAC_DEPTS === 'undefined' || typeof predictCrossYear !== 'function') {
-    view('<div class="card"><h2>落點資料沒有載入</h2><p class="muted">這一頁要用到 115 學年的校系資料。請重新整理；還是不行就聯絡育才仕。</p></div>'); return;
+    view('<div class="card"><h2>落點資料沒有載入</h2><p class="muted">這一頁要用到 116 學年的校系資料。請重新整理；還是不行就聯絡育才仕。</p></div>'); return;
   }
   ldIndex(); if (!S.sc) scInit(h);
   if (!S.sc.wishLoaded) { await loadWishInto(); if (!S.sc || my !== S.rt) return; }
@@ -59,7 +72,7 @@ function scMount() {
   const sc = S.sc, opts = '<option value="">—</option>' + Array.from({ length: 16 }, (_, i) => 15 - i).map((n) => `<option value="${n}">${n}</option>`).join('');
   const fromLine = sc.from ? `<div class="hint" style="margin:0 0 10px">你正在改第 ${esc(sc.from.seq)} 版（${esc(mdOf(sc.from.at))}）。再存就是新的一版，原本那一版不會被蓋掉。 <button type="button" class="linkbtn" data-act="scFresh">改成從我存的成績重排</button></div>` : '';
   view(`${subTabsHtml('new')}${fromLine}<div class="card"><h2>你的成績</h2>
-    <p class="muted" style="margin:0 0 8px">學測級分（${YEAR} 學年的五標換算）。填幾科算幾科，填了就會馬上算。</p>
+    <p class="muted" style="margin:0 0 8px">學測級分（116 五標公布前，先用 ${SCORE_YEAR} 學年的五標估）。填幾科算幾科，填了就會馬上算。</p>
     <div class="scgrid">${SUBJECTS.map((k) => `<div><label for="sc_${k}">${SUBJ_NAME[k]}</label><select id="sc_${k}" data-in="score" data-k="${k}">${opts}</select><div class="band" id="bh_${k}"></div></div>`).join('')}
       <div><label for="sc_listen">英聽</label><select id="sc_listen" data-in="listen"><option value="">—</option><option>A</option><option>B</option><option>C</option><option>F</option></select></div></div>
     <div class="row small" style="margin-top:8px" role="radiogroup" aria-label="這是哪一種成績"><span class="muted">這是：</span><label class="tick"><input type="radio" name="sckind" data-in="kind" value="mock" ${sc.kind !== 'official' ? 'checked' : ''}> 模考或預估</label><label class="tick"><input type="radio" name="sckind" data-in="kind" value="official" ${sc.kind === 'official' ? 'checked' : ''}> 正式學測成績</label></div>
@@ -91,10 +104,10 @@ const SUBJ_CH = { chi: '國文', eng: '英文', math_a: '數A', math_b: '數B', 
 // 沒列進清單的系（目前篩選範圍內）：沒考要看的科目、數A／數B 規則待確認
 function skippedLine() {
   const sk = filteredRows(false, S.sc.skipped || []); if (!sk.length) return '';
-  const miss = sk.filter((x) => x.status === 'missing'), mr = sk.length - miss.length, subs = {};
+  const miss = sk.filter((x) => x.status === 'missing'), oe = sk.filter((x) => x.status === 'otherExam').length, mr = sk.length - miss.length - oe, subs = {};
   miss.forEach((x) => x.missing.forEach((k) => { subs[k] = 1; }));
   const ks = SUBJECTS.filter((k) => subs[k]).map((k) => SUBJ_CH[k] || k);
-  return '另有 ' + sk.length + ' 系沒列進來：' + [miss.length ? miss.length + ' 系要看的科目你沒考（' + ks.join('、') + '）' : '', mr ? mr + ' 系檢定同列數A、數B，你只過一科，要等老師對過簡章' : ''].filter(Boolean).join('；') + '。';
+  return '另有 ' + sk.length + ' 系沒列進來：' + [miss.length ? miss.length + ' 系要看的科目你沒考（' + ks.join('、') + '）' : '', oe ? oe + ' 系第一階段要看 APCS 或術科成績，學測算不出來' : '', mr ? mr + ' 系檢定同列數A、數B，你只過一科，要等老師對過簡章' : ''].filter(Boolean).join('；') + '。';
 }
 // 引擎改版後每系一個狀態（assessDept）：檢定未過不列；沒考要看的科目、數A／數B 規則待確認也不列，但記下來在說明列報數；
 // 資料待校、今年標準有變、沒有去年資料、只看檢定 → 'na' 格，列上寫原因（label）。
@@ -107,7 +120,7 @@ function scRows() {
     if (A) {
       const a = assessDept(sc.scores, sc.listen, d);
       if (a.status === 'fail') continue;
-      if (a.status === 'missing' || a.status === 'mathRule') { sc.skipped.push({ d, status: a.status, missing: a.missing || [] }); continue; }
+      if (a.status === 'missing' || a.status === 'mathRule' || a.status === 'otherExam') { sc.skipped.push({ d, status: a.status, missing: a.missing || [] }); continue; }
       if (a.status === 'ok' && a.pred && a.pred.verdict) { code = a.pred.verdict; basis = a.pred.basisYear; margin = a.pred.margin; }
       else { code = NA; label = (typeof STATUS_TEXT !== 'undefined' && STATUS_TEXT[a.status]) || '沒有去年資料'; }
     } else {   // 舊引擎
@@ -162,7 +175,7 @@ function teacherLine(fr, cnt) {
 }
 function rowHtml(r) {
   const d = r.d, on = S.sc.sel.includes(d.id), open = !!S.sc.intro[d.id];
-  return `<div class="drow-w" data-row="${esc(d.id)}"><label class="drow"><input type="checkbox" data-in="pick" data-id="${esc(d.id)}" ${on ? 'checked' : ''} aria-label="選 ${esc(d.school + ' ' + d.dept)}">
+  return `<div class="drow-w" data-row="${esc(d.id)}"><label class="drow${S.sc.sel.length >= 6 && !on ? ' full' : ''}"><input type="checkbox" data-in="pick" data-id="${esc(d.id)}" ${on ? 'checked' : ''} aria-label="選 ${esc(d.school + ' ' + d.dept)}">
     <span class="dmain"><b>${esc(d.school)} ${esc(d.dept)}</b> <span class="lp ${zCls(r.code)}">${esc(rowName(r))}</span><span class="muted small" style="display:block">${esc(s2Line(d.stage2))}</span></span></label>
     <button type="button" class="btn sm ghost introbtn" data-act="intro" data-id="${esc(d.id)}" aria-expanded="${open}">這系在做什麼 ${open ? '▴' : '▾'}</button>
     ${open ? `<div class="dintro">${introHtml(d)}</div>` : ''}</div>`;
@@ -171,7 +184,7 @@ function rowHtml(r) {
 function introHtml(d) {
   const info = S.dinfo && S.dinfo.items[codeOf(d.id)];
   if (!S.dinfo || info === undefined) return '<span class="muted small"><span class="spin"></span>載入中…</span>';
-  return NG.renderDeptIntro(NG.deptIntroLines(d, info, S.dinfo.has116), mdOf);
+  return NG.renderDeptIntro(NG.deptIntroLines(d, info, S.dinfo.has116), mdOf) + NG.renderStar(info && info.star);   // 2026-11-12 繁星：核准且一對一的對應才有
 }
 // 一次查一批系的分則連結、老師一句話、116 簡章欄位（快取在 S.dinfo；查不到的系記成 null）
 async function deptInfo(codes) {
@@ -235,7 +248,7 @@ async function scoreSaveNow() {
   const sc = S.sc; if (!sc || !Object.keys(sc.scores).length) return;
   const el = $('sc-saved');
   try {
-    const r = await call('save_scores', { p_year: YEAR, p_scores: sc.scores, p_listen: sc.listen || null }, { quiet: true });
+    const r = await call('save_scores', { p_year: SCORE_YEAR, p_scores: sc.scores, p_listen: sc.listen || null }, { quiet: true });
     if (el) el.textContent = r.ok ? '成績已存。' : '成績還沒存成功，再改一下會重存。';
   } catch (e) { if (el) el.textContent = '成績還沒存成功，再改一下會重存。'; }
 }
@@ -259,10 +272,17 @@ ACT.grp = (el) => {
 ACT.reg = (el) => { const sc = S.sc, r = el.dataset.r; if (!r) sc.regions = {}; else if (sc.regions[r]) delete sc.regions[r]; else sc.regions[r] = true; scResetShown(); scFilterPills(); scRender(); };
 ACT.sch = (el) => { const sc = S.sc, s = el.dataset.s; if (!s) sc.schools = {}; else if (sc.schools[s]) delete sc.schools[s]; else sc.schools[s] = true; scResetShown(); scFilterPills(); scRender(); };
 // 勾選（最多六個）與「存成志願」
+// 2026-11-12 工單 M1（OUTPUTS/nopq_biz_versions_design_v0.1.md §9.2，owner 11:28 原話「已經選取的科系視窗應該要浮在最上層，讓人可以做修正與修訂」，12:28「全照預設」）：
+// 手機（<900px）：貼在底部分頁列上方的一行收合列（已選 N／6＋六個圓點），點開是從底部升起的面板，可以上移、下移、刪除（5 秒復原）；
+// 寬螢幕：維持原本貼底那一條，「已選 N／6」展開的清單換成同一套六格。第七個勾不上 → 直接打開面板說「已經六個了」，不跳訊息。
+const selMq = window.matchMedia('(max-width: 899px)');
+const selMobile = () => selMq.matches;
 IN.pick = (el) => {
   const sc = S.sc, id = el.dataset.id, at = sc.sel.indexOf(id), ngOf = () => new Set(sc.sel.map((x) => (LD.byId.get(x) || {}).group).filter(Boolean)).size, before = ngOf();
-  if (el.checked && at < 0) { if (sc.sel.length >= 6) { el.checked = false; toast('最多選六個。要換的話，先取消一個。', true); return; } sc.sel.push(id); }
-  else if (!el.checked && at >= 0) sc.sel.splice(at, 1);
+  if (el.checked && at < 0) {
+    if (sc.sel.length >= 6) { el.checked = false; sc.fullMsg = true; selOpen(); return; }
+    sc.sel.push(id); sc.bump = true;
+  } else if (!el.checked && at >= 0) { sc.sel.splice(at, 1); sc.bump = true; }
   if (ngOf() > 3 && before <= 3) toast(GROUP_WARN, true);   // 勾的系剛橫跨超過 3 個學群：跳警示（不擋）
   renderSel();
 };
@@ -282,25 +302,88 @@ function mixLine(sc) {
   const ok = c.dream === 2 && c.reach === 2 && c.safe === 2;
   return `<div class="small" style="margin-bottom:6px">${part('dream')}｜${part('reach')}｜${part('safe')}${c.na ? `｜沒有去年資料 ${c.na}` : ''}${c.none ? `｜現在成績不在清單 ${c.none}` : ''}　<span class="muted">${ok ? '剛好 2／2／2，很平衡。' : '建議 2 個夢幻、2 個正常、2 個保底。'}</span></div>`;
 }
+// 選滿六個時，清單上還沒勾的系標「已滿 6 個」（勾選框變灰；硬點會打開面板，不是真的鎖住）
+function markFull() {
+  const full = S.sc && S.sc.sel.length >= 6;
+  document.querySelectorAll('#sc-list input[data-in="pick"]').forEach((cb) => { const row = cb.closest('.drow'); if (row) row.classList.toggle('full', full && !cb.checked); });
+}
+// 六格：選了的每格有順位、校名系名、落點標籤、上移／下移／刪除，「這系看什麼」收在格子底下；沒選的一格虛線「還可以再選 N 個」
+function selSlotsHtml(sc) {
+  const n = sc.sel.length;
+  const slots = sc.sel.map((id, i) => {
+    const d = LD.byId.get(id), r = sc.byId.get(id); if (!d) return '';
+    return `<div class="slot"><div class="dmain"><b>${i + 1}. ${esc(d.school)} ${esc(d.dept)}</b> ${r ? `<span class="lp ${zCls(r.code)}">${esc(rowName(r))}</span>` : '<span class="small muted">（現在的成績不在清單裡）</span>'}</div>
+      <details class="small"><summary>這系看什麼</summary>${esc(s2Line(d.stage2).replace(/｜/g, '、'))}</details>
+      <div class="sbtns"><button type="button" class="btn sm ghost" data-act="selUp" data-id="${esc(id)}" ${i ? '' : 'disabled'} aria-label="上移 ${esc(d.dept)}">上移</button><button type="button" class="btn sm ghost" data-act="selDown" data-id="${esc(id)}" ${i < n - 1 ? '' : 'disabled'} aria-label="下移 ${esc(d.dept)}">下移</button><button type="button" class="btn sm warn" data-act="selDel" data-id="${esc(id)}" aria-label="刪除 ${esc(d.dept)}">刪除</button></div></div>`;
+  }).join('');
+  return slots + (n < 6 ? `<div class="slot empty">還可以再選 ${6 - n} 個</div>` : '');
+}
+const selNoteHtml = () => '<div class="muted small" style="margin-top:4px">「存成一版」只留下這次排的結果，不動志願；「存成志願」會取代原本的志願，這次的選擇會留在歷史。參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）。</div>';
+function selUndoHtml(sc) { return sc.undo ? `<div class="selundo" role="status"><span>已拿掉 ${esc(sc.undo.name)}</span><button type="button" class="linkbtn" data-act="selUndo">復原</button></div>` : ''; }
+function selDots(sc) {
+  return '<span class="seldots" aria-hidden="true">' + Array.from({ length: 6 }, (_, i) => { const r = i < sc.sel.length ? sc.byId.get(sc.sel[i]) : null; return `<i class="${i < sc.sel.length ? 'on ' + (r ? zCls(r.code) : 'none') : ''}"></i>`; }).join('') + '</span>';
+}
 function renderSel() {
   const box = $('sc-sel'); if (!box) return; const sc = S.sc, n = sc.sel.length;
-  if (!n) { box.innerHTML = ''; return; }
+  markFull();
+  if (!n && !sc.undo) { if (sc.panel) selClose(); box.innerHTML = ''; selBodyFlags(false, false); return; }
   const ng = new Set(sc.sel.map((id) => (LD.byId.get(id) || {}).group).filter(Boolean)).size;
-  const rows = sc.panel ? sc.sel.map((id, i) => {
-    const d = LD.byId.get(id), r = sc.byId.get(id); if (!d) return '';
-    return `<div class="selrow"><div class="dmain"><b>${i + 1}. ${esc(d.school)} ${esc(d.dept)}</b> ${r ? `<span class="lp ${zCls(r.code)}">${esc(rowName(r))}</span>` : '<span class="small muted">（現在的成績不在清單裡）</span>'}
-      <div class="muted small">這系看什麼：${esc(s2Line(d.stage2).replace(/｜/g, '、'))}</div></div><button type="button" class="btn sm ghost" data-act="unpick" data-id="${esc(id)}">取消</button></div>`;
-  }).join('') : '';
   const hasScore = Object.keys(sc.scores).length > 0;
-  box.innerHTML = `<div class="selbar">${sc.panel ? `<div class="selpanel">${rows}</div>` : ''}${mixLine(sc)}${groupWarnHtml(ng, '勾的系橫跨')}<div class="row spread"><button type="button" class="btn ghost sm" data-act="selPanel">已選 ${n}／6　${sc.panel ? '▾ 收起' : '▴ 這系看什麼'}</button><span class="row"><button type="button" class="btn ghost" data-act="saveVer" ${hasScore ? '' : 'disabled title="先填成績才能存成一版"'}>存成一版</button><button type="button" class="btn" data-act="saveWish">存成志願</button></span></div>
-    <div class="muted small" style="margin-top:4px">「存成一版」只留下這次排的結果，不動志願；「存成志願」會取代原本的志願，這次的選擇會留在歷史。參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）。</div></div>`;
+  const acts = `<button type="button" class="btn ghost" data-act="saveVer" ${hasScore && n ? '' : 'disabled title="先填成績才能存成一版"'}>存成一版</button><button type="button" class="btn" data-act="saveWish" ${n ? '' : 'disabled'}>存成志願</button>`;
+  const fullLine = sc.fullMsg ? '<div class="issue small" style="margin:0 0 6px">已經六個了，先拿掉一個再選。</div>' : '';
+  if (!selMobile()) {   // 寬螢幕：原本那一條，展開的清單換成六格
+    box.innerHTML = `<div class="selbar">${sc.panel ? `<div class="selpanel">${fullLine}${selSlotsHtml(sc)}${selUndoHtml(sc)}</div>` : ''}${mixLine(sc)}${groupWarnHtml(ng, '勾的系橫跨')}<div class="row spread"><button type="button" class="btn ghost sm" data-act="selPanel">已選 ${n}／6　${sc.panel ? '▾ 收起' : '▴ 這系看什麼'}</button><span class="row">${acts}</span></div>
+      ${selNoteHtml()}</div>`;
+    selBodyFlags(false, false); sc.bump = false; return;
+  }
+  const line = `<button type="button" class="selline${sc.bump ? ' bump' : ''}" data-act="selOpen" aria-expanded="${!!sc.panel}"><span><b>已選 ${n}／6</b>${selDots(sc)}</span><span class="small">看已選 ▴</span></button>`;
+  const sheet = sc.panel ? `<div class="selback" data-act="selClose"></div><div class="selsheet" role="dialog" aria-modal="true" aria-label="已選志願">
+      <div class="shead"><b>已選志願 ${n}／6</b><button type="button" class="btn sm ghost" data-act="selClose">收起</button></div>
+      <div class="sbody">${fullLine}${selSlotsHtml(sc)}${mixLine(sc)}${groupWarnHtml(ng, '勾的系橫跨')}${selNoteHtml()}</div>
+      ${selUndoHtml(sc)}<div class="sfoot">${acts}</div></div>` : '';
+  box.innerHTML = line + sheet; sc.bump = false;
+  selBodyFlags(true, !!sc.panel);
 }
-ACT.selPanel = () => { S.sc.panel = !S.sc.panel; renderSel(); };
-ACT.unpick = (el) => {
-  const sc = S.sc, at = sc.sel.indexOf(el.dataset.id); if (at >= 0) sc.sel.splice(at, 1);
-  document.querySelectorAll('input[data-in="pick"]').forEach((cb) => { if (cb.dataset.id === el.dataset.id) cb.checked = false; });
-  if (!sc.sel.length) sc.panel = false; renderSel();
+// 頁面底部多留收合列的高度、提示訊息移到收合列上方；面板開著時背景不捲
+function selBodyFlags(bar, open) { document.body.classList.toggle('has-selbar', !!bar); document.body.classList.toggle('sel-open', !!open); }
+// 面板開關：手機開面板時推一筆歷史，返回鍵只關面板、不離開頁面
+function selOpen() {
+  const sc = S.sc; if (!sc) return;
+  if (!sc.panel) { sc.panel = true; if (selMobile()) { try { history.pushState({ selPanel: 1 }, ''); sc.panelPushed = true; } catch (e) { /* 推不了就只靠收起鈕 */ } } }
+  renderSel();
+}
+function selClose(fromPop) {
+  const sc = S.sc; if (!sc || !sc.panel) return;
+  sc.panel = false; sc.fullMsg = false;
+  if (sc.panelPushed) { sc.panelPushed = false; if (!fromPop) { try { history.back(); } catch (e) { /* 沒有歷史就算了 */ } } }
+  renderSel();
+}
+window.addEventListener('popstate', () => { if (S.sc && S.sc.panel && S.sc.panelPushed) selClose(true); });
+window.addEventListener('hashchange', () => { selBodyFlags(false, false); if (S.sc) { S.sc.panel = false; S.sc.panelPushed = false; S.sc.fullMsg = false; } });
+selMq.addEventListener('change', () => { if (S.sc && $('sc-sel')) renderSel(); });
+ACT.selPanel = () => { const sc = S.sc; sc.panel = !sc.panel; if (!sc.panel) sc.fullMsg = false; renderSel(); };
+ACT.selOpen = () => selOpen();
+ACT.selClose = () => selClose();
+const selCheck = (id, on) => document.querySelectorAll('input[data-in="pick"]').forEach((cb) => { if (cb.dataset.id === id) cb.checked = on; });
+function selMove(id, dir) { const sc = S.sc, i = sc.sel.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= sc.sel.length) return; [sc.sel[i], sc.sel[j]] = [sc.sel[j], sc.sel[i]]; renderSel(); }
+ACT.selUp = (el) => selMove(el.dataset.id, -1);
+ACT.selDown = (el) => selMove(el.dataset.id, 1);
+// 刪除不跳確認：給 5 秒「復原」
+ACT.selDel = (el) => {
+  const sc = S.sc, id = el.dataset.id, at = sc.sel.indexOf(id); if (at < 0) return;
+  const d = LD.byId.get(id) || {};
+  sc.sel.splice(at, 1); sc.fullMsg = false; sc.bump = true; selCheck(id, false);
+  clearTimeout(sc.undoT); sc.undo = { id, at, name: (d.school || '') + ' ' + (d.dept || '') };
+  sc.undoT = setTimeout(() => { if (S.sc === sc) { sc.undo = null; renderSel(); } }, 5000);
+  renderSel();
 };
+ACT.selUndo = () => {
+  const sc = S.sc, u = sc.undo; if (!u) return;
+  clearTimeout(sc.undoT); sc.undo = null;
+  if (!sc.sel.includes(u.id) && sc.sel.length < 6) { sc.sel.splice(Math.min(u.at, sc.sel.length), 0, u.id); selCheck(u.id, true); sc.bump = true; }
+  renderSel();
+};
+ACT.unpick = (el) => ACT.selDel(el);   // 舊名稱（寬螢幕舊版的「取消」）沿用刪除
 function snapOf(id) {
   const sc = S.sc, r = sc.byId.get(id);
   if (r) return r.code === NA ? null : { code: r.code, basisYear: r.basis ? parseInt(r.basis, 10) : null, margin: r.margin };   // 沒有去年資料：不留快照

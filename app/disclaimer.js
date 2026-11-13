@@ -19,7 +19,7 @@ const ASSERTIVE_BANNED = ['保證錄取', '一定上', '一定會上', '穩上',
 const DISCLAIMER_ALLOWED = ['不是錄取保證', '不是保證', '不保證', '可能過、也可能不過', '只是參考', '也不會告訴你「一定上」'];
 const AI_HEAD = 'AI 老師的解讀（依上面算出來的結果）';
 const AI_TAIL = '依去年資料推估，不是保證；正式以 116 簡章與放榜為準。';
-const LUODIAN_YEAR = YEAR, OPEN_YEAR = 116;   // 116 方案 W2 做完後改讀共用常數（設計稿 §七）
+const LUODIAN_YEAR = YEAR, OPEN_YEAR = YEAR;   // 2026-11-12 換 116：落點清單、志願、存版都用 116 代碼（YEAR）；比的是 115 的第一階段通過分數（落點引擎 BASIS_YEAR）
 
 const discShortHtml = () => `<div class="disc small">${esc(DISCLAIMER_SHORT)} <button type="button" class="linkbtn" data-act="discFull">完整說明</button></div>`;
 const discFullHtml = () => DISCLAIMER_FULL.map(([h, p]) => `<p><b>${esc(h)}</b>　${esc(p)}</p>`).join('');
@@ -102,6 +102,6 @@ function wishConfirm(rules, extra) {
 const SUBTABS = [['new', '#/score', '新作落點分析'], ['history', '#/score/history', '歷史落點分析'], ['assess', '#/score/assess', 'AI 落點機率評估']];
 function subTabsHtml(on) {
   return `<div class="ztabs subtabs" role="tablist" aria-label="落點分析">${SUBTABS.map(([k, href, name]) => `<a role="tab" aria-selected="${k === on}" class="ztab ${k === on ? 'on' : ''}" href="${href}">${name}</a>`).join('')}</div>
-    <div class="yearline small"><b>落點用的是 ${LUODIAN_YEAR} 學年（去年）的門檻與名額；你要報的是 ${OPEN_YEAR} 學年個人申請。</b>門檻每年會變，結果是參考。</div>
+    <div class="yearline small"><b>校系、名額照 ${OPEN_YEAR} 學年簡章；落點拿 ${typeof BASIS_YEAR !== 'undefined' ? esc(BASIS_YEAR) : '115'} 學年（去年）各系第一階段實際通過的分數來比。</b>116 五標公布前，檢定先用 ${SCORE_YEAR} 五標估。門檻每年會變，結果是參考。</div>
     ${discShortHtml()}`;
 }

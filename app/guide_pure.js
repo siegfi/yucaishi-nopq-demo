@@ -88,13 +88,48 @@ function renderDigest(it) {
   var l = digestLines(it);
   return l.length ? '<div class="digest"><b>老師幫你畫重點</b><ul class="plain">' + l.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' : '';
 }
-function renderGuideCard(it) {
+// 2026-11-12 換 116（owner 拍板 D2／D3／D7）：116 簡章寫的審查資料、自述規定原文、AI 使用聲明提醒。只照原文顯示，不替學生判斷、不代填。
+var SELF_LABEL = { aiFront: '要在學習歷程自述「首頁」放學校提供的 AI 使用聲明', aiSeparate: '要另外交 AI 使用聲明（檔案或表格）', aiNote: '作品或小論文用了 AI 要註明',
+  chars: '分則寫了字數規定', pages: '分則寫了頁數規定' };
+function selfRules(it) { var s = it && it.stage2; return s && Array.isArray(s.selfRules) ? s.selfRules.filter(function (r) { return r && SELF_LABEL[r.kind]; }) : []; }
+function needsAiStatement(it) { return selfRules(it).some(function (r) { return r.kind === 'aiFront' || r.kind === 'aiSeparate'; }); }
+function rules116Html(it) {
+  var s = it && it.stage2; if (!s || s.source !== 'cac-apply116') return '';
+  var h = '', items = (Array.isArray(s.reviewItems) ? s.reviewItems : []).map(function (x) { return x && (x.text || x.name); }).filter(Boolean);
+  var rs = selfRules(it), ai = rs.filter(function (r) { return /^ai/.test(r.kind); }), len = rs.filter(function (r) { return r.kind === 'chars' || r.kind === 'pages'; });
+  if (ai.length) h += '<div class="issue small"><b>' + esc(SELF_LABEL[ai[0].kind]) + '。</b>聲明怎麼寫、檔案去哪下載，照分則說明到學校網站；NOPQ通不代填。'
+    + ai.map(function (r) { return '<div class="muted small">分則原文：「…' + esc(r.quote) + '…」</div>'; }).join('') + '</div>';
+  if (items.length) h += '<div class="gline"><span class="k">116 簡章寫要交</span>' + esc(items.join('、')) + '</div>';
+  if (len.length) h += '<div class="gline"><span class="k">篇幅（分則原文）</span>' + len.map(function (r) { return '「…' + esc(r.quote) + '…」'; }).join('<br>') + '</div>';
+  if (s.reviewDesc) { var d = String(s.reviewDesc).replace(/\s+/g, ' ').trim(); h += '<details class="small"><summary>116 簡章的審查資料說明（原文）</summary><div class="muted">' + esc(d.length > 600 ? d.slice(0, 600) + '…' : d) + '</div></details>'; }
+  return h ? '<div class="r116">' + h + '</div>' : '';
+}
+// 2026-11-12 繁星顯示（OUTPUTS/nopq_star116_design_v0.1.md，owner「照預設做」）：照甄選會分則原文列，不算落點、不判斷能不能被推薦；
+// 不顯示可填志願數與跨管道規則（設計稿 S3：對到 116 繁星簡章總則前不顯示）。s＝dept_info 的 star（只有核准且一對一的對應才有）
+function renderStar(s) {
+  if (!s || typeof s !== 'object') return '';
+  var ex = (Array.isArray(s.exams) ? s.exams : []).filter(function (e) { return e && e.subject && e.standard; }).map(function (e) { return e.subject + ' ' + e.standard; });
+  if (s.listen) ex.push('英聽 ' + s.listen + ' 級');
+  var tb = (Array.isArray(s.tieBreak) ? s.tieBreak : []).filter(Boolean), yr = s.year || 116;
+  var h = '<div class="hint small star"><b>這系也有繁星推薦</b>（' + esc(yr) + ' 學年，照甄選會分則原文）'
+    + '<div>名額 ' + (s.quota != null ? esc(s.quota) + ' 人' : '—') + (s.groupCategory ? '｜' + esc(s.groupCategory) : '') + '</div>';
+  if (ex.length) h += '<div>學測檢定：' + esc(ex.join('、')) + '</div>';
+  if (s.schoolRankStd) h += '<div>' + esc(s.schoolName || '這所大學') + '的繁星校排標準：在校學業成績全校排名' + esc(s.schoolRankStd) + '（這是大學訂的標準；你能不能被推薦，由你的高中依規定決定）</div>';
+  if (tb.length) h += '<div>分發比序（同分時依序比較，不是門檻）：' + esc(tb.slice(0, 3).join('　')) + (tb.length > 3 ? '<details><summary>看全部 ' + tb.length + ' 項</summary>' + esc(tb.join('　')) + '</details>' : '') + '</div>';
+  else h += '<div>分發比序：請看分則</div>';
+  var s2 = s.stage2 && Array.isArray(s.stage2.items) ? s.stage2 : null;
+  if (s2 && s2.items.length) h += '<div>第二階段指定項目（分則原文）：' + esc(s2.items.map(function (x) { return x.name + ' ' + x.pct; }).join('、')) + (s2.date ? '｜甄試日期 ' + esc(s2.date) : '') + (s2.expected != null ? '｜預計甄試 ' + esc(s2.expected) + ' 人' : '') + '</div>';
+  if (safeUrl(s.rulesUrl)) h += '<div><a href="' + esc(s.rulesUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(yr) + ' 繁星校系分則（甄選會）</a></div>';
+  return h + '</div>';
+}
+function carriedPill(it) { var c = it && it.reviewGuide && it.reviewGuide.carriedFrom; return c ? '<div class="hint small">下面的準備指引是去年（' + esc(c.year) + '）版，學校 116 版出來前僅供參考。</div>' : ''; }
+function renderGuideCard(it, star) {
   var f = factsOf(it), g = hasGuide(it) ? it.guide : null, name = (it.schoolName || '') + ' ' + (it.name || '');
   var h = '<div class="need guide-card"><div class="row spread"><b>' + esc(it.rank) + '. ' + esc(name.trim()) + '</b>' + snapPill(it.snapshot) + '</div>'
     + renderDigest(it)
     + '<div class="facts"><span><span class="k">審查資料</span>' + (f.hasReview ? (f.reviewPct != null ? esc(f.reviewPct) + '%' : '有') : '沒有') + '</span><span><span class="k">筆試</span>' + (f.written ? '有' : '沒有')
     + '</span><span><span class="k">面試</span>' + (f.interview ? '有' : '沒有') + '</span><span><span class="k">名額</span>' + (it.quota != null ? esc(it.quota) : '—') + '</span></div>'
-    + '<div class="muted small">二階：' + esc(s2Line(it.stage2)) + '</div>';
+    + '<div class="muted small">二階：' + esc(s2Line(it.stage2)) + '</div>' + rules116Html(it) + renderStar(star) + carriedPill(it);
   if (!g) {
     var rules = safeUrl(it.rulesUrl);
     return h + '<div class="gline">這系的指引學校沒公開／還沒整理，先看校系分則。' + (rules ? ' <a href="' + esc(rules) + '" target="_blank" rel="noopener noreferrer">' + esc(name.trim()) + ' 校系分則</a>' : '') + '</div></div>';
@@ -124,9 +159,9 @@ function deptIntroLines(d, info, has116) {
   var out = [], y = (info && info.y) || {}, y6 = info && info.y116, intro = info && info.intro;
   if (d && d.group) out.push({ k: 'group', text: '屬於' + d.group });
   out.push({ k: 'stage2', text: '這系看：' + s2Line(d && d.stage2).replace(/｜/g, '、') });
-  if (safeUrl(y.rulesUrl)) out.push({ k: 'rules115', text: '115 校系分則（甄選會）', url: y.rulesUrl });
+  if (safeUrl(y.rulesUrl)) out.push({ k: 'rules115', text: (y.year || 115) + ' 校系分則（甄選會）', url: y.rulesUrl });   // 2026-11-12：換 116 後 y 就是 116 那列，照實標年度
   if (has116 && y6) {
-    if (safeUrl(y6.rulesUrl)) out.push({ k: 'rules116', text: '116 校系分則（甄選會）', url: y6.rulesUrl });
+    if (safeUrl(y6.rulesUrl) && y6.rulesUrl !== y.rulesUrl) out.push({ k: 'rules116', text: '116 校系分則（甄選會）', url: y6.rulesUrl });
     var items = (Array.isArray(y6.reviewItems) ? y6.reviewItems : []).map(function (x) { return x && (x.text || x.name); }).filter(Boolean);
     if (items.length) out.push({ k: 'need116', text: '116 簡章寫要交：' + items.join('、') });
     if (y6.reviewDesc) { var t = String(y6.reviewDesc).replace(/\s+/g, ' ').trim(); out.push({ k: 'desc116', text: '116 簡章說明原文：' + (t.length > 300 ? t.slice(0, 300) + '…' : t) }); }
@@ -154,5 +189,5 @@ function renderDeptIntro(lines, fmtDate) {
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
     + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
-root.NG = { DOC_SHORT: DOC_SHORT, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+root.NG = { DOC_SHORT: DOC_SHORT, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);
