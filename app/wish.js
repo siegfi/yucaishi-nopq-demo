@@ -10,7 +10,7 @@ async function viewWish() {
   const carryHtml = carryCardHtml(carry);
   // 2026-11-12 繁星顯示：每系只放一行「這系也有繁星推薦」，點開才看細節（設計稿 §五③）；先畫頁面，繁星資料回來再補
   const starP = items.length ? fetchStars(items) : Promise.resolve({});
-  if (!items.length) { view(carryHtml + '<div class="card"><h2>志願</h2><p>還沒存志願。先到「落點分析」，從清單裡挑最多六個你想去的系。</p><a class="btn" href="#/score">去挑科系</a> <a class="btn ghost" href="#/import">匯入落點通的志願</a></div>'); return; }
+  if (!items.length) { view(carryHtml + '<div class="card"><h2>我的志願</h2><p>還沒存志願。先到「落點分析」，從清單裡挑最多六個你想去的系。</p><a class="btn" href="#/score">去挑科系</a> <a class="btn ghost" href="#/import">匯入落點通的志願</a></div>'); return; }
   // 2026-11-09 落點分析改版：最近一筆「存成志願」紀錄跟現在的志願一樣，就標「來自第 N 版」；不一樣（落點通匯入、改版前存的）就說不是從落點分析存的
   let from = '';
   try {
@@ -23,7 +23,7 @@ async function viewWish() {
   const render = (stars) => view(carryHtml + `<div class="card"><h2>我的志願</h2><p class="muted" style="margin:0 0 6px">最多六個，之後還可以回「落點分析」換。</p>${from ? `<p class="small" style="margin:0 0 6px">${from}</p>` : ''}
     ${items.map((it) => { const s = it.snapshot || {};
       return `<div class="doc-row"><div class="dmain"><b>${it.rank}. ${esc(it.schoolName)} ${esc(it.name)}</b> ${snapPill(s)}<div class="muted small">${esc(s2Line(it.stage2))}${s.basisYear ? '｜對照 ' + esc(s.basisYear) + ' 年資料' : ''}</div>${stars[String(it.deptCode)] ? `<details class="small"><summary>這系也有繁星推薦</summary>${NG.renderStar(stars[String(it.deptCode)])}</details>` : ''}</div></div>`; }).join('')}
-    <div class="row" style="margin-top:12px"><a class="btn ghost" href="#/score">換志願</a><a class="btn" href="#/need">看每一系要交什麼</a></div></div>`);
+    <div class="row" style="margin-top:12px"><a class="btn ghost" href="#/score">換志願</a><a class="btn" href="#/need">看每一系的準備指引</a></div></div>`);
   render({});
   const stars = await starP; if (my !== S.rt || !Object.keys(stars).length) return;
   const y = window.scrollY; render(stars); window.scrollTo(0, y);

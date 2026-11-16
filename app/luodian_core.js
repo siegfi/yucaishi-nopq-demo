@@ -1,4 +1,4 @@
-/* 來源 luodian-analysis/xuece.html 第 340–652 行，2026-11-12 複製；落點通改版要同步。
+/* 來源 luodian-analysis/xuece.html 第 397–767 行，2026-11-14 複製；落點通改版要同步。
  * 這是原文複製（只加這個檔頭），不要在這裡改引擎；要改請改 xuece.html，再重新複製這一段。
  * 載入順序：wubiao_multi_year.js、歷年門檻檔（caac_history_116.js）、校系檔（caac_116_full.js）載入之後才能載入本檔；歷年檔的鍵要跟校系檔同一年的代碼。 */
 function buildWubiao115() {
@@ -296,9 +296,67 @@ function gradeOf(pred){
 }
 /* 每系一個狀態（07 v0.2 §八 05），畫面與批次比對都只讀這裡。
    回傳 status（STATUS_ORDER 其中之一）、failed、missing、pred、grade、level、name。 */
+/* 門檻高低 v2（v1：2026-11-13，OUTPUTS/09 v0.2 §九；v2：2026-11-14，OUTPUTS/10 §五 第 5–7 題，owner「全照預設」）：
+   只給卡片說「這系去年門檻在全部校系裡算高／中／低」，不影響落點等級。切點 ≥13 為 high、≤6 為 low、其餘 mid（116 校系全體 P90、P10）。
+   ① 有單科通過標準（1–15）：各科平均，四捨五入到小數一位；reason null。
+   ② 沒有單科、有合科：每一條合科「門檻 ÷ 科目數」取最高那條，四捨五入到小數一位；reason 'combo'（卡片要講明是幾科加總換算）。
+      合科只算學測科目、門檻在「科目數～15×科目數」之間的那幾條（超界＝讀圖漏科，不算）。
+   ③ 單科、可用的合科都沒有 → key 'none'、reason 'noStandard'（卡片這一行不出現）。沒有基準年資料 → key 'none'、reason 'noHistory'。 */
+var TIER_HIGH = 13, TIER_LOW = 6;
+var TIER_GSAT = { chi:1, eng:1, math_a:1, math_b:1, soc:1, sci:1, nat:1 };
+function thresholdTierOf(dept){
+  var h = getHistory(dept), hy = h && h[BASIS_YEAR];
+  if(!hy) return { key:'none', avg:null, reason:'noHistory', basisYear:BASIS_YEAR };
+  var ps = hy.passStandard || {}, sum = 0, n = 0, avg = null, reason = null;
+  for(var k in ps){ var v = ps[k]; if(v >= 1 && v <= 15){ sum += v; n++; } }
+  if(n) avg = sum / n;
+  else {
+    var pc = hy.passCombo || [];
+    for(var i = 0; i < pc.length; i++){
+      var c = pc[i] || {}, sj = c.subjects || [], t = c.threshold, okc = sj.length > 0 && typeof t === 'number' && t >= sj.length && t <= 15 * sj.length;
+      for(var q = 0; q < sj.length; q++) if(!TIER_GSAT[sj[q]]) okc = false;
+      if(okc && (avg === null || t / sj.length > avg)) avg = t / sj.length;
+    }
+    if(avg === null) return { key:'none', avg:null, reason:'noStandard', basisYear:BASIS_YEAR };
+    reason = 'combo';
+  }
+  avg = Math.round(avg * 10) / 10;
+  return { key: avg >= TIER_HIGH ? 'high' : (avg <= TIER_LOW ? 'low' : 'mid'), avg:avg, reason:reason, basisYear:BASIS_YEAR };
+}
+/* 去年門檻跌（2026-11-14；OUTPUTS/10 §五 第 1、4 題，owner「全照預設」）：只給卡片列兩年事實（例：115 年英文 8，比 114 年 13 低），
+   不加趨勢、不給比例、不影響落點等級。條件同 OUTPUTS/09 腳本一 C5：
+   前一年（BASIS_YEAR−1）與基準年的單科通過標準科目相同、每一科都低 1 級分以上，而且兩年的合科條件（科目組合）也相同。
+   BASIS_DROP_EXCLUDE：合科比不出來的篩選結構變、系名對齊存疑（OUTPUTS/10 §二、第 4 題人工判斷）。
+   回傳 null 或 { fromYear, toYear, subjects:[引擎科目鍵，照 ALL_SUBJ 順序], from:{科目:前一年級分}, to:{科目:基準年級分} }。 */
+var BASIS_DROP_EXCLUDE = {
+  '050-050792': '115 年多了術科篩選，國文排到術科之後',
+  '046-046492': '系名對齊存疑：114 生物醫學組→115 智慧應用生技組（合科也換了）',
+  '051-051152': '系名對齊存疑：114 金融理財組→115 金融實務組（同年另有投資理財組）',
+  '051-051192': '系名對齊存疑：114 餐酒廚藝組→115 日韓交流組（同年另有專業技術組）'
+};
+function basisDropOf(dept){
+  var h = getHistory(dept), y1 = BASIS_YEAR, y0 = String(Number(BASIS_YEAR) - 1);
+  if(!h || !h[y0] || !h[y1] || BASIS_DROP_EXCLUDE[dept.id]) return null;
+  var a = h[y0].passStandard || {}, b = h[y1].passStandard || {}, ka = [], kb = [];
+  for(var k in a) if(a[k] >= 1 && a[k] <= 15) ka.push(k);
+  for(var k2 in b) if(b[k2] >= 1 && b[k2] <= 15) kb.push(k2);
+  ka.sort(); kb.sort();
+  if(!ka.length || ka.join() !== kb.join()) return null;
+  var ck = function(r){ return (r.passCombo || []).map(function(c){ return (c.subjects || []).slice().sort().join('+'); }).sort().join('|'); };
+  if(ck(h[y0]) !== ck(h[y1])) return null;
+  var from = {}, to = {}, subjects = [];
+  for(var i = 0; i < ka.length; i++){
+    var s = ka[i], e = (s === 'nat') ? 'sci' : s;   // 歷年檔自然科鍵 nat → 引擎鍵 sci
+    if(b[s] - a[s] > -1) return null;
+    from[e] = a[s]; to[e] = b[s];
+  }
+  for(var j = 0; j < ALL_SUBJ.length; j++) if(from[ALL_SUBJ[j]] !== undefined) subjects.push(ALL_SUBJ[j]);
+  return { fromYear:y0, toYear:y1, subjects:subjects, from:from, to:to };
+}
 function assessDept(scores, listenGrade, dept){
   var s1 = stage1Check(scores, listenGrade, dept);
-  var out = { status:s1.status, failed:s1.failed, missing:s1.missing, checkEdge:s1.checkEdge, pred:null, grade:null, level:null, name:null };
+  var out = { status:s1.status, failed:s1.failed, missing:s1.missing, checkEdge:s1.checkEdge, pred:null, grade:null, level:null, name:null,
+              tier:thresholdTierOf(dept), basisDrop:basisDropOf(dept) };
   if(s1.status === 'fail' || s1.status === 'missing') return out;
   if(dept.otherExam){ out.status = 'otherExam'; return out; }   // 一階要看 APCS 或術科：本工具沒收這些成績，不評估
   if(s1.status !== 'ok') return out;

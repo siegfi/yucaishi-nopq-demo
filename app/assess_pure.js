@@ -83,6 +83,40 @@ function tierLine(tier, pred, range, why) {
   return '這個系沒有往年門檻資料，只看 115 年第一階段檢定，不給範圍。';
 }
 var EDGE_LINE = '剛好在邊上，今年可能過、也可能不過。';
+// 2026-11-13 回饋清單第 30 條（owner 13:20 在主線回「全照建議」；方案 luodian-analysis/OUTPUTS/09_…_v0.2.md §六第 5 題）：卡片加一句「這系門檻算高／中／低」。
+// 來源＝引擎 assessDept(...).tier（契約 luodian_threshold_tier_contract_v1：115 年各科單科一階通過標準平均，≥13 高、≤6 低、其餘中）。
+// 只是一句事實：不扣分、不影響落點等級；平均級分（avg）不給學生看（會被讀成「要考幾級分」）。只有合科的系照 owner 定的句子寫；沒有去年資料的系卡片已經寫了，這一行不出現。
+var TH_LINE = {
+  high: '這系去年第一階段的門檻，在全部校系裡算高。',
+  mid: '這系去年第一階段的門檻，在全部校系裡算中等。',
+  low: '這系去年第一階段的門檻，在全部校系裡算低。'
+};
+// 2026-11-14 契約 v2（owner 對落點 10 號稿 7 題「全照預設」，回饋清單第 44 條）：只有合科的系（reason＝'combo'）算「每條合科門檻÷科目數」取最高、同一組切點，
+// 句子換成「幾科加總換算成每科平均」（高那一句是 owner 看過的原句）；reason 為 null＝單科三句不變；key＝none（noStandard 沒有任何通過標準、noHistory 沒去年資料）這一行不出現。
+var TH_LINE_COMBO = {
+  high: '這系第一階段看的是幾科加總；換算成每科平均，在全部校系裡算高。',
+  mid: '這系第一階段看的是幾科加總；換算成每科平均，在全部校系裡算中等。',
+  low: '這系第一階段看的是幾科加總；換算成每科平均，在全部校系裡算低。'
+};
+function thTierLine(t) {
+  if (!t || typeof t !== 'object') return '';
+  if (t.reason === 'combo') return TH_LINE_COMBO[t.key] || '';
+  if (!t.reason) return TH_LINE[t.key] || '';
+  return '';
+}
+// 2026-11-14 契約 v2 第二節：引擎 assessDept(...).basisDrop＝114→115 單科通過標準每一科都降 1 級分以上（不是 null 的共 96 系）。只列事實：年份、科目、數字都取自欄位，
+// 不加趨勢、不給比例、不寫「回升」「彈回」（那一句等律師）。與學生成績無關、不影響落點等級。
+var SUBJ_FULL = { chi: '國文', eng: '英文', math_a: '數學A', math_b: '數學B', soc: '社會', sci: '自然' };
+function basisDropLine(b) {
+  if (!b || typeof b !== 'object' || !Array.isArray(b.subjects) || !b.subjects.length || !b.from || !b.to || !b.fromYear || !b.toYear) return '';
+  var parts = [];
+  for (var i = 0; i < b.subjects.length; i++) {
+    var k = b.subjects[i], f = b.from[k], t = b.to[k];
+    if (!SUBJ_FULL[k] || typeof f !== 'number' || typeof t !== 'number') return '';
+    parts.push(SUBJ_FULL[k] + ' ' + f + '→' + t);
+  }
+  return '這系 ' + b.toYear + ' 年門檻比 ' + b.fromYear + ' 年低（' + parts.join('、') + '）。';
+}
 
 // 等值分與門檻的一句話
 function equivLine(pred) {
@@ -156,7 +190,12 @@ function deptCard(d, pred, cls, hist, has116, y116, s1) {
   // s1.listen＝這版填的英聽級（'' 或 null＝沒填）；舊呼叫（s1 是 true／false）不知道學生填了什麼，只寫門檻。
   var lt = d && d.listen ? String(d.listen) : '', known = !!(s1 && typeof s1 === 'object' && 'listen' in s1), sl = known && s1.listen ? String(s1.listen) : '';
   c.listenNeed = lt || null; c.listenChecked = lt ? (known ? !!sl : null) : null;
+  // 2026-11-13 第 30 條：s1.thTier＝引擎 assessDept 的 tier（舊呼叫沒有＝這一行不出現）
+  var th = s1 && typeof s1 === 'object' && s1.thTier && typeof s1.thTier === 'object' ? s1.thTier : null;
+  c.thTier = th ? th.key || null : null;
   c.lines = {
+    thTier: thTierLine(th),
+    basisDrop: basisDropLine(s1 && typeof s1 === 'object' ? s1.basisDrop : null),
     listen: lt ? '這系要英聽 ' + lt + ' 級' + (sl ? '（你填的是 ' + sl + ' 級）。' : known ? '。你還沒填英聽，這系的英聽門檻沒有檢查。' : '。') : '',
     checkEdge: ce.length ? '檢定壓線：' + ce.join('、') + ' 剛好等於這系的檢定標準；116 五標公布後標準的級分可能變，要再看一次。' : '',
     tier: st === 'missing' ? '這版成績沒有這系要看的' + (miss || '科目') + '，第一階段過不了。' : (st === 'fail' ? NORANGE.fail.line : tierLine(tier, pred, range, st)),
@@ -244,7 +283,7 @@ function scoreBrief(scores, listen) {
   return ORDER.filter(function (k) { return k !== 'nat' && s[k] != null; }).map(function (k) { return SUBJ[k] + ' ' + s[k]; }).join('、') + (listen ? '｜英聽 ' + listen : '');
 }
 
-root.AP = { LP: LP, TIER: TIER, NORANGE: NORANGE, GROUP_WARN: GROUP_WARN, EDGE_LINE: EDGE_LINE, levelOf: levelOf, verdictOf: verdictOf, predRange: predRange, tierOf: tierOf, tierLine: tierLine, equivLine: equivLine,
+root.AP = { LP: LP, TIER: TIER, NORANGE: NORANGE, GROUP_WARN: GROUP_WARN, EDGE_LINE: EDGE_LINE, TH_LINE: TH_LINE, thTierLine: thTierLine, basisDropLine: basisDropLine, levelOf: levelOf, verdictOf: verdictOf, predRange: predRange, tierOf: tierOf, tierLine: tierLine, equivLine: equivLine,
   trendLine: trendLine, stage2Line: stage2Line, facts116Line: facts116Line, deptCard: deptCard, ruleSummary: ruleSummary, dist222: dist222,
   overallLines: overallLines, compareVersions: compareVersions, closest222: closest222, scanAssertive: scanAssertive, scoreBrief: scoreBrief };
 })(typeof window !== 'undefined' ? window : globalThis);

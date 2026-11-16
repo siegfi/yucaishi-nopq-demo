@@ -322,12 +322,14 @@ async function enter() {
 window.addEventListener('hashchange', () => { capturePending(); if (S.home) route(); else loginBanner(); });
 function route() {
   flushSave(); stopPoll(); S.rt++; lastFailMsg = ''; window.scrollTo(0, 0); if (typeof modalClose === 'function') modalClose();
+  document.body.classList.remove('docwide');   // 11-13 第 32 條：寫稿頁有「對照」欄時內容欄放寬，離開就恢復
   const h = hashParts().path; const m = h.match(/^#\/doc\/([\w-]+)$/);
   if (m) return guard(() => viewDoc(m[1]));   // 2026-11-12：開一篇也經過 guard（原本失敗會停在「載入中」）
   S.docId = null; S.doc = null;
   // 2026-11-09 落點分析改版 L0：三個子分頁共用「落點分析」那一格（setTab('score')）
   const f = { '#/score': viewScore, '#/score/history': viewScoreHistory, '#/score/assess': viewScoreAssess, '#/wish': viewWish, '#/need': viewNeed, '#/mine': viewMine, '#/write': viewWrite, '#/import': viewImport,
-    '#/deliver': viewDeliver }[h];   // 2026-11-12 階段 1：我要交的（write.js）
+    '#/deliver': viewDeliver,   // 2026-11-12 階段 1：我要交的（write.js）
+    ...(typeof viewShop === 'function' ? { '#/shop': viewShop, '#/book': viewBook } : {}) }[h];   // 2026-11-13 第 38 條：購買、預約（../shop/shop.js；沒載到就回首頁）
   return guard(f || viewHome);
 }
 // 每一頁載入失敗（連線斷了等）都給一個重試鈕，不要停在「載入中」
@@ -377,7 +379,7 @@ function needSentence(sum) {
 const STEP_CARD = {
   2: { t: '先填學測成績，看你的位置和能去的校系。', b: '填成績', href: '#/score' },
   3: { t: '從清單裡挑最多六個你想去的系，存成志願。', b: '去挑科系', href: '#/score' },
-  4: { t: '看看這幾系要你交什麼。', b: '去看', href: '#/need' },
+  4: { t: '看看這幾系的審查資料準備指引：每一系要你交什麼。', b: '去看', href: '#/need' },
   5: { t: '說說你手上有什麼，老師才知道從哪裡幫你。', b: '回答兩個問題', href: '#/mine' },
 };
 function docTodo(h) {
@@ -402,8 +404,8 @@ function scanText(j) {
 function doneRows(j, step) {
   const rows = [], ns = normScores(j), ws = j.wishlistSummary || {};
   if (step > 2 && ns) rows.push(['成績落點', Object.keys(ns.scores).map((k) => SUBJ_ABBR[k] + ' ' + ns.scores[k]).join('、') + (ns.listen ? '｜英聽 ' + ns.listen : ''), '#/score', '看／改']);
-  if (step > 3 || (step === 3 && j.canSkipScore)) rows.push(['志願', '已選 ' + (ws.total || 0) + ' 系', '#/wish', '看']);
-  if (step > 4) rows.push(['要交什麼', needSentence(ws) || '看過了', '#/need', '看']);
+  if (step > 3 || (step === 3 && j.canSkipScore)) rows.push(['我的志願', '已選 ' + (ws.total || 0) + ' 系', '#/wish', '看']);
+  if (step > 4) rows.push(['審查資料準備指引說明', needSentence(ws) || '看過了', '#/need', '看']);
   if (step > 5 && j.scan) rows.push(['你手上有', scanText(j), '#/mine', '看']);
   return rows;
 }
@@ -411,7 +413,7 @@ async function viewHome() {
   setTab(''); view(loading); const my = S.rt;
   const h = await call('me_home'); if (!h.ok || my !== S.rt) return; S.home = h;
   const j = h.journey || {}, step = Math.max(2, j.step || 2), skip = step === 3 && j.canSkipScore === true;   // 從落點通帶志願來、還沒填成績：志願已存好，成績可以晚點填
-  const todo = skip ? { t: '你的志願已經存好；要看落點再填成績。', b: '填成績看落點', href: '#/score', b2: '先看每一系要交什麼', href2: '#/need' } : step >= 6 ? docTodo(h) : STEP_CARD[step] || STEP_CARD[2];
+  const todo = skip ? { t: '你的志願已經存好；要看落點再填成績。', b: '填成績看落點', href: '#/score', b2: '先看每一系的準備指引', href2: '#/need' } : step >= 6 ? docTodo(h) : STEP_CARD[step] || STEP_CARD[2];
   const rows = doneRows(j, step);
   const btn = (todo.doc ? `<button class="btn" data-act="openDoc" data-id="${esc(todo.doc.caseDocId)}" data-state="${esc(todo.doc.state)}">${esc(todo.b)}</button>` : todo.href ? `<a class="btn" href="${esc(todo.href)}">${esc(todo.b)}</a>` : '')
     + (todo.href2 ? ` <a class="btn ghost" href="${esc(todo.href2)}">${esc(todo.b2)}</a>` : '')

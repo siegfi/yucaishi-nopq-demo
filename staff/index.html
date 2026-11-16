@@ -420,6 +420,7 @@ function viewOrders() {
   const o = S.ui.od = S.ui.od || OD0();
   // 11-13：登入後學生名單（loadBase）還沒回來就點進這頁，下拉會是空的；先顯示讀取中，名單到了 enter() 會再 route() 一次
   if (!S.cases) { view('<div class="card center muted"><span class="spin"></span>讀取學生名單…（一直沒出來請重新整理）</div>'); return; }
+  bsLoad();   // 11-13 一對一的兩個規則（28p；沒設＝不限制）
   if (o.products && o.orders) { renderOrders(); odRefresh().catch(() => { /* 錯誤已由 call 顯示 */ }); return; }   // 回到這一頁時先畫舊的，再撈最新的訂單與額度
   view('<div class="card center muted"><span class="spin"></span>讀取訂單…</div>');
   Promise.all([o.products ? null : call('staff_list_products'), o.orders ? null : call('staff_list_orders', { p: {} })]).then(([p, l]) => {
@@ -470,8 +471,31 @@ function renderOrders() {
     <p class="muted small" style="margin:4px 0 0">通路分潤目前不啟用，只記這位學生從哪裡來。</p>
     <div style="margin-top:10px"><button class="btn" id="od-create" data-act="odCreate">開訂單（待收款）</button></div></div>
     <div class="card"><div class="row spread"><h2 style="margin:0">訂單</h2><select id="od-filter" data-in="odFilter" style="width:auto"><option value="">全部</option>${Object.entries(ORDER_STATUS).map(([v, t]) => `<option value="${v}" ${o.filter === v ? 'selected' : ''}>${t[0]}</option>`).join('')}</select></div><div id="od-list">${orderRows()}</div></div>
-    <div class="card"><h2>商品與價格</h2><p class="muted small" style="margin:0 0 6px">價格是 owner 11-12 給的暫定價。改了只影響之後開的訂單；已開的訂單照開單時的價格與輪數。</p><div id="pr-list">${productRows()}</div></div>`);
+    <div class="card"><h2>商品與價格</h2><p class="muted small" style="margin:0 0 6px">價格是 owner 11-12 給的暫定價。改了只影響之後開的訂單；已開的訂單照開單時的價格與輪數。</p><div id="pr-list">${productRows()}</div></div>
+    <div class="card" id="bs-card">${bsHtml()}</div>`);
 }
+// ── 11-13 一對一的兩個規則（28p_booking.sql；設計稿第十四章第 21 條，等 owner 與法務）：空白＝不限制，學生的預約頁照這裡顯示，畫面不寫死期限 ──
+const BS_KEYS = [['tutor.packValidDays', '一對一時數的有效天數', '天', '從付款確認那天起算；只影響之後買的，已經買的不變。'], ['tutor.studentChangeHoursBefore', '學生自己改期或取消，要在上課前幾小時', '小時', '這個時間之後，學生要找老師改；老師隨時可以取消。']];
+function bsHtml() {
+  const s = S.ui.bs;
+  if (!s) return '<h2>一對一的規則</h2><p class="muted small">讀取中…</p>';
+  if (s.off) return '<h2>一對一的規則</h2><p class="muted small">資料庫還沒更新到這一版（28p），這裡先不能設。</p>';
+  return `<h2>一對一的規則</h2><p class="muted small" style="margin:0 0 6px">這兩個規則還沒定（等 owner 與法務），先不限制。空白＝不限制；要限制時填數字按「存」，改動會留紀錄。</p>
+    ${BS_KEYS.map(([k, t, u, h]) => `<div class="orow p3" data-bs="${k}"><div>${esc(t)}<div class="muted small">${esc(h)}</div><div class="small">現在：<b>${s.v[k] == null ? '不限制' : `${s.v[k]} ${u}`}</b></div></div>
+      <div><label class="f" for="bs-${k.replace('.', '-')}" style="margin:0">${u}（空白＝不限制）</label><input type="number" min="0" step="1" id="bs-${k.replace('.', '-')}" value="${s.v[k] == null ? '' : s.v[k]}"></div>
+      <div><button class="btn sm ghost" data-act="bsSave" data-k="${k}">存</button></div></div>`).join('')}`;
+}
+async function bsLoad() {
+  try { const r = await call('staff_get_biz_settings', {}, { quiet: true }); S.ui.bs = r.ok ? { v: r.settings } : { off: true }; } catch (e) { S.ui.bs = { off: true }; }
+  if ($('bs-card')) $('bs-card').innerHTML = bsHtml();
+}
+ACT.bsSave = async (el) => {
+  const k = el.dataset.k, inp = $('bs-' + k.replace('.', '-')), raw = inp ? inp.value.trim() : '';
+  if (raw !== '' && !/^\d+$/.test(raw)) return toast('只能填整數，或留空白（不限制）。', true);
+  el.disabled = true; const r = await call('staff_set_biz_setting', { p: { key: k, value: raw === '' ? null : Number(raw) } }, { quiet: true }); el.disabled = false;
+  if (!r.ok) return toast(r.error === 'VALIDATION' ? (k === 'tutor.packValidDays' ? '有效天數要 1～3650，或留空白。' : '小時要 0～720，或留空白。') : `沒有存成功（${r.error}）`, true);
+  toast(r.value == null ? '已改成不限制。' : '已存。'); await bsLoad();
+};
 async function odRefresh() {
   const o = S.ui.od, [l, q] = await Promise.all([call('staff_list_orders', { p: {} }), o.student ? call('staff_get_student_quota', { p_student_id: o.student }) : null]);
   if (l.ok) o.orders = l.items; if (q) o.sq = q.ok ? q : null;

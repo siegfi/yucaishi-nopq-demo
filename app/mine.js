@@ -108,11 +108,11 @@ function lessonsCard() {
 }
 function renderMine() {
   if (location.hash !== '#/mine' || !S.mine) return;
-  if (S.mine.inv) { const y0 = window.scrollY; view(invHtml() + lessonsCard()); window.scrollTo(0, y0); return; }
+  if (S.mine.inv) { const y0 = window.scrollY; view(invHtml()); window.scrollTo(0, y0); return; }   // 11-13 第 35 條：「老師排的課」移進 invHtml，放在 N、O、P、Q 自述那一區前面
   const st = mineStage(); let html;
   if (st === 'ask') html = `<div class="card"><h2>你手上有什麼？</h2></div>${qBlock(1)}${qBlock(2)}${askFoot()}`;
   else if (st === 'submit') html = submitBlock();
-  else if (st === 'draftDone') html = '<div class="card active"><h2>稿交給老師了</h2><p style="margin:0 0 10px">去「寫」看老師的話。</p><a class="btn" href="#/write">去看</a></div>';
+  else if (st === 'draftDone') html = '<div class="card active"><h2>稿交給老師了</h2><p style="margin:0 0 10px">去「撰寫NOPQ」看老師的話。</p><a class="btn" href="#/write">去看</a></div>';
   else if (st === 'blank') html = '<div class="card active"><h2>好，我們從聊開始</h2><p style="margin:0 0 10px">老師會先問你做過的事，你想到什麼說什麼。</p><a class="btn" href="#/write">開始</a></div>';
   else html = parseBlock();
   if (st !== 'ask' && !noMatFiles()) html += '<div class="card"><button type="button" class="btn ghost sm" data-act="mineReset">重新回答這兩個問題</button></div>';   // 「還沒收到檔案」那張卡自己就有回去丟的鈕，不再多放一顆
@@ -220,10 +220,10 @@ ACT.runParse = () => runParse();
 // ══ 2026-11-08 owner 試用回饋 #2（架構稿 W3）：「我的東西」＝盤點學習歷程，四類逐類看：上傳已有的、在這裡補寫、交給老師看 ══
 // 後端（28g §6）：my_inventory、set_inventory_item、submit_material_review。沒有這幾支時 invLoad 回 false，頁面退回舊的兩題問答。
 const INV_KINDS = [
-  { k: 'courseRecord', name: '修課紀錄', tip: '成績單、學校系統的修課紀錄（截圖或 PDF）。上傳就好，老師參考用。', write: false, review: false },
-  { k: 'courseResult', name: '課程學習成果', tip: '課堂報告、實作、作品。學校系統裡有的直接上傳；還沒放上去的，可以在這裡補寫。寫好可以交給老師看。', write: true, review: true },
-  { k: 'diverse', name: '多元表現', tip: '社團、競賽、志工、檢定、自主學習。一樣可以上傳或補寫，寫好交給老師看。', write: true, review: true },
-  { k: 'statement', name: '學習歷程自述（N、O、P、Q）', tip: '已經寫好的 N、O、P、Q 稿上傳在這裡，再交給老師改；還沒寫的到「寫」那一頁寫。', write: false, review: false },
+  { k: 'courseRecord', name: '修課紀錄', tip: '成績單、學校系統的修課紀錄（截圖或 PDF），高一、高二的也放進來。老師參考用。', write: false, review: false },
+  { k: 'courseResult', name: '課程學習成果', tip: '課堂報告、實作、作品。學校系統裡有的、以前做的都可以放進來；還沒放上去的，可以在這裡補寫。寫好可以交給老師看。', write: true, review: true },
+  { k: 'diverse', name: '多元表現', tip: '社團、競賽、志工、檢定、自主學習。以前的紀錄也可以放進來，或在這裡補寫；寫好交給老師看。', write: true, review: true },
+  { k: 'statement', name: '學習歷程自述（N、O、P、Q）', tip: '已經寫好的 N、O、P、Q 稿上傳在這裡，再交給老師改；還沒寫的到「撰寫NOPQ」那一頁寫。', write: false, review: false },
 ];
 const INV_NAME = Object.fromEntries(INV_KINDS.map((x) => [x.k, x.name]));
 const REV_TEXT = { pending: '等老師看', replied: '老師回了', needMore: '老師請你補一下', withdrawn: '你收回了' };
@@ -234,6 +234,7 @@ function invNorm(r) {   // 後端回傳可能是 items 陣列（每筆帶 kind�
     return { id: it.id || it.fileAssetId, name: it.title || it.fileName || '（沒有標題）', fileName: it.fileName || '', kind: it.kind || it.inventoryKind || null, self: !!(it.selfWritten),
       preview: it.preview || it.textPreview || it.text || '', type: it.nopqType || '', at: it.createdAt || '', canSubmit: it.canSubmit,
       canEdit: it.canEdit, canHide: it.canHide, canWithdraw: it.canWithdraw, submittedDocId: it.submittedDocId || null, replaces: it.replaces || null,   // 28m（沒有＝undefined，新按鈕不出現）
+      edited: it.editedAfterSubmit,   // 28o（11-13 第 34 條）：交給老師後又改過；沒有 28o＝undefined，等老師看時照舊只能收回
       rv: rv ? { status: rv.status, note: rv.teacherNote || rv.note || '', round: rv.round } : it.reviewStatus ? { status: it.reviewStatus, note: it.teacherNote || '', round: it.reviewRound } : null };
   };
   const push = (it) => { const x = one(it); (out[x.kind] || out._none).push(x); };
@@ -252,44 +253,84 @@ const invDocs = (type) => ((S.home || {}).docs || []).filter((d) => ['warmup', '
 // 交給老師之後、老師還沒回之前不能改、不能收起，但可以「收回」；老師回了之後可以改，改完再交＝新的一輪。後端沒有 28m（清單沒有 canEdit）就不出這幾顆。
 const REV_HINT = { pending: '等老師看的時候不能改、不能收起；要改先按「收回」。', needMore: '老師請你補一下：按「改」補好，再按「補好了，再交給老師看」（算新的一輪）。',
   replied: '老師回過了，還想改可以按「改」，改完再交給老師看算新的一輪。', withdrawn: '你收回了，可以改，改好再交給老師看（算新的一輪）。' };
+// 2026-11-13 第 34 條（USER 原話「歷史性的紀錄，沒有可以編輯跟上傳修改的地方，這個地方要改」）：後端有 28o 時，等老師看的那一份也能改、換一份（上傳新的檔或貼上新的），
+// 改了老師那邊看得到「學生交出後又改過」；收起來仍要先收回（不能把老師正在看的那一份藏起來）。這一條取代 11-12 照 D4 預設做的「等老師看時只能收回」。
+const REV_HINT_O = { pending: '交給老師之後也可以改、換一份；改了老師那邊會看到「交出後又改過」，不用再交一次。不想給老師看了，按「收回」。' };
+const srcName = (it) => (it.self ? '在這裡補寫' : it.fileName === 'pasted.txt' ? '貼上的' : '上傳的檔');
+// 這一份到哪一步（總清單與每一筆共用）：[字, pill 樣式]
+function invStep(it, kd) {
+  if (it.submittedDocId) return ['已交進撰寫NOPQ', 'ok'];
+  const rv = it.rv; if (rv) return [REV_TEXT[rv.status] || rv.status, rv.status === 'needMore' ? 'warn' : rv.status === 'replied' ? 'ok' : rv.status === 'pending' ? 'main' : ''];
+  return kd.review ? ['還沒交老師看', ''] : ['放進來了', ''];
+}
 function invItem(it, kd) {
-  const m = invMine(), rv = it.rv, canRev = kd.review && !(rv && rv.status === 'pending') && it.canSubmit !== false, has28m = it.canEdit !== undefined;
+  const m = invMine(), rv = it.rv, canRev = kd.review && !(rv && rv.status === 'pending') && it.canSubmit !== false, has28m = it.canEdit !== undefined, has28o = it.edited !== undefined;
   const docs = kd.k === 'statement' ? invDocs(it.type) : [];
   const ed = m.invEdit && m.invEdit.id === it.id ? m.invEdit : null, sw = m.invSwap && m.invSwap.id === it.id ? m.invSwap : null;
-  const acts = has28m ? `<div class="row" style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="invEdit" data-id="${esc(it.id)}">${it.canEdit || it.submittedDocId ? '改' : '看全文'}</button>
-      ${it.canHide ? `<button type="button" class="btn sm ghost" data-act="invSwapOpen" data-id="${esc(it.id)}">換一份</button><button type="button" class="btn sm ghost" data-act="invHide" data-id="${esc(it.id)}">收起來</button>` : ''}
+  const canSwap = it.canHide || (has28o && it.canWithdraw), step = invStep(it, kd);
+  const acts = has28m ? `<div class="row" style="margin-top:6px"><button type="button" class="btn sm ${rv && rv.status === 'pending' && has28o ? '' : 'ghost'}" data-act="invEdit" data-id="${esc(it.id)}">${it.canEdit || it.submittedDocId ? '改' : '看全文'}</button>
+      ${canSwap ? `<button type="button" class="btn sm ghost" data-act="invSwapOpen" data-id="${esc(it.id)}">換一份</button>` : ''}${it.canHide ? `<button type="button" class="btn sm ghost" data-act="invHide" data-id="${esc(it.id)}">收起來</button>` : ''}
       ${it.canWithdraw ? `<button type="button" class="btn sm warn" data-act="invWithdraw" data-id="${esc(it.id)}">收回</button>` : ''}</div>` : '';
-  const hint = has28m ? (it.submittedDocId && !it.canWithdraw ? '這份稿已經交進「寫」的那一篇，內容請到「寫」改那一篇；這裡可以改標題、換一份或收起來。' : rv ? REV_HINT[rv.status] || '' : '') : '';
-  return `<div class="pt"><div class="row spread"><b>${esc(it.name)}</b><span><span class="pill">${it.self ? '在這裡補寫' : it.fileName === 'pasted.txt' ? '貼上的' : '上傳的檔'}</span>${it.type ? `<span class="pill">${esc(it.type)}</span>` : ''}${rv ? `<span class="pill ${rv.status === 'needMore' ? 'warn' : rv.status === 'replied' ? 'ok' : ''}">${esc(REV_TEXT[rv.status] || rv.status)}</span>` : ''}</span></div>
-    ${it.preview ? `<div class="muted small" style="white-space:pre-wrap">${esc(String(it.preview).slice(0, 200))}${String(it.preview).length > 200 ? '…' : ''}</div>` : '<div class="small" style="color:var(--warn)">這份沒有讀到文字（可能是掃描檔或圖片），老師看得到檔案，但系統讀不到內容。</div>'}
+  const hint = has28m ? (it.submittedDocId && !it.canWithdraw ? '這份稿已經交進「撰寫NOPQ」的那一篇，內容請到「撰寫NOPQ」改那一篇；這裡可以改標題、換一份或收起來。' : rv ? (has28o && REV_HINT_O[rv.status]) || REV_HINT[rv.status] || '' : '') : '';
+  const prev = String(it.preview || '');
+  return `<div class="pt invitem" id="inv-it-${esc(it.id)}"><div class="row spread"><b>${esc(it.name)}</b><span><span class="pill ${step[1]}">${esc(step[0])}</span>${it.edited ? '<span class="pill warn">交出後又改過</span>' : ''}</span></div>
+    <div class="muted small">${esc(srcName(it))}${it.type ? '｜' + esc(it.type) : ''}${it.at ? '｜' + esc(mdOf(it.at)) + ' 放進來' : ''}</div>
+    ${prev ? `<div class="small invsumm"><span class="muted">摘要：</span>${esc(prev.replace(/\s+/g, ' ').slice(0, 120))}${prev.length > 120 ? '…' : ''}</div>` : '<div class="small" style="color:var(--warn)">這份沒有讀到文字（可能是掃描檔或圖片），老師看得到檔案，但系統讀不到內容。</div>'}
     ${it.replaces ? '<div class="muted small">這份是換上來的新的一份（舊的在最下面「收起來的」）。</div>' : ''}
     ${rv && rv.note ? `<div class="cm">老師：${esc(rv.note)}</div>` : ''}${hint ? `<div class="muted small" style="margin-top:4px">${esc(hint)}</div>` : ''}
     ${acts}${ed ? invEditHtml(it, ed) : ''}${sw ? invSwapHtml(it, kd, sw) : ''}
     ${canRev ? `<div style="margin-top:6px"><button type="button" class="btn sm ${rv && rv.status === 'needMore' ? '' : 'ghost'}" data-act="invReview" data-id="${esc(it.id)}">${rv && rv.status === 'needMore' ? '補好了，再交給老師看' : rv && rv.status === 'withdrawn' ? '再交給老師看' : '交給老師看'}</button></div>` : ''}
-    ${kd.k === 'statement' ? (docs.length ? `<div class="row" style="margin-top:6px"><select data-in="invDoc" data-id="${esc(it.id)}" aria-label="這份稿是哪一篇">${docs.map((d) => `<option value="${esc(d.caseDocId)}" ${S.mine.invPick[it.id] === d.caseDocId ? 'selected' : ''}>${esc(docTitle(d))}</option>`).join('')}</select><button type="button" class="btn sm" data-act="invSubmitDraft" data-id="${esc(it.id)}">交給老師改</button></div>` : '<div class="muted small" style="margin-top:6px">現在沒有可以接這份稿的那一篇（可能已經交了或定稿了），到「寫」看看。</div>') : ''}</div>`;
+    ${kd.k === 'statement' ? (docs.length ? `<div class="row" style="margin-top:6px"><select data-in="invDoc" data-id="${esc(it.id)}" aria-label="這份稿是哪一篇">${docs.map((d) => `<option value="${esc(d.caseDocId)}" ${S.mine.invPick[it.id] === d.caseDocId ? 'selected' : ''}>${esc(docTitle(d))}</option>`).join('')}</select><button type="button" class="btn sm" data-act="invSubmitDraft" data-id="${esc(it.id)}">交給老師改</button></div>` : '<div class="muted small" style="margin-top:6px">現在沒有可以接這份稿的那一篇（可能已經交了或定稿了），到「撰寫NOPQ」看看。</div>') : ''}</div>`;
 }
 function invKindCard(kd) {
   const m = S.mine, list = m.inv[kd.k] || [], open = m.invWrite === kd.k, busy = m.busy === 'inv:' + kd.k;
   // 2026-11-12 階段 1（D3）：四類都能「貼上文字」（雲端沒有丟檔案，原本修課紀錄、學習歷程自述完全放不進東西）；貼的框底下有「用檔案帶入（Word、PDF、文字檔）」
   const typeSel = kd.k === 'statement' && (LOCAL_SERVER || open) ? `<label class="f" for="inv-type">${open ? '貼的' : '上傳的'}是哪一篇？</label><select id="inv-type" data-in="invType">${['N', 'O', 'P', 'Q'].map((k) => `<option value="${k}" ${m.invType === k ? 'selected' : ''}>${esc(DOC_SHORT[k])}</option>`).join('')}</select>` : '';
   const pasteName = kd.write ? '在這裡補寫' : '貼上文字';
-  return `<div class="card"><h2>${esc(kd.name)}（${list.length}）</h2><p class="muted small" style="margin:0 0 6px">${esc(kd.tip)}</p>
+  return `<div class="card" id="inv-${kd.k}"><h2>${esc(kd.name)}（${list.length}）</h2>${list.length ? `<p class="invline">${esc(kindLine(kd, list))}</p>` : ''}<p class="muted small" style="margin:0 0 6px">${esc(kd.tip)}</p>
     ${list.map((it) => invItem(it, kd)).join('') || '<div class="muted small">還沒有。</div>'}
     ${typeSel}<div class="row" style="margin-top:8px">${LOCAL_SERVER ? `<label class="btn ghost sm" style="cursor:pointer">上傳檔案<input type="file" data-in="invFile" data-k="${kd.k}" multiple accept=".docx,.pdf,.txt,.md" style="display:none" ${busy ? 'disabled' : ''}></label>` : ''}
       <button type="button" class="btn ghost sm" data-act="invWriteToggle" data-k="${kd.k}">${open ? '收起' + pasteName : pasteName}</button>
-      ${kd.k === 'statement' ? '<a class="btn ghost sm" href="#/write">還沒寫：到「寫」</a>' : ''}</div>
+      ${kd.k === 'statement' ? '<a class="btn ghost sm" href="#/write">還沒寫：到「撰寫NOPQ」</a>' : ''}</div>
     ${open ? `<label class="f" for="inv-title-${kd.k}">一句話標題</label><input type="text" id="inv-title-${kd.k}" data-in="invTitle" data-k="${kd.k}" maxlength="60" value="${esc(m.invTitle[kd.k] || '')}" placeholder="${kd.k === 'statement' ? '例：N 第一次寫的稿（高三上）' : kd.k === 'courseRecord' ? '例：高一到高二上修課紀錄' : '例：高二上 物理專題：水火箭'}">
       <label class="f" for="inv-text-${kd.k}">內容</label><textarea id="inv-text-${kd.k}" class="big" data-in="invText" data-k="${kd.k}" maxlength="20000" placeholder="${kd.write ? '做了什麼、怎麼做、結果怎樣、學到什麼' : '把文字貼上來，或按下面「用檔案帶入」'}">${esc(m.invText[kd.k] || '')}</textarea>
       <div style="margin-top:6px"><button type="button" class="btn" data-act="invSaveText" data-k="${kd.k}">存下來</button></div>` : ''}
     ${busy ? `<div class="hint"><span class="spin"></span>${esc(m.msg || '處理中…')}</div>` : ''}</div>`;
 }
+// 2026-11-13 第 33 條（USER 原話「你要有個總清單去盤點確認一下目前的狀況」「每一個項目都要有個列表與摘要。比如說，多元表現摘要。然後歷史的可以丟進去，以及修改存檔」）：
+// 最上面一張總清單（每一類幾筆、各到哪一步、最近放進來的日期，點了跳到那一類）；每一類標題下一行這一類的摘要，每一筆有到哪一步、日期、摘要。
+function kindLine(kd, list) {
+  const src = {}, st = {};
+  list.forEach((it) => { const s = srcName(it); src[s] = (src[s] || 0) + 1; const t = invStep(it, kd)[0]; st[t] = (st[t] || 0) + 1; });
+  const j = (o) => Object.keys(o).map((k) => k + ' ' + o[k]).join('、');
+  const last = list.reduce((a, it) => (it.at && (!a || it.at > a) ? it.at : a), '');
+  return `共 ${list.length} 筆：${j(src)}｜${j(st)}${last ? '｜最近放進來 ' + mdOf(last) : ''}`;
+}
+function invSumHtml() {
+  const m = S.mine, inv = m.inv, none = inv._none || [], hid = m.invHidden || [];
+  const row = (kd) => {
+    const list = inv[kd.k] || [], st = {};
+    list.forEach((it) => { const s = invStep(it, kd); st[s[0]] = st[s[0]] || [0, s[1]]; st[s[0]][0]++; });
+    const edited = list.filter((it) => it.edited).length;
+    return `<button type="button" class="invsum" data-act="invJump" data-k="${kd.k}"><span class="k">${esc(kd.name)}</span><span class="n">${list.length} 筆</span>
+      <span class="st">${list.length ? Object.keys(st).map((t) => `<span class="pill ${st[t][1]}">${esc(t)} ${st[t][0]}</span>`).join('') + (edited ? `<span class="pill warn">交出後又改過 ${edited}</span>` : '') : '<span class="muted small">還沒有</span>'}</span></button>`;
+  };
+  const total = INV_KINDS.reduce((a, kd) => a + (inv[kd.k] || []).length, 0);
+  return `<div class="card active"><h2>我的學習歷程</h2><p style="margin:0 0 8px">總清單：盤點你的學習歷程目前到哪裡。共 ${total} 份${none.length ? `，另有 ${none.length} 份還沒分類` : ''}${hid.length ? `，收起來的 ${hid.length} 份` : ''}。點一類跳過去看。</p>
+    <div class="invsums">${INV_KINDS.map(row).join('')}</div>
+    <p class="muted small" style="margin:8px 0 0">以前的資料（高一、高二的作品、紀錄、寫過的稿）都可以放進來；放進來的每一份都可以按「改」修改、存檔，交給老師之後也可以改。課程學習成果和多元表現寫好，可以交給老師看；N、O、P、Q 的稿交給老師改（在最下面）。</p></div>`;
+}
+ACT.invJump = (el) => { const c = $('inv-' + el.dataset.k); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 function invHtml() {
   const m = S.mine, inv = m.inv, none = inv._none || [];
   const nMat = (inv.courseResult || []).length + (inv.diverse || []).length, nSt = (inv.statement || []).length;
-  return `<div class="card active"><h2>盤點你的學習歷程</h2><p style="margin:0">四類一類一類看：學校系統裡有的直接上傳；還沒放上去、或想先寫寫看的，就在這裡補寫。課程學習成果和多元表現寫好，可以交給老師看；N、O、P、Q 的稿交給老師改。</p></div>`
-    + INV_KINDS.map(invKindCard).join('')
+  // 11-13 第 35 條（USER 原話「NOPQ集中到最後面」）：N、O、P、Q 自述那一區排到這一頁最後面（後面只剩收起來的與「盤點好了」）
+  return invSumHtml()
+    + INV_KINDS.filter((kd) => kd.k !== 'statement').map(invKindCard).join('')
     + (none.length ? `<div class="card"><h2>還沒分類的（${none.length}）</h2><p class="muted small" style="margin:0 0 6px">之前上傳的檔，選一下是哪一類。</p>${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">選類別</option>${INV_KINDS.map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}</div>` : '')
     + (m.items && m.items.length ? `<div class="card"><h2>老師從你的檔案整理出 ${m.items.length} 件事</h2>${m.items.map(matRow).join('')}</div>` : '')
+    + lessonsCard()
+    + INV_KINDS.filter((kd) => kd.k === 'statement').map(invKindCard).join('')
     + invHiddenHtml()
     + `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就可以往下寫，之後隨時回來補。</p><div class="row">
       ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>請老師讀一下，整理出我做過的事</button>` : ''}
@@ -340,11 +381,15 @@ ACT.invEditSave = async (el) => {
   el.disabled = true;
   const r = await call('update_inventory_item', { p_file_asset_id: ed.id, p_title: ed.title, p_text: ed.item.canEdit ? ed.text : null });
   if (!r.ok) { el.disabled = false; return; }
-  keepClear('mine:edit:' + ed.id); m.invEdit = null; toast(ed.item.canEdit ? '改好了。要老師再看，按「交給老師看」（算新的一輪）。' : '標題改好了。'); await invLoad(); renderMine();
+  keepClear('mine:edit:' + ed.id); m.invEdit = null;
+  toast(!ed.item.canEdit ? '標題改好了。' : ed.item.canWithdraw ? '改好了。老師看到的是改過的內容，也會看到你交出後又改過，不用再交一次。' : '改好了。要老師再看，按「交給老師看」（算新的一輪）。');   // 11-13 第 34 條：等老師看時改
+  await invLoad(); renderMine();
 };
 ACT.invSwapOpen = (el) => { const m = invMine(), id = el.dataset.id; m.invEdit = null; m.invSwap = m.invSwap && m.invSwap.id === id ? null : { id, text: '' }; renderMine(); };
 IN.invNewText = (el) => { if (S.mine.invSwap) S.mine.invSwap.text = el.value; };
 ACT.invSwapCancel = () => { S.mine.invSwap = null; renderMine(); };
+// 11-13 第 34 條：等老師看的那一份換掉時，老師那一輪跟著移到新的一份（28o replace_inventory_item）
+const swapMsg = (old) => (old && old.rv && old.rv.status === 'pending' ? '換好了。老師看到的會是新的這一份，也會看到你交出後又換過；舊的那份收在最下面「收起來的」。' : '換好了，舊的那份收在最下面「收起來的」。');
 async function invSwapTo(oldId, newId) {   // 新的一份登記好之後：換上去（舊的收起來）、補回「補寫」標記
   const old = invFind(oldId), r = await call('replace_inventory_item', { p_old_id: oldId, p_new_id: newId });
   if (!r.ok) return false;
@@ -360,7 +405,7 @@ ACT.invSwapSave = async (el) => {
     const r = await call('upload_register', { p_kind: statement ? 'draft' : 'portfolio', p_nopq_type: statement ? old.type || null : null, p_file_name: 'pasted.txt', p_mime: 'text/plain',
       p_size: new Blob([text]).size, p_storage_key: `${S.uid}/pasted/${Date.now()}.txt`, p_text: text });
     if (!r.ok || !(await invSwapTo(sw.id, r.fileAssetId))) return;
-    keepClear('mine:swap:' + sw.id); m.invSwap = null; toast('換好了，舊的那份收在最下面「收起來的」。'); await invLoad(); renderMine();
+    keepClear('mine:swap:' + sw.id); m.invSwap = null; toast(swapMsg(old)); await invLoad(); renderMine();
   } finally { el.disabled = false; }
 };
 IN.invSwapFile = async (el) => {
@@ -370,7 +415,7 @@ IN.invSwapFile = async (el) => {
   const r = await uploadFile(f, old && old.kindKey === 'statement' ? 'draft' : 'portfolio', old && old.kindKey === 'statement' ? old.type || '' : '');
   m.busy = ''; m.msg = '';
   if (!r.ok) { toast(UP_ERR[r.error] || errText(r), true); renderMine(); return; }
-  if (await invSwapTo(sw.id, r.fileAssetId)) { m.invSwap = null; toast('換好了，舊的那份收在最下面「收起來的」。'); }
+  if (await invSwapTo(sw.id, r.fileAssetId)) { m.invSwap = null; toast(swapMsg(old)); }
   await invLoad(); renderMine();
 };
 ACT.invHide = async (el) => {

@@ -323,19 +323,42 @@ function selUndoHtml(sc) { return sc.undo ? `<div class="selundo" role="status">
 function selDots(sc) {
   return '<span class="seldots" aria-hidden="true">' + Array.from({ length: 6 }, (_, i) => { const r = i < sc.sel.length ? sc.byId.get(sc.sel[i]) : null; return `<i class="${i < sc.sel.length ? 'on ' + (r ? zCls(r.code) : 'none') : ''}"></i>`; }).join('') + '</span>';
 }
+// 2026-11-13 改版建議第 28 條（owner 轉 USER 原話「紅色的框要浮動，而且已選了什麼，可能要簡單的摘要一下」）：寬螢幕已選區固定在畫面底部，
+// 已選的系直接列成摘要（順位、校名系名、落點），不用點開；一格放不下的字截掉，滑鼠移上去看全名。手機維持 11-12 M1 的收合列＋面板。
+function selSumHtml(sc) {
+  const chips = sc.sel.map((id, i) => {
+    const d = LD.byId.get(id), r = sc.byId.get(id); if (!d) return '';
+    const full = (d.school || '') + ' ' + (d.dept || ''), short = String(d.school || '').replace(/^國立/, '') + ' ' + (d.dept || '');
+    return `<div class="selchip" title="${esc(full)}"><span class="no">${i + 1}</span><span class="nm">${esc(short)}</span>${r ? `<span class="lp ${zCls(r.code)}">${esc(rowName(r))}</span>` : '<span class="lp none">不在清單</span>'}</div>`;
+  }).join('');
+  return `<div class="selsum" aria-label="已選的系">${chips}${sc.sel.length < 6 ? `<div class="selchip empty">還可以再選 ${6 - sc.sel.length} 個</div>` : ''}</div>`;
+}
+// 寬螢幕固定列：量它的高度，頁面底部留同樣的空間（最後一列不被擋）、提示訊息移到它上方；換頁或手機時拿掉
+let selRO = null;
+function selWide(box, on) {
+  const b = document.body;
+  if (!on || !box) { b.classList.remove('has-selbar-w'); if (selRO) { selRO.disconnect(); selRO = null; } return; }
+  const set = () => { if (!box.isConnected || !box.firstElementChild) { b.classList.remove('has-selbar-w'); return; } document.documentElement.style.setProperty('--selh', box.offsetHeight + 'px'); b.classList.add('has-selbar-w'); };
+  if (selRO) selRO.disconnect();
+  if (window.ResizeObserver) { selRO = new ResizeObserver(set); selRO.observe(box); }
+  set();
+}
+window.addEventListener('hashchange', () => selWide(null, false));
 function renderSel() {
   const box = $('sc-sel'); if (!box) return; const sc = S.sc, n = sc.sel.length;
   markFull();
-  if (!n && !sc.undo) { if (sc.panel) selClose(); box.innerHTML = ''; selBodyFlags(false, false); return; }
+  if (!n && !sc.undo) { if (sc.panel) selClose(); box.innerHTML = ''; selBodyFlags(false, false); selWide(box, false); return; }
   const ng = new Set(sc.sel.map((id) => (LD.byId.get(id) || {}).group).filter(Boolean)).size;
   const hasScore = Object.keys(sc.scores).length > 0;
   const acts = `<button type="button" class="btn ghost" data-act="saveVer" ${hasScore && n ? '' : 'disabled title="先填成績才能存成一版"'}>存成一版</button><button type="button" class="btn" data-act="saveWish" ${n ? '' : 'disabled'}>存成志願</button>`;
   const fullLine = sc.fullMsg ? '<div class="issue small" style="margin:0 0 6px">已經六個了，先拿掉一個再選。</div>' : '';
-  if (!selMobile()) {   // 寬螢幕：原本那一條，展開的清單換成六格
-    box.innerHTML = `<div class="selbar">${sc.panel ? `<div class="selpanel">${fullLine}${selSlotsHtml(sc)}${selUndoHtml(sc)}</div>` : ''}${mixLine(sc)}${groupWarnHtml(ng, '勾的系橫跨')}<div class="row spread"><button type="button" class="btn ghost sm" data-act="selPanel">已選 ${n}／6　${sc.panel ? '▾ 收起' : '▴ 這系看什麼'}</button><span class="row">${acts}</span></div>
-      ${selNoteHtml()}</div>`;
-    selBodyFlags(false, false); sc.bump = false; return;
+  if (!selMobile()) {   // 寬螢幕：固定浮在畫面底部（11-13 第 28 條），已選的系直接列成摘要；展開是六格（調順序、刪除、這系看什麼）
+    box.innerHTML = `<div class="selbar${sc.bump ? ' bump' : ''}">${sc.panel ? `<div class="selpanel">${fullLine}${selSlotsHtml(sc)}${selUndoHtml(sc)}${selNoteHtml()}</div>` : selUndoHtml(sc)}
+      <div class="selhead"><b>已選 ${n}／6</b>${mixLine(sc)}</div>${selSumHtml(sc)}${groupWarnHtml(ng, '勾的系橫跨')}
+      <div class="row spread" style="margin-top:6px"><span class="row"><button type="button" class="btn ghost sm" data-act="selPanel" aria-expanded="${!!sc.panel}">${sc.panel ? '▾ 收起' : '▴ 調整順序、看這系看什麼'}</button>${sc.panel ? '' : '<span class="muted small">參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）</span>'}</span><span class="row">${acts}</span></div></div>`;
+    selBodyFlags(false, false); selWide(box, true); sc.bump = false; return;
   }
+  selWide(box, false);
   const line = `<button type="button" class="selline${sc.bump ? ' bump' : ''}" data-act="selOpen" aria-expanded="${!!sc.panel}"><span><b>已選 ${n}／6</b>${selDots(sc)}</span><span class="small">看已選 ▴</span></button>`;
   const sheet = sc.panel ? `<div class="selback" data-act="selClose"></div><div class="selsheet" role="dialog" aria-modal="true" aria-label="已選志願">
       <div class="shead"><b>已選志願 ${n}／6</b><button type="button" class="btn sm ghost" data-act="selClose">收起</button></div>

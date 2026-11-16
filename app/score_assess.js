@@ -39,7 +39,7 @@ function asVersion(v) {
     const sc = v.scores || {}, a = typeof assessDept === 'function' ? assessDept(sc, v.listen || '', d) : null;
     const pred = a ? a.pred : predictCrossYear(sc, d), cls = classify(sc, d), hist = (typeof CAAC_HISTORY !== 'undefined' && CAAC_HISTORY[d.id]) || null;
     const info = S.dinfo && S.dinfo.items[String(p.deptCode)];
-    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, a ? { status: a.status, missing: a.missing, checkEdge: a.checkEdge, listen: v.listen || '' } : passesStage1(sc, v.listen || '', d));
+    const c = AP.deptCard(d, pred, cls, hist, has116, info ? info.y116 : null, a ? { status: a.status, missing: a.missing, checkEdge: a.checkEdge, listen: v.listen || '', thTier: a.tier || null, basisDrop: a.basisDrop || null } : passesStage1(sc, v.listen || '', d));   // 11-13 第 30 條：thTier＝門檻高／中／低
     c.deptCode = String(p.deptCode); c.rank = p.rank; c.rulesUrl = info && info.y ? info.y.rulesUrl : null; c.rulesYear = info && info.y && info.y.year ? info.y.year : null;   // 2026-11-12：換 116 後是 116 分則，照實標年度
     return c;
   });
@@ -51,7 +51,7 @@ function cardHtml(c) {
   const L = c.lines, head = c.range ? `一階門檻推估：${c.range}` : `一階門檻推估：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : (c.noRange || '資料不足')}`;
   return `<div class="acard t-${c.tier}"><div class="row spread"><b>${c.rank}. ${esc(c.school)} ${esc(c.dept)}</b><span><span class="tierpill t-${c.tier}">${esc(head)}</span>${c.edge ? ' <span class="pill warn">壓線</span>' : ''}</span></div>
     <div class="small"><b>${esc(c.tierName)}</b>　${esc(L.tier)}${L.edge ? ' ' + esc(L.edge) : ''}</div>${L.listen ? `<div class="small">${c.listenChecked === false ? '<span class="pill warn">英聽沒有檢查</span> ' : ''}${esc(L.listen)}</div>` : ''}${L.checkEdge ? `<div class="small"><span class="pill warn">檢定壓線</span> ${esc(L.checkEdge)}</div>` : ''}
-    ${L.equiv ? `<div class="small">一階｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}
+    ${L.thTier ? `<div class="small thtier">門檻高低｜${esc(L.thTier)}</div>` : ''}${L.basisDrop ? `<div class="small thtier">門檻變化｜${esc(L.basisDrop)}</div>` : ''}${L.equiv ? `<div class="small">一階｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}
     <div class="small">二階（事實）｜${esc(L.facts116)}；${esc(L.stage2)}</div>
     <div class="muted small">${esc(L.basis)}</div><div class="muted small">${esc(L.unknown)}</div>
     ${NG.safeUrl(c.rulesUrl) ? `<div class="small"><a href="${esc(c.rulesUrl)}" target="_blank" rel="noopener noreferrer">${esc(c.rulesYear || 115)} 校系分則（甄選會）</a></div>` : ''}</div>`;

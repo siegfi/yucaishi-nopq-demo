@@ -200,7 +200,8 @@ const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isN
 const TILES = [['pendingPoints', '待看重點', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '待出作業', ['assignment_pending']],
   ['pendingFeedback', '待回饋', ['feedback_pending']], ['pendingReviews', '待批改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '待決定開始寫', ['feedback_published']]];
 async function viewHome() {
-  view(loading); const h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
+  view(loading); const my = RT, h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
+  if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把首頁畫回去蓋掉別頁（2026-11-14，同排課區塊的做法）
   view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}</div>
   <div class="card"><h2>我帶的學生（${(h.students || []).length} 位）</h2>${(h.students || []).map((s) => `<span class="pill">${esc(s.nickname)}</span>`).join('') || '<span class="muted">目前沒有指派給你的學生。</span>'}</div>`);
 }
@@ -614,28 +615,125 @@ ACT.verCmp = async (el) => {
   } finally { el.disabled = false; }
 };
 // ── 排課 ──
-const FMT = { onsite: '現場', live: '直播', recorded: '錄影', one_on_one: '1 對 1' };
+// 2026-11-13 改版建議第 39 條（owner 轉交 1113.docx）：排課分「直播課（一對多）」與「一對一」兩塊。
+// 直播課：沿用 LessonSession（課名、形式、班別、時間、連結、架構卡）；一對一：老師開有空的時段 → 學生用買好的時數預約 → 上完按「已完成」才扣時數。後端 profile-db/28p_booking.sql。
+// 本區塊只用自己的錯誤對照（LERR）與 S.ui 底下的狀態，不改頁面其他區塊。
+const FMT = { onsite: '現場', live: '直播', recorded: '錄影', one_on_one: '1 對 1' };   // one_on_one 只留給舊資料顯示；新的一對一改走「一對一」那塊
+const LIVE_FMT = ['live', 'onsite', 'recorded'];
+const LERR = { SLOT_CONFLICT: '這個時間你開了一對一時段，直播課不能排在裡面。換個時間，或先把那段一對一收回。', SLOT_OVERLAP: '跟你已經開的一對一時段重疊。',
+  LIVE_LESSON_CONFLICT: '這段時間裡有你的直播課。', SLOT_IN_PAST: '時間要在現在之後。', SLOT_BOOKED: '已經有學生約了這段，不能直接收回；要先取消那筆預約。',
+  SLOT_CLOSED: '這段已經收回了。', SLOT_NOT_FOUND: '找不到這段時段（可能已經收回），已為你更新畫面。', BOOKING_NOT_FOUND: '找不到這筆預約，已為你更新畫面。',
+  BOOKING_NOT_ACTIVE: '這筆預約已經取消或完成了，已為你更新畫面。', TOO_EARLY_TO_COMPLETE: '課還沒開始；開始之後才能按「已完成」。',
+  QUOTA_EXHAUSTED: '這位學生的時數不夠，這次沒有扣、預約維持「已約」。請聯絡 staff 查這位學生的時數。', NOT_ASSIGNED: '這個班別不是你帶的，沒辦法建課。' };
+const lerr = (r) => LERR[r.error] || errText(r);
+const SKIP_WHY = { SLOT_OVERLAP: '跟已開的時段重疊', LIVE_LESSON_CONFLICT: '那時有直播課' };
+const WD = '日一二三四五六', p2 = (n) => String(n).padStart(2, '0');
+const dayTime = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()}（${WD[d.getDay()]}）${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 async function viewLessons() {
-  const f = S.ui.lf = S.ui.lf || { title: '', format: 'live', at: '', url: '', card: '', cohort: '' };
-  view(loading); const safe = (fn) => call(fn).catch(() => ({ ok: false }));   // 28c：班別選單用 teacher_cohorts、已建的課用 teacher_lessons；讀不到就當空的，表單照樣能用
-  const [co, ls] = await Promise.all([safe('teacher_cohorts'), safe('teacher_lessons')]); S.cohorts = co.ok ? co.cohorts || [] : []; S.lessons = ls.ok ? ls.lessons || [] : [];
-  view(`<div class="card"><h2>排課</h2><p class="muted" style="margin:0 0 6px">建一堂課（可選班別，可放架構卡 N／O 與你的連結）。不指定班別時，你帶的所有學生都看得到。</p>
+  S.ui.ltab = S.ui.ltab || 'live'; S.ui.ask = null;
+  S.ui.lf = S.ui.lf || { title: '', format: 'live', at: '', url: '', card: '', cohort: '' };
+  S.ui.sf = S.ui.sf || { at: '', hours: '1', rep: '0', note: '' };
+  view(loading); const my = RT, safe = (fn) => call(fn, {}, { quiet: true }).catch(() => ({ ok: false }));   // 讀不到就當空的，表單照樣能用
+  const [co, ls, ts] = await Promise.all([safe('teacher_cohorts'), safe('teacher_lessons'), safe('teacher_tutor_schedule')]);
+  if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把排課畫回去蓋掉別頁
+  S.cohorts = co.ok ? co.cohorts || [] : []; S.lessons = ls.ok ? ls.lessons || [] : []; S.ui.tslots = ts.ok ? ts.slots || [] : null;   // null＝一對一的後端還沒開通
+  renderLessons();
+}
+function renderLessons() {
+  const tab = S.ui.ltab;
+  const seg = [['live', '直播課（一對多）'], ['one', '一對一']].map(([k, t]) => `<button type="button" class="btn sm ${tab === k ? '' : 'ghost'}" data-act="lTab" data-k="${k}" aria-pressed="${tab === k}">${t}</button>`).join('');
+  view(`<div class="card"><h2>排課</h2><p class="muted" style="margin:0 0 8px">直播課是一對多：建一堂課，學生在課程頁看得到。一對一：你開有空的時段，學生用買好的時數來約；上完你按「已完成」才扣時數。</p><div class="seg-tabs" id="l-seg">${seg}</div></div>`
+    + (tab === 'one' ? oneHtml() : liveHtml()));
+}
+ACT.lTab = (el) => { S.ui.ltab = el.dataset.k; S.ui.ask = null; renderLessons(); };
+// ── 排課：直播課（一對多）──
+function liveHtml() {
+  const f = S.ui.lf;
+  return `<div class="card" id="l-live"><h2>建一堂直播課</h2><p class="muted" style="margin:0 0 6px">可選班別，可放架構卡 N／O 與你的連結。不指定班別時，你帶的所有學生都看得到。時間不能落在你開放中的一對一時段裡。</p>
     <label class="f" for="l-title">課名（必填）</label><input type="text" id="l-title" data-in="lf" data-k="title" maxlength="100" value="${esc(f.title)}">
-    <label class="f" for="l-fmt">形式</label><select id="l-fmt" data-in="lf" data-k="format">${Object.entries(FMT).map(([k, t]) => `<option value="${k}" ${f.format === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <label class="f" for="l-fmt">形式</label><select id="l-fmt" data-in="lf" data-k="format">${LIVE_FMT.map((k) => `<option value="${k}" ${f.format === k ? 'selected' : ''}>${FMT[k]}</option>`).join('')}</select>
     <label class="f" for="l-cohort">班別</label><select id="l-cohort" data-in="lf" data-k="cohort"><option value="">不指定班別（我帶的所有學生都看得到）</option>${S.cohorts.map((c) => `<option value="${esc(c.id)}" ${f.cohort === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
     <label class="f" for="l-at">時間（選填）</label><input type="datetime-local" id="l-at" data-in="lf" data-k="at" value="${esc(f.at)}">
     <label class="f" for="l-url">連結（選填，要 https:// 開頭）</label><input type="text" id="l-url" data-in="lf" data-k="url" placeholder="https://" value="${esc(f.url)}">
     <label class="f" for="l-card">架構卡</label><select id="l-card" data-in="lf" data-k="card"><option value="">不放</option><option value="N" ${f.card === 'N' ? 'selected' : ''}>N 多元表現綜整心得</option><option value="O" ${f.card === 'O' ? 'selected' : ''}>O 學習歷程反思</option></select>
     <div style="margin-top:12px"><button class="btn" data-act="mkLesson">建立這堂課</button></div></div>
-    <div class="card"><h3 style="margin-top:0">我建立的課（${S.lessons.length}）</h3>${S.lessons.map((l) => `<div class="row spread" style="padding:4px 0"><span><b>${esc(l.title)}</b> <span class="pill">${esc(FMT[l.format] || l.format)}</span><span class="pill ${l.cohortName ? 'on' : ''}">${esc(l.cohortName || '全部學生')}</span>${l.structureCardKey ? `<span class="pill main">架構卡 ${esc(l.structureCardKey)}</span>` : ''}${/^https:\/\//i.test(l.externalUrl || '') ? ` <a class="small" href="${esc(l.externalUrl)}" target="_blank" rel="noopener noreferrer">連結</a>` : ''}</span><span class="muted small">${esc(l.scheduledAt ? when(l.scheduledAt) : '未排時間')}</span></div>`).join('') || '<span class="muted">還沒有。</span>'}</div>`);
+    <div class="card"><h3 style="margin-top:0">我建立的直播課（${S.lessons.length}）</h3>${S.lessons.map((l) => `<div class="row spread" style="padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(l.title)}</b> <span class="pill">${esc(FMT[l.format] || l.format)}</span><span class="pill ${l.cohortName ? 'on' : ''}">${esc(l.cohortName || '全部學生')}</span>${l.structureCardKey ? `<span class="pill main">架構卡 ${esc(l.structureCardKey)}</span>` : ''}${/^https:\/\//i.test(l.externalUrl || '') ? ` <a class="small" href="${esc(l.externalUrl)}" target="_blank" rel="noopener noreferrer">連結</a>` : ''}</span><span class="muted small">${esc(l.scheduledAt ? dayTime(l.scheduledAt) : '未排時間')}</span></div>`).join('') || '<span class="muted">還沒有。</span>'}</div>`;
 }
 IN.lf = (el) => { S.ui.lf[el.dataset.k] = el.value; };
 ACT.mkLesson = async (el) => {
   const f = S.ui.lf; if (!f.title.trim()) return toast('課名要寫。', true); if (f.url.trim() && !/^https:\/\//i.test(f.url.trim())) return toast('連結要 https:// 開頭。', true); const at = f.at ? new Date(f.at) : null;
   const p = { title: f.title.trim(), format: f.format, scheduledAt: at && !isNaN(at) ? at.toISOString() : '', externalUrl: f.url.trim(), structureCardKey: f.card, cohortId: f.cohort || '' };
   el.disabled = true; const r = await call('teacher_create_lesson', { p }, { quiet: true }); el.disabled = false;
-  if (!r.ok) return toast(r.error === 'NOT_ASSIGNED' ? '這個班別不是你帶的，沒辦法建課。' : errText(r), true);
-  S.ui.lf = null; toast('已建立這堂課，學生的「課程」頁會出現。'); viewLessons();   // 清單重新向 teacher_lessons 讀
+  if (!r.ok) return toast(lerr(r), true);
+  S.ui.lf = null; toast('已建立這堂課，學生的課程頁會出現。'); viewLessons();   // 清單重新向 teacher_lessons 讀
+};
+// ── 排課：一對一（老師開有空的時段；學生預約；上完按已完成才扣時數）──
+function oneHtml() {
+  const g = S.ui.sf, list = S.ui.tslots;
+  const btn = list == null ? '<p class="err">一對一還沒開通（資料庫還沒更新到這一版），請聯絡育才仕 staff。</p>' : '<div style="margin-top:12px"><button class="btn" data-act="addSlot">開這個時段</button></div>';
+  const form = `<div class="card" id="l-one"><h2>開一對一時段</h2><p class="muted" style="margin:0 0 6px">開你有空的時間，一段＝一堂課（1 到 3 小時）。學生有買時數才約得到；同一段只能被一位學生約走。</p>
+    <label class="f" for="s-at">開始時間（必填）</label><input type="datetime-local" id="s-at" data-in="sf" data-k="at" value="${esc(g.at)}">
+    <label class="f" for="s-hours">長度</label><select id="s-hours" data-in="sf" data-k="hours">${[1, 2, 3].map((h) => `<option value="${h}" ${g.hours === String(h) ? 'selected' : ''}>${h} 小時</option>`).join('')}</select>
+    <label class="f" for="s-rep">重複</label><select id="s-rep" data-in="sf" data-k="rep"><option value="0">只開這一次</option>${Array.from({ length: 12 }, (_, i) => i + 1).map((n) => `<option value="${n}" ${g.rep === String(n) ? 'selected' : ''}>之後每週同一時間再開 ${n} 週（共 ${n + 1} 段）</option>`).join('')}</select>
+    <label class="f" for="s-note">上課方式或連結（選填，學生約到之後才看得到）</label><input type="text" id="s-note" data-in="sf" data-k="note" maxlength="200" placeholder="例如：線上，會議連結；或在育才仕教室" value="${esc(g.note)}">
+    ${btn}</div>`;
+  if (list == null) return form;
+  const now = Date.now(), t = (s) => new Date(s.startsAt).getTime();
+  const todo = list.filter((s) => s.booking && s.booking.status === 'booked' && t(s) <= now);
+  const next = list.filter((s) => t(s) > now && (s.status === 'open' || (s.booking && s.booking.status === 'booked')));
+  const done = list.filter((s) => s.booking && s.booking.status === 'completed').reverse();
+  const sec = (id, title, rows, empty) => `<div class="card" id="${id}"><h3 style="margin-top:0">${title}（${rows.length}）</h3>${rows.map(slotRow).join('') || `<span class="muted">${empty}</span>`}</div>`;
+  return form + (todo.length ? sec('s-todo', '上完了嗎？請按已完成', todo, '') : '') + sec('s-next', '接下來的時段', next, '還沒有。開一段，學生就能約。') + (done.length ? sec('s-done', '最近兩週已完成', done, '') : '');
+}
+function slotRow(s) {
+  const b = s.booking, ask = S.ui.ask && b && S.ui.ask.id === b.id ? S.ui.ask : null, started = new Date(s.startsAt).getTime() <= Date.now();
+  let st = '', btns = '';
+  if (!b) { st = '<span class="pill ok">開放中，還沒人約</span>'; btns = `<button type="button" class="btn sm ghost" data-act="closeSlot" data-id="${esc(s.id)}">收回</button>`; }
+  else if (b.status === 'completed') st = `<span class="pill main">已完成</span><span class="small">${esc(b.studentNickname)}</span>`;
+  else {
+    st = `<span class="pill warn">已約</span><b>${esc(b.studentNickname)}</b>`;
+    btns = (started ? `<button type="button" class="btn sm" data-act="doneAsk" data-id="${esc(b.id)}">已完成</button> ` : '') + `<button type="button" class="btn sm warn" data-act="tcAsk" data-id="${esc(b.id)}">取消這堂</button>`;
+  }
+  let panel = '';
+  if (ask && ask.kind === 'done') panel = `<div class="hint"><div>確定 ${esc(b.studentNickname)} 這堂已經上完？按了會扣 ${b.hours} 小時。</div><label class="f" for="a-min">實際花了幾分鐘（選填）</label><input type="text" inputmode="numeric" id="a-min" data-in="ask" data-k="min" maxlength="4" value="${esc(ask.min || '')}"><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="doneGo">確定已完成</button><button type="button" class="btn sm ghost" data-act="askNo">先不要</button></div></div>`;
+  if (ask && ask.kind === 'cancel') panel = `<div class="hint"><div>取消 ${esc(b.studentNickname)} 這堂？學生的時數不扣，這段時段會一起收回。</div><label class="f" for="a-why">原因（選填，學生看得到）</label><input type="text" id="a-why" data-in="ask" data-k="why" maxlength="200" value="${esc(ask.why || '')}"><div class="row" style="margin-top:8px"><button type="button" class="btn sm warn" data-act="tcGo">確定取消</button><button type="button" class="btn sm ghost" data-act="askNo">先不要</button></div></div>`;
+  return `<div class="tslot" data-slot="${esc(s.id)}" style="padding:8px 0;border-top:1px solid var(--line)"><div class="row spread"><span><b>${esc(dayTime(s.startsAt))}–${esc(hm(s.endsAt))}</b> <span class="pill">${s.hours} 小時</span></span><span class="row">${st}${btns}</span></div>${s.note ? `<div class="muted small">上課方式：${esc(s.note)}</div>` : ''}${panel}</div>`;
+}
+IN.sf = (el) => { S.ui.sf[el.dataset.k] = el.value; };
+IN.ask = (el) => { if (S.ui.ask) S.ui.ask[el.dataset.k] = el.value; };
+ACT.askNo = () => { S.ui.ask = null; renderLessons(); };
+ACT.doneAsk = (el) => { S.ui.ask = { kind: 'done', id: el.dataset.id, min: '' }; renderLessons(); };
+ACT.tcAsk = (el) => { S.ui.ask = { kind: 'cancel', id: el.dataset.id, why: '' }; renderLessons(); };
+ACT.addSlot = async (el) => {
+  const g = S.ui.sf, at = g.at ? new Date(g.at) : null;
+  if (!at || isNaN(at)) return toast('開始時間要選。', true);
+  if (at.getTime() <= Date.now()) return toast(LERR.SLOT_IN_PAST, true);
+  el.disabled = true;
+  const r = await call('teacher_add_tutor_slot', { p: { startsAt: at.toISOString(), hours: Number(g.hours) || 1, repeatWeeks: Number(g.rep) || 0, note: g.note.trim() } }, { quiet: true });
+  el.disabled = false;
+  if (!r.ok) return toast(lerr(r), true);
+  const sk = r.skipped || [];
+  toast(`已開 ${r.created.length} 段。` + (sk.length ? `另有 ${sk.length} 段沒開：` + sk.map((x) => `${dayTime(x.startsAt)}（${SKIP_WHY[x.reason] || x.reason}）`).join('、') : ''), sk.length > 0);
+  S.ui.sf = { at: '', hours: g.hours, rep: '0', note: g.note }; viewLessons();
+};
+ACT.closeSlot = async (el) => {
+  el.disabled = true; const r = await call('teacher_close_tutor_slot', { p_slot_id: el.dataset.id }, { quiet: true }); el.disabled = false;
+  if (!r.ok) { toast(lerr(r), true); return viewLessons(); }
+  toast('已收回這段。'); viewLessons();
+};
+ACT.doneGo = async (el) => {
+  const a = S.ui.ask; if (!a) return; const m = String(a.min || '').trim();
+  if (m && !/^\d{1,4}$/.test(m)) return toast('分鐘數只能填數字。', true);
+  el.disabled = true; const r = await call('teacher_complete_booking', { p_booking_id: a.id, p: { minutesSpent: m } }, { quiet: true }); el.disabled = false;
+  if (!r.ok) { toast(lerr(r), true); if (r.error !== 'QUOTA_EXHAUSTED') viewLessons(); return; }
+  toast(`已完成，扣了 ${r.booking.hours} 小時。這位學生還有 ${r.hours.remaining} 小時。`); viewLessons();
+};
+ACT.tcGo = async (el) => {
+  const a = S.ui.ask; if (!a) return;
+  el.disabled = true; const r = await call('teacher_cancel_booking', { p_booking_id: a.id, p: { reason: String(a.why || '').trim() } }, { quiet: true }); el.disabled = false;
+  if (!r.ok) { toast(lerr(r), true); return viewLessons(); }
+  toast('已取消這堂，時段一起收回。'); viewLessons();
 };
 // ── 補充用語 ──
 function viewTerms() {

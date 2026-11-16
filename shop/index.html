@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>NOPQ通｜購買與預約</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../app/app.css">
+<style>
+  /* 獨立外殼自己的小樣式：上方兩個分頁鈕（接進學生頁之後用學生頁的分頁列，這段就用不到） */
+  nav.shop-nav { display:flex; gap:6px; max-width:760px; margin:10px auto 0; padding:0 12px; }
+  nav.shop-nav a { flex:1; text-align:center; padding:8px 4px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--muted); text-decoration:none; font-size:15px; }
+  nav.shop-nav a.on { border-color:var(--main); color:var(--main); font-weight:700; box-shadow:inset 0 0 0 1px var(--main); }
+  #app main { max-width:760px; margin:0 auto; padding:12px 12px 40px; }
+</style>
+</head>
+<body>
+<!-- 2026-11-13 改版建議第 38 條：學生的購買頁與預約一對一。頁面本體在 shop.js；這一頁只是接進學生頁之前的獨立外殼（登入、連線、提示、路由）。 -->
+<div id="boot" class="center muted"><span class="spin"></span>載入中…</div>
+<div id="login" class="login hidden">
+  <h1>NOPQ通</h1>
+  <p class="muted" style="margin:0 0 14px">育才仕備審輔導｜購買與預約（學生登入）</p>
+  <form id="login-form" class="card" autocomplete="on">
+    <label class="f" for="l-email">Email</label><input type="email" id="l-email" autocomplete="username" required>
+    <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
+    <div id="l-err" class="err hidden"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
+    <p class="muted small" style="margin:12px 0 0">已經在 <a href="../app/">學生頁</a> 登入的話，這裡會直接進去。忘記密碼請聯絡育才仕。</p>
+  </form>
+</div>
+<div id="app" class="hidden">
+  <header class="top"><a class="brand" href="../app/"><span class="ic" aria-hidden="true"><i>N</i><i>O</i><i>P</i><i>Q</i></span>NOPQ通</a><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <nav class="shop-nav" id="tabs"><a href="#/shop" data-t="shop">購買</a><a href="#/book" data-t="book">預約一對一</a></nav>
+  <main id="view"></main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL（佔位字只能放在 .html）
+const SUPABASE_ANON_KEY = 'sb_publishable_7QYBhi8ypHJ8O_WzFmkwvw_YjM3pmCK';
+// 以下是學生頁 core.js 同名函式的精簡版，給 shop.js 用；登入沿用學生頁同一個保存位置（同一個網站，學生頁登入過就不用再登入）
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ycs-student-auth' } });
+const S = { ui: {}, rt: 0, me: null };
+const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET', 'NOT_STUDENT', 'NOT_TEACHER', 'NOT_STAFF']);
+const ERRS = { NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是 staff。' };
+const errText = (d) => ERRS[d.error] || ('這一步沒有成功（' + d.error + '）');
+let toastTimer = 0;
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 5000); }
+const RPC_LIMIT = 25000; let lastFailMsg = '';
+async function rpcLimited(fn, args) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null; let timer = 0, late = false;
+  const limit = new Promise((res) => { timer = setTimeout(() => { late = true; if (ctl) ctl.abort(); res({ data: null, error: { message: 'TIMEOUT' } }); }, RPC_LIMIT); });
+  let b = sb.rpc(fn, args || {}); if (ctl && b && typeof b.abortSignal === 'function') b = b.abortSignal(ctl.signal);
+  try { const r = await Promise.race([b, limit]); return late ? { data: null, error: { message: 'TIMEOUT' }, late: true } : r; } finally { clearTimeout(timer); }
+}
+async function call(fn, args, opts = {}) {
+  const my = S.rt, { data, error, late } = await rpcLimited(fn, args);
+  if (error) {
+    if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin('登入已過期，請重新登入。'); throw new Error('AUTH'); }
+    if (error.status === 403 || error.code === '42501') { toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
+    const msg = late || error.message === 'TIMEOUT' ? '等太久沒有回應，請檢查網路再試一次。' : '連線失敗，請檢查網路再試一次。';
+    lastFailMsg = msg; if (!opts.quiet) { toast(msg, true); loadFail(msg, my); } throw new Error('NET');
+  }
+  if (data && data.ok === false) {
+    if (data.error === 'NOT_STUDENT' || data.error === 'NOT_TEACHER' || data.error === 'NOT_STAFF') { await toLogin(ERRS[data.error]); throw new Error(data.error); }
+    if (!opts.quiet) { toast(errText(data), true); loadFail(errText(data), my); }
+  }
+  return data || { ok: false, error: 'EMPTY' };
+}
+const failCard = (msg) => `<div class="card"><h2>這一頁沒有載入</h2><p class="muted">${esc(msg)}</p><button type="button" class="btn" data-act="reload">重新載入</button></div>`;
+function loadFail(msg, my) { setTimeout(() => { if (my !== S.rt) return; document.querySelectorAll('#view [data-loading]').forEach((el) => { el.outerHTML = failCard(msg); }); }, 0); }
+const view = (html) => { $('view').innerHTML = html; };
+const loading = '<div class="center muted" data-loading="1"><span class="spin"></span>載入中…</div>';
+function setTab(t) { document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === t)); }
+document.addEventListener('click', async (ev) => {
+  const el = ev.target.closest('[data-act]'); if (!el || el.disabled || !ACT[el.dataset.act]) return;
+  try { await ACT[el.dataset.act](el, ev); } catch (e) { if (!KNOWN.has(e.message)) { toast('發生預期外的問題，請重新整理再試。', true); console.warn('act', el.dataset.act, e && e.message); } }
+});
+const onIn = (ev) => { const el = ev.target.closest('[data-in]'); if (el && IN[el.dataset.in]) IN[el.dataset.in](el, ev); };
+document.addEventListener('input', onIn); document.addEventListener('change', (ev) => { if (ev.target.type === 'checkbox') onIn(ev); });
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+function showLogin(msg) { S.me = null; S.ui = {}; show('boot', false); show('app', false); show('login', true); $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false; }
+async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
+$('login-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault(); $('l-btn').disabled = true; show('l-err', false);
+  const { error } = await sb.auth.signInWithPassword({ email: $('l-email').value.trim(), password: $('l-pw').value });
+  $('l-pw').value = '';
+  if (error) { showLogin(/invalid|credentials/i.test(error.message || '') ? '帳號或密碼不對。' : '登入沒成功，請稍後再試。'); return; }
+  await enter();
+});
+ACT.logout = async () => { await toLogin(''); };
+ACT.reload = () => route();
+async function enter() {
+  show('login', false); show('boot', true);
+  try { const d = await call('my_shop', {}, { quiet: true }); if (!d.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.me = d.student; }
+  catch (e) {
+    if (KNOWN.has(e.message) && e.message !== 'NET') return;   // 登入過期、不是學生：call 已經回登入頁
+    let missing = false;   // 後端還沒套 28p（函式不存在）：照樣進去，頁面會說「還沒開通」；其他才算連不上
+    try { const pr = await sb.rpc('my_shop', {}); missing = !!(pr.error && pr.error.code === 'PGRST202'); } catch (e2) { /* 當一般連線失敗 */ }
+    if (!missing) { $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">請檢查網路，再重新整理。</p></div>'; return; }
+    S.me = { nickname: '' };
+  }
+  show('boot', false); show('app', true); $('who').textContent = S.me.nickname || ''; route();
+}
+window.addEventListener('hashchange', () => { if (S.me) route(); });
+function route() {
+  S.rt++; lastFailMsg = ''; window.scrollTo(0, 0);
+  const f = { '#/book': viewBook }[location.hash] || viewShop;
+  return Promise.resolve().then(f).catch((e) => { if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return; view(failCard(lastFailMsg || '請檢查網路，再按「重新載入」。')); console.warn('view', e && e.message); });
+}
+sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.me) showLogin('已登出。'); });
+</script>
+<script src="shop.js"></script>
+<script>
+(async function boot() { try { const { data } = await sb.auth.getSession(); if (data && data.session) await enter(); else showLogin(''); } catch (e) { showLogin(''); } })();
+</script>
+</body>
+</html>

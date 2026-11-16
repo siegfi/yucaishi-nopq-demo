@@ -57,7 +57,8 @@ IN.lvPick = (el) => {
   const bar = $('lv-bar'); if (bar) bar.innerHTML = lvBar(); lvFlag();
 };
 // 手機上有列時，頁面底部多留一條、提示訊息移到列上方（同新作頁 selBodyFlags）
-function lvFlag() { selBodyFlags(!!(S.lv && S.lv.sel.length && selMobile()), false); return ''; }
+// 2026-11-13 第 28 條：寬螢幕的「已勾 N 版」也跟新作頁一樣固定浮在畫面底部（selWide 量高度、底部留空間）；lvRender 呼叫時列還沒畫上去，等一拍再量
+function lvFlag() { const on = !!(S.lv && S.lv.sel.length); selBodyFlags(on && selMobile(), false); setTimeout(() => selWide($('lv-bar'), on && !selMobile()), 0); return ''; }
 // 比較兩版（AP.compareVersions）：成績逐科差、篩選差、只有 A 有／只有 B 有／都有但落點變了、2／2／2、學群數
 function lvCompareHtml() {
   const a = lvById(S.lv.cmp.a), b = lvById(S.lv.cmp.b); if (!a || !b) return '';
