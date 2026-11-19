@@ -78,14 +78,21 @@ var WORDS = {
   z116Title: '{y} 簡章寫要交',
   z116More: '116 簡章另外要交',
   z116Desc: '簡章原文',
-  zWrite: '要自己寫的',
-  zPrep: '另外準備、不在這裡寫的',
+  // 2026-11-19 改（設計稿 nopq_item_model_review_fable_20261119 第 5.1–5.3 節）。下面標「11-19 改，待楊老師確認」的五句是改過楊老師 11-17 審過的字。
+  zWrite: '要寫的，在這裡寫',           // 11-19 改，待楊老師確認（舊：要自己寫的）
+  zPrep: '從學習歷程檔案挑的',           // 11-19 改，待楊老師確認（舊句見設計稿 5.1）
   zOther: '其他資料',
-  zPortfolio: '學習歷程檔案',
-  notYet: '這一篇還不能在 NOPQ通 裡寫，先照題目準備',
+  notYet: '這一篇現在還不能在這裡寫。先照題目寫在自己的檔案裡。',   // 11-19 改，待楊老師確認（舊：這一篇還不能在 NOPQ通 裡寫，先照題目準備）
   hintUpload: '作品或影音',
-  hintSchoolForm: '學校指定的表格',
-  hintProof: '證明或推薦',
+  hintSchoolForm: '到這一系的網站下載表格，填好照學校說的方式交。',   // 11-19 改，待楊老師確認（舊：學校指定的表格）
+  hintProof: '照簡章寫的方式交，有的要寄正本。',   // 11-19 改，待楊老師確認（舊：證明或推薦）
+  // 以下是 11-19 新增的鍵（不是楊老師審過的）
+  zSchool: '照學校說的方式交',
+  pickIntro: '這些是你高中三年放在學校系統裡的。申請時到甄選會的系統勾選，不用重寫。',
+  pickA: '學校提供，你不用交，也不能改。有錯請找學校。',
+  pickLimitCourse: '每系最多勾 3 件。',
+  pickLimitMulti: '每系最多勾 10 件。',
+  pickBtn: '去看你放了哪幾件',
   hintUnknown: '怎麼準備請看簡章原文或學校公告',
   digestMore: '{y} 簡章另外要交：{list}。',
   digestQ: '{y} 簡章寫了題目：{list}（原文在上面）。',
@@ -147,7 +154,7 @@ function digestRows(it) {
     add('二階審查資料占 ' + f.reviewPct + '%' + (gs == null ? '' : f.reviewPct > gs ? '，比學測（' + gs + '%）還重，書面資料要花心思' : f.reviewPct === gs ? '，跟學測一樣重' : '，學測占 ' + gs + '%') + '。', s2y);
   }
   var ex1 = [f.written ? '筆試' : '', f.interview ? '面試' : ''].filter(Boolean);
-  if (ex1.length) add('另外有' + ex1.join('和') + '，要另外準備。', s2y);
+  if (ex1.length) add('這系另外有' + ex1.join('和') + '。', s2y);
   if (gi) {
     var gy6 = giYear(gi) + ' 簡章', rs = gi.items.filter(function (x) { return x && x.code > 'Q'; });
     if (rs.length) add(fill(WORDS.digestMore, { y: giYear(gi), list: rs.map(itemName).join('、') }), gy6);
@@ -174,7 +181,14 @@ function renderDigest(it) {
 // ── 116 簡章項目層（28q：GuideItem → my_wishlist 的 items[].guideItems）──
 // 只照分則原文：R 之後用官方名稱；題目只放規則能確定掛到該項的那一句（不猜）；A–Q 分則沒有名稱，用大類名＋代碼，不補名稱。
 // 三區只照 form 分，標題不帶要不要交；寫了「選繳」的那一項另標（owner 第②題）。R 之後要寫的那幾篇系統還不能寫（設計稿階段四），照實講。
-var FORM_ZONE = { write: 'write', portfolio: 'prep', upload: 'prep', schoolForm: 'prep', proof: 'prep', misc: 'other', unknown: 'other' };
+var FORM_ZONE = { write: 'write', portfolio: 'portfolio', upload: 'school', schoolForm: 'school', proof: 'school', misc: 'other', unknown: 'other' };
+// 116 簡章審查資料項目 A–Q 的官方名稱。出處：甄選會「116學年度大學申請入學招生簡章總則」，https://www.cac.edu.tw/apply116/PDF_FileGet.php?Type=s1
+// （從 https://www.cac.edu.tw/apply116/appform_1.php 點入），PDF 第 21 頁「乙、審查資料項目內容對照表」。2026-11-19 對照原文核對。
+// D、E 的全名很長（含「或特殊類型班級之相關課程學習成果」）：這裡存全文，畫面只顯示「或」之前那段（見 codeName）。
+var CAC_NAMES = { A: '修課紀錄', B: '書面報告', C: '實作作品', D: '自然科學領域探究與實作成果，或特殊類型班級之相關課程學習成果', E: '社會領域探究活動成果，或特殊類型班級之相關課程學習成果',
+  F: '高中自主學習計畫與成果', G: '社團活動經驗', H: '擔任幹部經驗', I: '服務學習經驗', J: '競賽表現', K: '非修課紀錄之成果作品', L: '檢定證照', M: '特殊優良表現證明',
+  N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫與生涯規劃' };
+function codeName(code) { var n = CAC_NAMES[code]; return n ? code + ' ' + n.split(/，?或/)[0] : ''; }
 var FORM_HINT = { upload: WORDS.hintUpload, schoolForm: WORDS.hintSchoolForm, proof: WORDS.hintProof, unknown: WORDS.hintUnknown };
 function gi116(it) { var g = it && it.guideItems; return g && typeof g === 'object' && Array.isArray(g.items) && g.items.length ? g : null; }
 function giSource(gi) { return (Array.isArray(gi.sources) ? gi.sources : []).filter(function (s) { return s && s.kind === 'cac_rules'; })[0] || {}; }
@@ -185,34 +199,47 @@ function sharedQ(p, x) { return !!p && p.kind === 'question' && Array.isArray(p.
 // 共用的說明照畫（學校原文本來就寫在同一格），後面加小標記（主線 11-18 第二次裁定第 3 題）
 function sameCellTag(p) { return p && Array.isArray(p.appliesTo) && p.appliesTo.length > 1 ? ' <span class="muted small">（' + esc(fill(WORDS.sameCell, { codes: p.appliesTo.join('、') })) + '）</span>' : ''; }
 function prompt116(x) { return (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.kind === 'question' && p.text && !sharedQ(p, x); }); }
+// 四區（設計稿 5.1）：write＝N、O、P、Q 與 R 之後要寫的（N 一律在這一區：簡章註 3，N 是考生自己做 PDF 另外上傳的，資料裡 N 標在多元表現那一組也一樣）；
+// portfolio＝A–M，從學習歷程檔案挑；school＝學校表格、作品、證明、推薦函，照學校說的方式交；other＝其他資料。
 function zones116(gi) {
-  var z = { write: [], prep: [], other: [], portfolio: [] }, port = {}, order = [];
+  var z = { write: [], portfolio: [], school: [], other: [] };
   gi.items.forEach(function (x) {
     if (!x || !x.code) return;
-    if (x.form === 'portfolio') { var k = x.groupName || '學習歷程檔案'; if (!port[k]) { port[k] = []; order.push(k); } port[k].push(x.code); return; }
-    z[FORM_ZONE[x.form] || 'other'].push(x);
+    var zone = x.code === 'N' ? 'write' : (FORM_ZONE[x.form] || 'other');
+    z[zone].push(x);
   });
-  z.portfolio = order.map(function (k) { return k + '（' + port[k].join('、') + '）'; });
+  z.write.sort(function (a, b) { return a.code < b.code ? -1 : a.code > b.code ? 1 : 0; });
   return z;
 }
-// o.title：區塊標題（預設「116 簡章寫要交」）；o.desc＝false 不放簡章原文；o.skipNQ＝true 時「要自己寫的」只列 R 之後（「我要交的」頁 N–Q 另有一列一列的稿）
+// o.title：區塊標題（預設「116 簡章寫要交」）；o.desc＝false 不放簡章原文；o.skipNQ＝true 時「要寫的」只列 R 之後（「我要交的」頁 N–Q 另有一列一列的稿）
 function renderZones116(gi, o) {
   o = o || {};
   var src = giSource(gi), yr = giYear(gi), tag = yr + ' 簡章', z = zones116(gi);
+  var zname = function (x) { return x.officialName ? x.code + ' ' + x.officialName : (codeName(x.code) || itemName(x)); };
   var li = function (x, note) {   // 題目（question）與說明（advice）都照原文列，各標來源；名稱或原文寫了「選繳」才標選繳（owner 第②題）
     var opt = /選繳/.test((x.needQuote || '') + (x.officialName || ''));
     var ps = (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.text && (p.kind === 'question' || p.kind === 'advice') && !sharedQ(p, x); });
-    return '<li><b>' + esc(itemName(x)) + '</b>' + (opt ? ' <span class="pill">' + esc(WORDS.optShort) + '</span>' : '') + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '')
+    return '<li><b>' + esc(zname(x)) + '</b>' + (opt ? ' <span class="pill">' + esc(WORDS.optShort) + '</span>' : '') + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '')
       + ps.map(function (p) { return '<div class="q116">' + esc(p.kind === 'question' ? WORDS.q116 : WORDS.adv116) + esc(p.text) + sameCellTag(p) + yrTag(srcLabel(p)) + '</div>'; }).join('') + '</li>';
   };
   var w = o.skipNQ ? z.write.filter(function (x) { return x.code > 'Q'; }) : z.write;
-  var prep = z.portfolio.map(function (t) { return '<li>' + esc(t) + ' <span class="muted small">' + esc(WORDS.zPortfolio) + '</span></li>'; }).concat(z.prep.map(function (x) { return li(x, FORM_HINT[x.form] || ''); }));
+  // A–M 一碼一列、寫出名稱；A 單獨一列，B–E（課程學習成果）、F–M（多元表現）各一行小標；A–M 以外的碼（照理不會有）照原樣列
+  var pickLi = function (x, note) { return '<li><b>' + esc(zname(x)) + '</b>' + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '') + '</li>'; };
+  var inR = function (x, lo, hi) { return x.code >= lo && x.code <= hi; };
+  var pa = z.portfolio.filter(function (x) { return x.code === 'A'; }), pc = z.portfolio.filter(function (x) { return inR(x, 'B', 'E'); }), pm = z.portfolio.filter(function (x) { return inR(x, 'F', 'M'); });
+  var po = z.portfolio.filter(function (x) { return !(x.code === 'A' || inR(x, 'B', 'E') || inR(x, 'F', 'M')); });
+  var pick = pa.map(function (x) { return pickLi(x, WORDS.pickA); }).join('');
+  if (pc.length) pick += '<li class="muted small">課程學習成果　' + esc(WORDS.pickLimitCourse) + '</li>' + pc.map(function (x) { return pickLi(x); }).join('');
+  if (pm.length) pick += '<li class="muted small">多元表現　' + esc(WORDS.pickLimitMulti) + '</li>' + pm.map(function (x) { return pickLi(x); }).join('');
+  pick += po.map(function (x) { return pickLi(x); }).join('');
   var desc = o.desc !== false && src.reviewDesc ? String(src.reviewDesc).replace(/\s+/g, ' ').trim() : '';
-  if (!w.length && !prep.length && !z.other.length && !desc) return '';
+  if (!w.length && !z.portfolio.length && !z.school.length && !z.other.length && !desc) return '';
   var h = '<div class="i116"><div><b>' + esc(o.title || fill(WORDS.z116Title, { y: yr })) + '</b>' + yrTag(tag) + '</div>';
   if (desc) h += '<div class="desc116"><span class="k">' + esc(WORDS.z116Desc) + '　</span>' + esc(desc) + yrTag(tag) + '</div>';
   if (w.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zWrite) + '</span><ul class="plain">' + w.map(function (x) { return li(x, x.code > 'Q' ? WORDS.notYet : ''); }).join('') + '</ul></div>';
-  if (prep.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zPrep) + '</span><ul class="plain">' + prep.join('') + '</ul></div>';
+  if (z.portfolio.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zPrep) + '</span><div class="muted small">' + esc(WORDS.pickIntro) + '</div><ul class="plain">' + pick + '</ul>'
+    + '<div style="margin-top:6px"><a class="btn sm ghost" href="#/mine">' + esc(WORDS.pickBtn) + '</a></div></div>';
+  if (z.school.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zSchool) + '</span><ul class="plain">' + z.school.map(function (x) { return li(x, FORM_HINT[x.form] || ''); }).join('') + '</ul></div>';
   if (z.other.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zOther) + '</span><ul class="plain">' + z.other.map(function (x) { return li(x, FORM_HINT[x.form] || ''); }).join('') + '</ul></div>';
   return h + '</div>';
 }
@@ -362,5 +389,5 @@ function renderDeptIntro(lines, fmtDate) {
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
     + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
-root.NG = { pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+root.NG = { CAC_NAMES: CAC_NAMES, codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);
