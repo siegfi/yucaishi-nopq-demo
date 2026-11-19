@@ -100,6 +100,11 @@
   .gfoot { margin-top:8px; font-size:13px; color:var(--muted); }
   .digest { background:#FFF8EC; border-left:4px solid var(--accent); padding:8px 12px; border-radius:0 6px 6px 0; margin:8px 0; font-size:15px; }   /* W2 老師幫你畫重點 */
   .digest ul.plain { margin:4px 0 0; }
+  /* 2026-11-17 指引重建階段一：來源年份小標、116 簡章項目區塊（guide_pure.js renderItems116） */
+  .yr { display:inline-block; font-size:11px; line-height:1.5; padding:0 6px; margin-left:4px; border-radius:4px; background:var(--soft); color:var(--muted); vertical-align:1px; white-space:nowrap; font-weight:normal; }
+  .i116 { border:1px solid var(--line); border-radius:6px; padding:8px 12px; margin:8px 0; background:#fff; }
+  .i116 .desc116 { margin-top:6px; font-size:14px; } .i116 .desc116 .k { color:var(--muted); }
+  .i116 .q116 { margin:2px 0 4px; font-size:14px; }
   .keeprow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 2px; }   /* W1 共用輸入框 */
   .keephint { margin:6px 0 2px; }
 /* 2026-11-09 落點分析改版（設計稿 OUTPUTS/nopq_luodian_tab_design_v0.2.md §2.2）：子分頁列、年份與警語、蓋版視窗、系簡介、版本卡、評估卡 */

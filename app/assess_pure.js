@@ -8,7 +8,7 @@ var ORDER = ['chi', 'eng', 'math_a', 'math_b', 'soc', 'sci', 'nat'];
 var SUBJ = { chi: '國', eng: '英', math_a: '數A', math_b: '數B', soc: '社', sci: '自', nat: '自' };
 var YEARS = ['111', '112', '113', '114', '115'];
 // owner 2026-11-09 原句（第 15 條）；與 score_new.js 的 GROUP_WARN 同一句，離線測試比對兩邊一致
-var GROUP_WARN = '建議同學檢查既有的學習歷程。因為不同的學群所需要的學習歷程內容會完全不同，這樣子準備可能會有所不及。';
+var GROUP_WARN = '你選了超過 3 個學群。不同學群要的學習歷程差很多，可能準備不完，先看看你手上的學習歷程夠不夠。';
 
 var r1 = function (x) { return Math.round(x * 10) / 10; };
 var num = function (x) { var s = String(r1(x)); return s; };
@@ -67,13 +67,13 @@ var NORANGE = {
   changed: { head: '今年標準有變', line: '這系今年的第一階段標準跟去年不一樣，拿去年的分數比不準，先不給範圍。' },
   missing: { head: '沒考這個系要看的科目', line: '' },
   otherExam: { head: '要看 APCS 或術科', line: '這系第一階段要看 APCS 或術科成績，學測級分算不出來，不給範圍。' },
-  mathRule: { head: '資格規則待確認', line: '這系檢定同時列數A、數B，你只過了其中一科；要兩科都過還是擇一，要等老師對過簡章才知道。' },
+  mathRule: { head: '資格規則待確認', line: '這系檢定數A、數B 都有列，你只過了其中一科。要兩科都過，還是過一科就行，請找老師一起對簡章。' },
   fail: { head: '檢定或英聽未達', line: '這版成績沒過這系 115 年第一階段的檢定標準，要先補到檢定才有機會。' }
 };
 function tierLine(tier, pred, range, why) {
   var y = pred && pred.basisYear, m = pred ? pred.margin : null;
   if (tier === 'high' && range && range.floor) return '這系要看的科目你都是 15 級分（滿級分），門檻不會比這更高。';
-  if (tier === 'high') return '你的等值分比 ' + y + ' 年門檻高出 ' + num(m) + ' 級分，就算門檻上跳 1 級分也還在。';
+  if (tier === 'high') return '你換算後的分數比 ' + y + ' 年門檻高出 ' + num(m) + ' 級分，就算今年門檻多 1 級分也還過得了。';
   if (tier === 'near') return '跟 ' + y + ' 年門檻差不多（' + (m >= 0 ? '高出 ' : '差 ') + num(Math.abs(m)) + ' 級分），門檻跳一下就會變。';
   if (tier === 'below') {
     if (pred && pred.comboOverride) return '合科加總還沒到 ' + y + ' 年的門檻，要門檻往下掉才有機會。';
@@ -197,17 +197,17 @@ function deptCard(d, pred, cls, hist, has116, y116, s1) {
     thTier: thTierLine(th),
     basisDrop: basisDropLine(s1 && typeof s1 === 'object' ? s1.basisDrop : null),
     listen: lt ? '這系要英聽 ' + lt + ' 級' + (sl ? '（你填的是 ' + sl + ' 級）。' : known ? '。你還沒填英聽，這系的英聽門檻沒有檢查。' : '。') : '',
-    checkEdge: ce.length ? '檢定壓線：' + ce.join('、') + ' 剛好等於這系的檢定標準；116 五標公布後標準的級分可能變，要再看一次。' : '',
+    checkEdge: ce.length ? '檢定壓線：' + ce.join('、') + ' 剛好等於這系的檢定標準。116 年五標公布後標準可能會變，到時請再看一次。' : '',
     tier: st === 'missing' ? '這版成績沒有這系要看的' + (miss || '科目') + '，第一階段過不了。' : (st === 'fail' ? NORANGE.fail.line : tierLine(tier, pred, range, st)),
     edge: c.edge ? EDGE_LINE : '',
     equiv: range ? equivLine(pred) : '',
     trend: range ? trendLine(hist, pred) : '',
     stage2: stage2Line(d.stage2),
     facts116: facts116Line(has116, y116),
-    basis: range ? '依據：' + pred.basisYear + ' 年門檻＋你的等值分；門檻每年約上下 1 級分，所以給範圍不給單一答案。'
+    basis: range ? '這是拿 ' + pred.basisYear + ' 年門檻和你換算後的分數比的。門檻每年大約上下 1 級分，所以給一個範圍。'
       : (c.fallback ? '依據：115 年第一階段檢定標準與篩選倍率（判在「' + c.fallback + '」）；沒有往年門檻資料，不給範圍。'
         : '依據：115 年第一階段檢定標準' + (c.noRange ? '（' + c.noRange + '）' : '') + '；不給範圍。'),
-    unknown: '不知道的：115 實際錄取了誰、正備取幾人（查榜還沒有名單）。',
+
   };
   if (has116 && y116) { c.quota116 = y116.quota != null ? y116.quota : null; c.interview116 = y116.expectedInterview != null ? y116.expectedInterview : null; }
   return c;

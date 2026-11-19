@@ -1,4 +1,4 @@
-'use strict';   // 2026-11-09 落點分析改版 L4／L5：「AI 落點機率評估」子分頁（設計稿 §6）
+'use strict';   // 2026-11-09 落點分析改版 L4／L5：「落點評估」子分頁（設計稿 §6）
 // 規則版一定有（不用 AI）：每系一階範圍、壓線、等值分、門檻走勢、二階事實、依據、不知道的；整版總評；多版比較；用這版存成志願；請老師看。
 // AI 對話版只在「學生有 AI 同意」且「功能開著」時出現；AI 只把規則版結果講成人話（本機是假模型）。
 S.as = null;   // { items, ids, ai, job }
@@ -48,12 +48,12 @@ function asVersion(v) {
 }
 function cardHtml(c) {
   if (c.missing) return `<div class="acard"><b>${c.rank}. 系代碼 ${esc(c.deptCode)}</b><div class="small muted">這個系在 116 簡章裡找不到同名系組（可能改名、拆組或停招），請看甄選會公告。</div></div>`;
-  const L = c.lines, head = c.range ? `一階門檻推估：${c.range}` : `一階門檻推估：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : (c.noRange || '資料不足')}`;
+  const L = c.lines, head = c.range ? `第一階段門檻：${c.range}` : `第一階段門檻：${c.fallback ? '115 檢定判在「' + c.fallback + '」' : (c.noRange || '資料不足')}`;
   return `<div class="acard t-${c.tier}"><div class="row spread"><b>${c.rank}. ${esc(c.school)} ${esc(c.dept)}</b><span><span class="tierpill t-${c.tier}">${esc(head)}</span>${c.edge ? ' <span class="pill warn">壓線</span>' : ''}</span></div>
     <div class="small"><b>${esc(c.tierName)}</b>　${esc(L.tier)}${L.edge ? ' ' + esc(L.edge) : ''}</div>${L.listen ? `<div class="small">${c.listenChecked === false ? '<span class="pill warn">英聽沒有檢查</span> ' : ''}${esc(L.listen)}</div>` : ''}${L.checkEdge ? `<div class="small"><span class="pill warn">檢定壓線</span> ${esc(L.checkEdge)}</div>` : ''}
-    ${L.thTier ? `<div class="small thtier">門檻高低｜${esc(L.thTier)}</div>` : ''}${L.basisDrop ? `<div class="small thtier">門檻變化｜${esc(L.basisDrop)}</div>` : ''}${L.equiv ? `<div class="small">一階｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}
-    <div class="small">二階（事實）｜${esc(L.facts116)}；${esc(L.stage2)}</div>
-    <div class="muted small">${esc(L.basis)}</div><div class="muted small">${esc(L.unknown)}</div>
+    ${L.thTier ? `<div class="small thtier">門檻高低｜${esc(L.thTier)}</div>` : ''}${L.basisDrop ? `<div class="small thtier">門檻變化｜${esc(L.basisDrop)}</div>` : ''}${L.equiv ? `<div class="small">第一階段｜${esc(L.equiv)}</div>` : ''}${L.trend ? `<div class="small muted">${esc(L.trend)}</div>` : ''}
+    <div class="small">第二階段（事實）｜${esc(L.facts116)}；${esc(L.stage2)}</div>
+    <div class="muted small">${esc(L.basis)}</div>
     ${NG.safeUrl(c.rulesUrl) ? `<div class="small"><a href="${esc(c.rulesUrl)}" target="_blank" rel="noopener noreferrer">${esc(c.rulesYear || 115)} 校系分則（甄選會）</a></div>` : ''}</div>`;
 }
 function asRender() {
@@ -61,7 +61,7 @@ function asRender() {
   const picker = A.items.length ? `<div class="card"><h2>要評估哪幾版？（1～3 版）</h2><div>${A.items.map((v) => `<button type="button" class="pill ${A.ids.includes(v.id) ? 'on' : ''}" data-act="asPick" data-id="${esc(v.id)}">${esc(v.title)}${v.status === 'archived' ? '（更早）' : ''}</button>`).join('')}</div></div>` : '';
   if (!A.ids.length) { view(`${subTabsHtml('assess')}<div class="card"><h2>還沒有版本可以評估</h2><p>先到「新作落點分析」排好，按「存成一版」。</p><a class="btn" href="#/score">去排一版</a></div>`); return; }
   const R = A.ids.map((id) => asVersion(A.items.find((v) => v.id === id)));
-  const top = '<div class="alertbox"><b>這裡只看「第一階段門檻距離」。</b>沒有實際錄取、正備取、報名人數資料；116 的名額與甄試人數只是簡章上的數字，不代表把握度。</div>';
+  const top = '<div class="alertbox"><b>這裡只比你離第一階段門檻有多遠。</b>我們沒有錄取名單、正備取和報名人數。116 的名額和甄試人數是簡章上的數字，只供參考。</div>';
   const vcards = R.map((x) => `<div class="card"><h2>${esc(x.v.title)}<span class="muted small">　${esc(when(x.v.createdAt))}・${x.v.scoreKind === 'official' ? '正式學測成績' : '模考或預估'}</span></h2>
     <div class="small muted" style="margin-bottom:6px">${esc(AP.scoreBrief(x.v.scores, x.v.listen))}</div>
     <ul class="overall">${x.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
@@ -86,19 +86,19 @@ function asAiHtml(R) {
   if (j && j.status === 'done' && j.result) {
     const res = j.result, nameOf = (code) => deptName(code);
     const text = [].concat((res.perDept || []).flatMap((p) => [p.line1, p.line2 || '']), res.overall || [], [res.question || '']).join('\n');
-    if (AP.scanAssertive(text, ASSERTIVE_BANNED, DISCLAIMER_ALLOWED).length || /[%％]/.test(text)) body = '<div class="hint">AI 的解讀沒有通過檢查，先看上面算出來的結果；也可以按下面「請老師看」。</div>';
+    if (AP.scanAssertive(text, ASSERTIVE_BANNED, DISCLAIMER_ALLOWED).length || /[%％]/.test(text)) body = '<div class="hint">白話說明這次沒整理出來，先看上面算出來的結果；也可以按下面「請老師看」。</div>';
     else body = `<div class="aibox"><div class="small"><b>${esc(AI_HEAD)}</b></div>
       ${(res.perDept || []).map((p) => { const nm = nameOf(p.deptId), l1 = String(p.line1 || '').replace(/^[^：]{2,40}：/, (h) => (nm.replace(/\s/g, '').includes(h.slice(0, -1).replace(/\s/g, '')) ? '' : h)); return `<div class="small"><b>${esc(nm)}</b>　${esc(l1)}${p.line2 ? ' ' + esc(p.line2) : ''}</div>`; }).join('')}
       ${(res.overall || []).length ? `<ul class="overall">${res.overall.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
       ${res.question ? `<div class="small">想一想：${esc(res.question)}</div>` : ''}
       ${(res.nextLinks || []).length ? `<div class="small">建議先看這幾系的分則：${res.nextLinks.map((c) => { const u = S.dinfo && S.dinfo.items[c] && S.dinfo.items[c].y && S.dinfo.items[c].y.rulesUrl; return NG.safeUrl(u) ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(nameOf(c))}</a>` : esc(nameOf(c)); }).join('、')}</div>` : ''}
-      <div class="small muted" style="margin-top:6px">${esc(AI_TAIL)}</div></div>`;
-  } else if (j && (j.status === 'running' || j.status === 'queued')) body = j.slow ? '<div class="hint">AI 老師還在看，等一下按「看結果出來了沒」。</div>' : '<div class="muted small"><span class="spin"></span>AI 老師正在看…</div>';
-  else if (j && (j.status === 'failed' || j.status === 'rejected')) body = `<div class="hint">AI 的解讀沒有通過檢查${/^REJECTED_/.test(j.error || '') ? '（說法不合規，已退回）' : ''}，先看上面算出來的結果；也可以按下面「請老師看」。</div>`;
-  return `<div class="card"><h2>AI 老師的解讀</h2><p class="muted small" style="margin:0 0 8px">AI 只會把上面算出來的結果講成人話、幫你比較這幾版，不會自己生數字。</p>${body}
+      </div>`;
+  } else if (j && (j.status === 'running' || j.status === 'queued')) body = j.slow ? '<div class="hint">還在整理，等一下按「看結果出來了沒」。</div>' : '<div class="muted small"><span class="spin"></span>正在整理…</div>';
+  else if (j && (j.status === 'failed' || j.status === 'rejected')) body = `<div class="hint">白話說明這次沒整理出來，先看上面算出來的結果；也可以按下面「請老師看」。</div>`;
+  return `<div class="card"><h2>白話說明</h2><p class="muted small" style="margin:0 0 8px">系統依上面算出來的結果整理，老師還沒看過。只把結果講成白話、幫你比較這幾版，不會多出新的數字。</p>${body}
     <div class="row" style="margin-top:8px">${j && (j.status === 'running' || j.status === 'queued')
       ? `<button type="button" class="btn ghost" data-act="asAiCheck" ${j.slow ? '' : 'disabled'}>看結果出來了沒</button>`
-      : `<button type="button" class="btn ghost" data-act="asAi">${j ? '請 AI 老師重新解讀' : '請 AI 老師解讀這幾版'}</button>`}</div></div>`;
+      : `<button type="button" class="btn ghost" data-act="asAi">${j ? '重新整理說明' : '把這幾版講成白話'}</button>`}</div></div>`;
 }
 function asLookHtml() {
   return `<div class="card"><h2>請老師看</h2><p class="muted small" style="margin:0 0 6px">老師會看你勾的這幾版，給你建議。想問什麼可以先寫（可以不寫，最多 200 字）。</p>

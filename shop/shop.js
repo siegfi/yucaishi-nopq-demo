@@ -16,10 +16,10 @@ const SHOP_ERR = {
   TOO_LATE_TO_CHANGE: '離上課時間太近，不能自己改期或取消，請直接找老師。', BOOKING_NOT_FOUND: '找不到這筆預約，已為你更新畫面。',
   BOOKING_NOT_ACTIVE: '這筆預約已經取消或上完了，已為你更新畫面。', VALIDATION: '資料格式不對，請檢查後再送出。', VALIDATION_FAILED: '資料格式不對，請檢查後再送出。',
 };
-const shopErr = (r) => SHOP_ERR[r.error] || (typeof errText === 'function' ? errText(r) : '這一步沒有成功（' + r.error + '）');
+const shopErr = (r) => SHOP_ERR[r.error] || (typeof errText === 'function' ? errText(r) : '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給育才仕。');
 const SHOP_STATUS = { pending: ['待付款', 'warn'], paid: ['已付款', 'ok'], cancelled: ['已取消', ''], refunded: ['已退款', ''], partiallyRefunded: ['部分退款', ''] };
-const SHOP_KIND = { reviewRound: '完整批改', autoDept: 'Auto 產稿', tutorHour: '一對一' };
-const SHOP_UNIT = { reviewRound: '輪', autoDept: '個科系', tutorHour: '小時' };
+const SHOP_KIND = { reviewRound: '完整批改', autoDept: '訪談成稿', tutorHour: '一對一' };
+const SHOP_UNIT = { reviewRound: '次', autoDept: '個科系', tutorHour: '小時' };
 const shopMoney = (n) => Number(n || 0).toLocaleString('en-US');
 const SHOP_WD = '日一二三四五六', shopP2 = (n) => String(n).padStart(2, '0');
 const shopDT = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()}（${SHOP_WD[d.getDay()]}）${shopP2(d.getHours())}:${shopP2(d.getMinutes())}`; };
@@ -37,14 +37,14 @@ const shopRid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() 
 // 每個商品「買到什麼、怎麼用」：照商品表的額度種類與含幾個單位寫，之後改單位或價格不用改這裡
 function shopWhat(p) {
   const n = p.unitsPerQty;
-  if (p.quotaKind === 'reviewRound') return { what: `一篇稿，含 ${n} 輪來回（你交 → 老師改 → 你改完再交 → 老師再看）`, use: '交稿給老師批改時用；一篇用一份。' };
-  if (p.quotaKind === 'autoDept') return { what: `${n} 個科系的稿（該系的就讀動機與未來學習計畫）`, use: '付款後育才仕會跟你聯絡安排。' };
+  if (p.quotaKind === 'reviewRound') return { what: `一篇稿，可以交給老師改 ${n} 次。每次是你交稿、老師改完還你。`, use: '交稿給老師批改時用；一篇用一份。' };
+  if (p.quotaKind === 'autoDept') return { what: `${n} 個科系的稿。你先回答幾題自己的經歷，再照育才仕老師的標準寫成該系的就讀動機與未來學習計畫`, use: '付款後育才仕會跟你聯絡安排。' };
   if (p.quotaKind === 'tutorHour') return { what: n > 1 ? `一對一 ${n} 小時，可以分次約，每次最少一小時` : '一對一一小時', use: '付款後到「預約一對一」選老師開的時段。' };
   return { what: p.name, use: '' };
 }
 
 // 讀資料：失敗時分兩種——後端還沒套 28p（函式不存在，PGRST202；例如示範庫或雲端還沒更新）→ 說「還沒開通」；其他（斷線、逾時）→ 照學生頁的重新載入卡
-const SHOP_NOT_READY = '<div class="card" id="shop-not-ready"><h2>購買與預約還沒開通</h2><p class="muted">這個網站的資料庫還沒更新到有購買與預約的版本。要購買或約一對一，請先直接聯絡育才仕。</p></div>';
+const SHOP_NOT_READY = '<div class="card" id="shop-not-ready"><h2>購買與預約還沒開通</h2><p class="muted">購買和預約功能還沒開放。要買或約一對一，請先找育才仕。</p></div>';
 async function shopLoad(reads) {
   const my = S.rt;
   try {
@@ -86,12 +86,12 @@ function renderShop() {
     <label class="f" for="sp-contact">聯絡方式（必填，電話或 Email）</label><input type="text" id="sp-contact" data-in="shopPayer" data-k="contact" maxlength="100" value="${esc(u.payer.contact)}">
     <label class="row" style="margin-top:10px;align-items:flex-start"><input type="checkbox" id="sp-guard" data-in="shopPayer" data-k="isGuardian" ${u.payer.isGuardian ? 'checked' : ''} style="margin-top:4px"><span>付款的家長是我的法定代理人，同意這筆購買。</span></label>`;
   const cart = `<div class="card ${picked.length ? 'active' : ''}" id="shop-cart"><h2>這次要買的</h2>${picked.length ? `<ul class="plain" style="padding-left:18px;margin:4px 0">${picked.map((p) => `<li>${esc(p.name)} × ${u.qty[p.code]}：${shopMoney(p.priceTwd * u.qty[p.code])} 元</li>`).join('')}</ul><p style="margin:6px 0"><b>合計 <span id="shop-total">${shopMoney(total)}</span> 元</b></p>` : '<p class="muted" style="margin:4px 0">還沒選。在上面按「＋」選數量。</p>'}
-    ${payer}<p class="muted small" style="margin:10px 0 0">送出後會開一張「待付款」的訂單。請照育才仕告訴你的方式付款；育才仕確認收到款項後，額度才會出現在這一頁。</p>
+    ${payer}<p class="muted small" style="margin:10px 0 0">送出後，育才仕會在 1 個工作天內跟你聯絡，告訴你怎麼付款。</p>
     <div style="margin-top:10px"><button type="button" class="btn" data-act="shopOrder" ${picked.length ? '' : 'disabled'}>送出訂單</button></div></div>`;
-  const last = u.last ? `<div class="hint" id="shop-done" style="margin:0 0 12px">已開一張待付款訂單：編號 <b>${esc(u.last.orderNo)}</b>，金額 <b>${shopMoney(u.last.totalTwd)} 元</b>。請照育才仕告訴你的方式付款；育才仕確認收到款項後，額度就會出現在下面。</div>` : '';
+  const last = u.last ? `<div class="hint" id="shop-done" style="margin:0 0 12px">已開一張待付款訂單：編號 <b>${esc(u.last.orderNo)}</b>，金額 <b>${shopMoney(u.last.totalTwd)} 元</b>。育才仕會在 1 個工作天內跟你聯絡付款方式。收到款後，額度會出現在下面。</div>` : '';
   const quota = d.quota && d.quota.length ? d.quota.map((q) => `<div class="row spread" style="padding:4px 0;border-top:1px solid var(--line)"><span>${esc(SHOP_KIND[q.quotaKind] || q.quotaKind)}</span><span><b>還有 ${q.remainingUnits} ${esc(SHOP_UNIT[q.quotaKind] || '')}</b><span class="muted small">（共 ${q.totalUnits}、用掉 ${q.usedUnits}${q.nextExpiresAt ? `；最近一份到 ${esc(shopDay(q.nextExpiresAt))}` : ''}）</span></span></div>`).join('')
     + (d.quota.some((q) => q.quotaKind === 'tutorHour' && q.remainingUnits > 0) ? '<div style="margin-top:8px"><a class="btn sm" href="#/book">去預約一對一</a></div>' : '')
-    : '<p class="muted" style="margin:4px 0">還沒有。訂單付款、育才仕確認後，額度會出現在這裡。</p>';
+    : '<p class="muted" style="margin:4px 0">你還沒有可用的額度。付款後，這裡會列出能交幾篇稿、能約幾小時。</p>';
   const orders = d.orders.length ? d.orders.map((o) => {
     const st = SHOP_STATUS[o.status] || [o.status, ''], ask = u.cancelAsk === o.id;
     return `<div class="shop-o" data-order="${esc(o.id)}" style="padding:8px 0;border-top:1px solid var(--line)"><div class="row spread"><span><b>${esc(o.orderNo)}</b> <span class="muted small">${esc(shopDay(o.createdAt))}</span></span><span><span class="pill ${st[1]}">${esc(st[0])}</span> <b>${shopMoney(o.totalTwd)} 元</b></span></div>
@@ -145,8 +145,8 @@ function renderBook() {
   const lim = b.tutor.changeHoursBefore;
   const rule = lim == null ? '上課開始之前，都可以自己改期或取消。' : `上課開始前 ${lim} 小時內，要改期或取消請直接找老師。`;
   const head = `<div class="card" id="bk-hours"><h2>預約一對一</h2>
-    <div class="shop-tiles"><div class="shop-tile"><b id="bk-avail">${h.available}</b>還能約（小時）</div><div class="shop-tile"><b id="bk-reserved">${h.reserved}</b>已約、還沒上</div><div class="shop-tile"><b id="bk-remaining">${h.remaining}</b>目前有效時數</div></div>
-    <p class="muted small" style="margin:4px 0 0">約好的課上完、老師按「已完成」才會扣時數。${esc(rule)}</p>
+    <div class="shop-tiles"><div class="shop-tile"><b id="bk-avail">${h.available}</b>還能約的時數</div><div class="shop-tile"><b id="bk-reserved">${h.reserved}</b>已約、還沒上的時數</div><div class="shop-tile"><b id="bk-remaining">${h.remaining}</b>合計剩下的時數</div></div>
+    <p class="muted small" style="margin:4px 0 0">上完課、老師按「已完成」才會扣時數。${esc(rule)}</p>
     ${h.remaining === 0 && !b.tutor.bookings.some((x) => x.status === 'booked') ? '<div class="hint">你還沒有一對一時數。先到「購買」買一對一，育才仕確認收到款項後就能約。<div style="margin-top:6px"><a class="btn sm" href="#/shop">去購買</a></div></div>' : ''}</div>`;
   const upcoming = b.tutor.bookings.filter((x) => x.status === 'booked').sort((x, y) => new Date(x.startsAt) - new Date(y.startsAt));
   const past = b.tutor.bookings.filter((x) => x.status !== 'booked').slice(0, 20);
@@ -170,11 +170,11 @@ function renderBook() {
     const short = h.available + extra < s.hours, ask = b.ask && b.ask.kind === 'book' && b.ask.id === s.id, mineNow = rs && rs.slotId === s.id;
     const btn = mineNow ? '' : short ? '<span class="muted small">時數不夠</span>' : `<button type="button" class="btn sm" data-act="bkAsk" data-id="${esc(s.id)}">${rs ? '改到這段' : '約這段'}</button>`;
     return `${dayHead}<div class="bk-s" data-slot="${esc(s.id)}" style="padding:6px 0;border-top:1px solid var(--line)"><div class="row spread"><span><b>${esc(shopHM(s.startsAt))}–${esc(shopHM(s.endsAt))}</b> <span class="pill">${s.hours} 小時</span> ${esc(s.teacherName)}</span>${btn}</div>
-      ${ask ? `<div class="hint"><div>${rs ? `把 ${esc(shopDT(rs.startsAt))} 那堂改到` : '約'} ${esc(shopDT(s.startsAt))}–${esc(shopHM(s.endsAt))}（${esc(s.teacherName)}）？會保留 ${s.hours} 小時，上完、老師按已完成才扣。</div><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-act="bkGo" data-id="${esc(s.id)}">${rs ? '確定改期' : '確定預約'}</button><button type="button" class="btn sm ghost" data-act="bkAskNo">先不要</button></div></div>` : ''}</div>`;
+      ${ask ? `<div class="hint"><div>${rs ? `把 ${esc(shopDT(rs.startsAt))} 那堂改到` : '約'} ${esc(shopDT(s.startsAt))}–${esc(shopHM(s.endsAt))}（${esc(s.teacherName)}）？會保留 ${s.hours} 小時。</div><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-act="bkGo" data-id="${esc(s.id)}">${rs ? '確定改期' : '確定預約'}</button><button type="button" class="btn sm ghost" data-act="bkAskNo">先不要</button></div></div>` : ''}</div>`;
   }).join('');
   const pick = teachers.length > 1 ? `<label class="f" for="bk-t">看哪位老師的時段</label><select id="bk-t" data-in="bkTeacher"><option value="">全部老師</option>${teachers.map(([id, n]) => `<option value="${esc(id)}" ${b.teacher === id ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : '';
   const open = `<div class="card ${rs ? 'active' : ''}" id="bk-open"><h2>${rs ? '選一段新的時間' : '可以約的時段'}</h2>
-    ${rs ? `<div class="hint" style="margin:0 0 8px">正在幫 ${esc(shopDT(rs.startsAt))}（${esc(rs.teacherName)}）那堂改期：選一段新的時間，原本那段會自動放掉。<div style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="bkReschedNo">不改了</button></div></div>` : ''}
+    ${rs ? `<div class="hint" style="margin:0 0 8px">正在幫 ${esc(shopDT(rs.startsAt))}（${esc(rs.teacherName)}）那堂改時間。選好新的時間後，原本那段會自動取消。<div style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="bkReschedNo">不改了</button></div></div>` : ''}
     ${pick}${slotRows || '<p class="muted" style="margin:6px 0">目前沒有老師開放的時段。老師開了之後會出現在這裡。</p>'}</div>`;
   view(head + (rs ? open + mine : mine + open));
 }

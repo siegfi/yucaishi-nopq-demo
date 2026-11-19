@@ -17,7 +17,7 @@ async function viewWish() {
     const ev = await call('my_wishlist_events', { p_limit: 1 }, { quiet: true }); if (my !== S.rt) return;
     const e = ev.ok && (ev.items || [])[0], key = (arr) => arr.slice().sort((a, b) => a.rank - b.rank).map((x) => String(x.deptCode) + '@' + x.rank).join(',');
     if (e && Array.isArray(e.picks) && key(e.picks) === key(items)) from = `這組志願來自${e.versionSeq ? `第 ${esc(e.versionSeq)} 版「${esc(e.versionTitle || '')}」` : '落點分析'}（${esc(when(e.createdAt))} 存）。`;
-    else if (items.every((x) => x.snapshot && x.snapshot.carriedFrom)) from = `這組志願是你 ${esc(items[0].snapshot.carriedFrom.year)} 學年存的，換成 116 簡章時已照同名系換成 116 的代碼。`;
+    else if (items.every((x) => x.snapshot && x.snapshot.carriedFrom)) from = `這組志願是你 ${esc(items[0].snapshot.carriedFrom.year)} 學年存的，已經幫你換成 116 年同名的系。`;
     else from = '這組志願不是從落點分析存的（例如從落點通匯入，或在落點分析改版前存的）。';
   } catch (e) { /* 查不到紀錄就不標 */ }
   const render = (stars) => view(carryHtml + `<div class="card"><h2>我的志願</h2><p class="muted" style="margin:0 0 6px">最多六個，之後還可以回「落點分析」換。</p>${from ? `<p class="small" style="margin:0 0 6px">${from}</p>` : ''}
@@ -36,7 +36,7 @@ function carryCardHtml(list) {
       : `${nm}：116 簡章沒有同名的系組，這個志願沒有帶過來，請重選。${c.hint ? `<div class="muted small">同校可能相關的 116 系（系統比對，請自己確認）：${esc(c.hint)}</div>` : ''}`;
     return `<div class="doc-row"><div class="dmain">${c.rank ? `原本第 ${esc(c.rank)} 志願　` : ''}${msg}</div><button type="button" class="btn sm ghost" data-act="carryOk" data-id="${esc(c.id)}">看過了</button></div>`;
   };
-  return `<div class="card active"><h2>換成 116 簡章時要你看一眼</h2><p class="muted small" style="margin:0 0 6px">校系代碼每年重排，系統只照「同校＋同系名」幫你換；下面這幾個要你自己確認。</p>${list.map(row).join('')}
+  return `<div class="card active"><h2>這幾個系請你確認</h2><p class="muted small" style="margin:0 0 6px">我們是照「同一所學校、同樣系名」幫你把之前的志願換到今年。下面這幾個請你自己確認。</p>${list.map(row).join('')}
     <div class="row" style="margin-top:8px"><a class="btn sm" href="#/score">去落點分析重選</a></div></div>`;
 }
 ACT.carryOk = async (el) => { el.disabled = true; try { const r = await call('dismiss_wishlist_carry', { p_id: el.dataset.id }); if (r.ok) route(); } finally { el.disabled = false; } };

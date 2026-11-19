@@ -107,7 +107,7 @@ function skippedLine() {
   const miss = sk.filter((x) => x.status === 'missing'), oe = sk.filter((x) => x.status === 'otherExam').length, mr = sk.length - miss.length - oe, subs = {};
   miss.forEach((x) => x.missing.forEach((k) => { subs[k] = 1; }));
   const ks = SUBJECTS.filter((k) => subs[k]).map((k) => SUBJ_CH[k] || k);
-  return '另有 ' + sk.length + ' 系沒列進來：' + [miss.length ? miss.length + ' 系要看的科目你沒考（' + ks.join('、') + '）' : '', oe ? oe + ' 系第一階段要看 APCS 或術科成績，學測算不出來' : '', mr ? mr + ' 系檢定同列數A、數B，你只過一科，要等老師對過簡章' : ''].filter(Boolean).join('；') + '。';
+  return '另有 ' + sk.length + ' 系沒列進來：' + [miss.length ? miss.length + ' 系要看的科目你沒考（' + ks.join('、') + '）' : '', oe ? oe + ' 系第一階段要看 APCS 或術科成績，學測算不出來' : '', mr ? mr + ' 系檢定數A、數B 都有列，你只過了一科，要找老師一起對簡章' : ''].filter(Boolean).join('；') + '。';
 }
 // 引擎改版後每系一個狀態（assessDept）：檢定未過不列；沒考要看的科目、數A／數B 規則待確認也不列，但記下來在說明列報數；
 // 資料待校、今年標準有變、沒有去年資料、只看檢定 → 'na' 格，列上寫原因（label）。
@@ -163,14 +163,14 @@ function teacherLine(fr, cnt) {
   }
   const gs = Object.keys(sc.groups); let mid;
   if (!fr.length) mid = head + '，這個範圍裡沒有過得了第一階段的系，換個學群或地區看看';
-  else if (!(cnt.safe + cnt.reach + cnt.dream)) mid = head + '，這個範圍裡過得了第一階段的 ' + fr.length + ' 系都沒有去年的通過分數，只能先看第一階段檢定';
+  else if (!(cnt.safe + cnt.reach + cnt.dream)) mid = head + '，這個範圍裡過得了第一階段的 ' + fr.length + ' 系，去年都沒有通過分數可以比，只能先看檢定';
   else if (gs.length) {
     const scope = gs.join('、') + (gs.length > 1 ? '合起來' : '');
     mid = cnt.safe + cnt.reach ? scope + '保底 ' + cnt.safe + ' 系、正常 ' + cnt.reach + ' 系' : scope + '目前只有夢幻的系（' + cnt.dream + ' 系），可以先看看，也可以換個學群';
   } else if (cnt.safe) mid = head + '，保底的就有 ' + cnt.safe + ' 系';
   else if (cnt.reach) mid = head + '，保底的還沒有，正常 ' + cnt.reach + ' 系';
   else mid = head + '，目前只有夢幻的系（' + cnt.dream + ' 系），可以先看看，也可以換個學群';
-  if (!scNarrowed()) return mid + '。先選你想念的學群，再挑學校，範圍縮小了我們再一系一系看。';
+  if (!scNarrowed()) return mid + '。先選你想念的學群和學校，範圍小一點，再一系一系看。';
   return mid + '。先圈你想去的，我們再看每一系要什麼。';
 }
 function rowHtml(r) {
@@ -219,7 +219,7 @@ function scFilterPills() {
 function scRender() {
   const sc = S.sc, fr = filteredRows(), cnt = { safe: 0, reach: 0, dream: 0, na: 0 };
   fr.forEach((r) => { cnt[r.code]++; });
-  $('sc-teach').innerHTML = `<b>老師的話</b><p>${esc(teacherLine(fr, cnt))}</p>`;
+  $('sc-teach').innerHTML = `<b>小提醒</b><p>${esc(teacherLine(fr, cnt))}</p>`;
   // 「沒有去年資料」那格只在有這種系（或正停在那格）時出現；舊引擎沒有 'na'，畫面跟原本一樣三格
   const zones = cnt.na || sc.zone === NA ? ZONES.concat(NA) : ZONES;
   // 按鈕的名字不靠裡面那顆一個字的色塊（讀屏與無障礙樹會把它丟掉，只剩數字）：aria-label 寫完整字
@@ -228,7 +228,7 @@ function scRender() {
   if (sc.autoZone) { sc.autoZone = false; if (!cnt[sc.zone]) { const z = zones.find((k) => cnt[k]); if (z) { sc.zone = z; return scRender(); } } }
   const list = fr.filter((r) => r.code === sc.zone), n = sc.shown[sc.zone] || 40;
   if (!scNarrowed()) { $('sc-list').innerHTML = '<div class="hint">先在上面選學群或學校，清單才會縮到看得完。</div>'; return; }
-  $('sc-list').innerHTML = (sc.zone === NA && list.length ? `<div class="hint">這些系沒有去年的第一階段通過分數可以比，給不了保底／正常／夢幻；你已經過了它們的檢定。${list.some((r) => r.label === '過檢定就進二階') ? '標「過檢定就進二階」的系第一階段不篩人，過了檢定就進第二階段。' : ''}${list.some((r) => r.label === '資料待校') ? '標「資料待校」的系去年的通過分數還在核對。' : ''}</div>` : '')
+  $('sc-list').innerHTML = (sc.zone === NA && list.length ? `<div class="hint">這些系去年沒有第一階段通過分數可以比，所以分不出保底、正常、夢幻。你已經過了它們的檢定。${list.some((r) => r.label === '過檢定就進二階') ? '<br>標「過檢定就進二階」的系第一階段不篩人，過了檢定就進第二階段。' : ''}${list.some((r) => r.label === '資料待校') ? '<br>標「資料待校」的系去年的通過分數還在核對。' : ''}</div>` : '')
     + (list.length ? list.slice(0, n).map(rowHtml).join('') : `<div class="muted">這個範圍裡沒有「${zName(sc.zone)}」的系。</div>`)
     + (list.length > n ? `<div style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="more">再看 ${Math.min(40, list.length - n)} 個（還有 ${list.length - n} 個）</button></div>` : '');
 }
@@ -287,7 +287,7 @@ IN.pick = (el) => {
   renderSel();
 };
 // 2026-11-09 owner：方向建議 2 個學群，不建議超過 3 個；超過 3 個要跳警示，但不限制選取
-const GROUP_WARN = '建議同學檢查既有的學習歷程。因為不同的學群所需要的學習歷程內容會完全不同，這樣子準備可能會有所不及。';
+const GROUP_WARN = '你選了超過 3 個學群。不同學群要的學習歷程差很多，可能準備不完，先看看你手上的學習歷程夠不夠。';
 function groupWarnHtml(n, what) {
   if (n > 3) return `<div class="issue" style="margin-top:8px"><b>${esc(what)}已經 ${n} 個學群方向。</b>${esc(GROUP_WARN)}</div>`;
   if (n === 3) return `<div class="hint" style="margin-top:8px">${esc(what)} 3 個學群方向了，建議集中在 2 個；再多準備會來不及。</div>`;
@@ -318,7 +318,7 @@ function selSlotsHtml(sc) {
   }).join('');
   return slots + (n < 6 ? `<div class="slot empty">還可以再選 ${6 - n} 個</div>` : '');
 }
-const selNoteHtml = () => '<div class="muted small" style="margin-top:4px">「存成一版」只留下這次排的結果，不動志願；「存成志願」會取代原本的志願，這次的選擇會留在歷史。參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）。</div>';
+const selNoteHtml = () => '<div class="muted small" style="margin-top:4px">「存成一版」只留這次排的結果，不會動到志願。「存成志願」會換掉原本的志願。（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）。</div>';
 function selUndoHtml(sc) { return sc.undo ? `<div class="selundo" role="status"><span>已拿掉 ${esc(sc.undo.name)}</span><button type="button" class="linkbtn" data-act="selUndo">復原</button></div>` : ''; }
 function selDots(sc) {
   return '<span class="seldots" aria-hidden="true">' + Array.from({ length: 6 }, (_, i) => { const r = i < sc.sel.length ? sc.byId.get(sc.sel[i]) : null; return `<i class="${i < sc.sel.length ? 'on ' + (r ? zCls(r.code) : 'none') : ''}"></i>`; }).join('') + '</span>';

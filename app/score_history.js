@@ -11,7 +11,7 @@ async function viewScoreHistory() {
   lvRender();
 }
 const lvById = (id) => S.lv.items.find((v) => v.id === id);
-const deptName = (code) => { const s = String(code), m = /^(\d{3}):(\d{6})$/.exec(s); if (m) return `${m[1]} 學年的系 ${m[2]}（116 沒有同名系組）`; const d = LD.byCode && LD.byCode.get(s); return d ? d.school + ' ' + d.dept : '系代碼 ' + s; };
+const deptName = (code) => { const s = String(code), m = /^(\d{3}):(\d{6})$/.exec(s); if (m) return `${m[1]} 學年的系 ${m[2]}（116 年找不到同名的系）`; const d = LD.byCode && LD.byCode.get(s); return d ? d.school + ' ' + d.dept : '系代碼 ' + s; };
 function lvPicks(v) { return (v.picks || []).slice().sort((a, b) => a.rank - b.rank).map((p) => `${p.rank}. ${deptName(p.deptCode)}${p.code ? '（' + LPN[p.code] + '）' : ''}`).join('、'); }
 function lvMixLine(v) {
   const m = (v.rules && v.rules.mix) || {}, gp = (v.rules && v.rules.groupsPicked) || 0;
@@ -42,10 +42,10 @@ function lvBar() {
 }
 function lvRender() {
   const L = S.lv, act = L.items.filter((v) => v.status === 'active'), old = L.items.filter((v) => v.status === 'archived');
-  const tip = '<div class="teach"><b>老師的話</b><p>每排一次就存一版，不用怕排錯。勾兩版可以比較差在哪；挑 1～3 版去「AI 落點機率評估」，看每一系離門檻多遠。</p></div>';
+  const tip = '<div class="teach"><b>小提醒</b><p>每排一次就存一版，不用怕排錯。勾兩版可以比較差在哪；挑 1～3 版去「落點評估」，看每一系離門檻多遠。</p></div>';
   if (!L.items.length) { view(`${subTabsHtml('history')}${tip}<div class="card"><h2>還沒有存過版本</h2><p>到「新作落點分析」排好以後，按「存成一版」就會留在這裡。</p><a class="btn" href="#/score">去排一版</a></div>`); return; }
   view(`${subTabsHtml('history')}${tip}
-    <div class="card"><h2>我存的版本</h2><p class="muted small" style="margin:0 0 6px">最多留 ${L.limit} 版；滿了以後，最舊、沒存過志願的那一版會移到下面「更早的版本」，不會不見。</p>
+    <div class="card"><h2>我存的版本</h2><p class="muted small" style="margin:0 0 6px">最多留 ${L.limit} 版；滿了以後，最舊、沒存成志願的那一版會收到下面「更早的版本」，還是找得到。</p>
       ${act.map(lvCard).join('') || '<p class="muted">目前的版本都在「更早的版本」裡。</p>'}</div>
     <div id="lv-bar" class="selwrap">${lvBar()}</div>${lvFlag()}
     ${L.cmp ? lvCompareHtml() : ''}

@@ -47,8 +47,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ycs-student-auth' } });
 const S = { ui: {}, rt: 0, me: null };
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET', 'NOT_STUDENT', 'NOT_TEACHER', 'NOT_STAFF']);
-const ERRS = { NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是 staff。' };
-const errText = (d) => ERRS[d.error] || ('這一步沒有成功（' + d.error + '）');
+const ERRS = { NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是行政帳號，請改用行政帳號登入。' };
+const errText = (d) => ERRS[d.error] || '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給育才仕。';
 let toastTimer = 0;
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 5000); }
 const RPC_LIMIT = 25000; let lastFailMsg = '';

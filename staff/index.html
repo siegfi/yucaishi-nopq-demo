@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
-<title>NOPQ通｜staff 後台</title>
+<title>NOPQ通｜行政後台</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
   /* 育才仕 NOPQ通 1a staff 後台（帳號版）。配色同學生端；手機與電腦都能用，表格在窄螢幕改成直排卡片。 */
@@ -44,8 +44,8 @@
 <body>
 <div id="boot" class="center muted"><span class="spin"></span>載入中…</div>
 <div id="login" class="login hidden">
-  <h1>NOPQ通｜staff</h1>
-  <p class="muted" style="margin:0 0 14px">育才仕後台｜staff 登入</p>
+  <h1>NOPQ通｜行政後台</h1>
+  <p class="muted" style="margin:0 0 14px">育才仕後台｜行政登入</p>
   <form id="login-form" class="card" autocomplete="on">
     <label class="f" for="l-email">Email</label><input type="email" id="l-email" autocomplete="username" required>
     <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
@@ -129,9 +129,9 @@ var SG = (function () {
     var url = httpsUrl(rec.guideSourceUrl) || httpsUrl(src.url), rules = httpsUrl(rec.rulesUrl);
     var h = '<div class="card" id="rg-card"><h2>' + esc(school) + ' ' + esc(dept) + '</h2><div class="muted small">校系代碼 ' + esc(rec.deptCode) + '｜' + esc(rec.year || yr) + ' 學年度｜' + esc(rec.channel === 'TECH' ? '技專' : '一般大學') + '｜指引來源：' + esc(SRC[rec.guideSource] || '還沒有指引') + (rec.guideFetchedAt ? '｜抓取 ' + esc(day(rec.guideFetchedAt)) : '') + '</div>';
     h += '<div style="margin-top:8px">' + (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(school) + ' ' + esc(dept) + ' ' + esc(yr) + ' 學年度審查資料準備指引（官方）</a>' : '<span class="muted">這系沒有官方指引連結</span>') + (rules ? '｜<a href="' + esc(rules) + '" target="_blank" rel="noopener noreferrer">校系分則</a>' : '') + '</div>';
-    h += '<div style="margin-top:8px">' + (s.reviewed ? '<span class="pill ok">老師確認過了</span><span class="muted small">' + esc(s.by) + (s.at ? '｜' + esc(day(s.at)) : '') + '</span>' : '<span class="pill warn">老師還沒確認過</span><span class="muted small">機器整理，以官方連結為準</span>') + '</div>';
-    h += '<div style="margin-top:6px"><span class="muted small">機器信心：</span>' + CONF_KEYS.map(function (k) { return '<span class="pill' + (cf[k[0]] === 'low' || cf[k[0]] === 'none' ? ' warn' : '') + '">' + k[1] + ' ' + esc(CONF[cf[k[0]]] || '沒有資料') + '</span>'; }).join('') + (g.extractedBy ? '<span class="muted small">（' + esc({ rule: '規則抽取', model: '模型抽取', manual: '手建' }[g.extractedBy] || g.extractedBy) + '）</span>' : '') + '</div>';
-    var wr = strs(g.warnings); if (wr.length) h += '<div class="bad-box small" id="rg-warn"><b>機器抽取時的提醒</b><ul style="margin:4px 0 0 18px;padding:0">' + wr.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
+    h += '<div style="margin-top:8px">' + (s.reviewed ? '<span class="pill ok">老師確認過了</span><span class="muted small">' + esc(s.by) + (s.at ? '｜' + esc(day(s.at)) : '') + '</span>' : '<span class="pill warn">老師還沒確認過</span><span class="muted small">系統整理，請以官方連結為準</span>') + '</div>';
+    h += '<div style="margin-top:6px"><span class="muted small">系統整理的可信度：</span>' + CONF_KEYS.map(function (k) { return '<span class="pill' + (cf[k[0]] === 'low' || cf[k[0]] === 'none' ? ' warn' : '') + '">' + k[1] + ' ' + esc(CONF[cf[k[0]]] || '沒有資料') + '</span>'; }).join('') + (g.extractedBy ? '<span class="muted small">（' + esc({ rule: '照規則整理', model: 'AI 整理', manual: '人工輸入' }[g.extractedBy] || g.extractedBy) + '）</span>' : '') + '</div>';
+    var wr = strs(g.warnings); if (wr.length) h += '<div class="bad-box small" id="rg-warn"><b>系統整理時發現的問題</b><ul style="margin:4px 0 0 18px;padding:0">' + wr.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
     h += '<h3>要交什麼、題目是什麼</h3>';
     DOCS.forEach(function (d) {
       var k = d[0];
@@ -163,7 +163,7 @@ var SG = (function () {
     status = status || {}; list = arr(list);
     if (!list.length) return '<p class="muted">這一班目前沒有人填志願。</p>';
     var done = list.filter(function (x) { return status[x.deptCode] && status[x.deptCode].reviewed; }).length;
-    return '<p class="muted small">這一班志願裡共 ' + list.length + ' 系，老師確認過 ' + done + ' 系；其餘標「機器整理，以官方連結為準」。</p>' + list.map(function (x) {
+    return '<p class="muted small">這一班志願裡共 ' + list.length + ' 系，老師確認過 ' + done + ' 系；其餘的系，學生頁會請他看官方原文。</p>' + list.map(function (x) {
       var s = status[x.deptCode];
       return '<div class="rrow" style="grid-template-columns:2fr 2fr 80px"><div>' + esc(x.schoolName) + ' ' + esc(x.name) + '<div class="muted small">' + esc(x.deptCode) + '｜' + x.count + ' 位同學填</div></div><div>' +
         (s ? '<span class="pill ' + (s.hasGuide ? '' : 'bad') + '">' + esc(SRC[s.source] || SRC.missing) + '</span><span class="pill ' + (s.reviewed ? 'ok' : 'warn') + '">' + (s.reviewed ? '老師確認過了' : '老師還沒確認過') + '</span>' : '<span class="muted small">讀取中…</span>') +
@@ -183,16 +183,16 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:
 const S = { me: null, cases: null, teachers: null, cohorts: null, ui: {} };
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET']);
 const ERRS = {
-  NOT_STAFF: '這個帳號不是 staff，不能使用後台。', STUDENT_NOT_FOUND: '找不到這位學生。', TEACHER_NOT_FOUND: '找不到這位老師。', CASE_NOT_FOUND: '找不到這個案件。', COHORT_NOT_FOUND: '找不到這個班別。',
-  ROWS_INVALID: '名單格式不對。', TOO_MANY_ROWS: '一次最多匯入 300 列。', CLIENT_REQUEST_ID_REQUIRED: '缺少請求編號，請重新整理再試。', AUTH_USER_TAKEN: '這個登入帳號已經接給別人了。', EMAIL_TAKEN: '這個 email 已經被用走了。',
+  NOT_STAFF: '這個帳號不是行政帳號，不能使用後台。', STUDENT_NOT_FOUND: '找不到這位學生。', TEACHER_NOT_FOUND: '找不到這位老師。', CASE_NOT_FOUND: '找不到這個案件。', COHORT_NOT_FOUND: '找不到這個班別。',
+  ROWS_INVALID: '名單格式不對。', TOO_MANY_ROWS: '一次最多匯入 300 列。', CLIENT_REQUEST_ID_REQUIRED: '資料沒有送出去，請重新整理再試一次。', AUTH_USER_TAKEN: '這個登入帳號已經接給別人了。', EMAIL_TAKEN: '這個 email 已經被用走了。',
   VALIDATION: '資料不完整或格式不對', VALIDATION_FAILED: '資料不符規則', CONSENT_BY_INVALID: '同意人要選「監護人」或「本人」。', SIGNER_NAME_REQUIRED: '本人簽署要填簽署人姓名。', GUARDIAN_NAME_REQUIRED: '要填監護人姓名。',
   GUARDIAN_NAME_INVALID: '監護人姓名不能寫「本人」。', GUARDIAN_CONTACT_REQUIRED: '要填聯絡方式。', CONSENT_METHOD_INVALID: '登錄方式要選紙本或 Tally。', CONSENT_SCOPE_VERSION_REQUIRED: '要填同意書版本。',
   RECORDED_BY_REQUIRED: '缺少登錄人。', ATTACHMENT_REQUIRED: '紙本同意要填附件檔名。', CONSENT_AT_REQUIRED: '紙本同意要填簽署日期。', CONSENT_AT_INVALID: '簽署日期不能在未來。', DEPT_NOT_FOUND: '找不到這個校系。',
-  NAME_REQUIRED: '要填名稱。', UNAUTHENTICATED: '登入已過期，請重新登入。', LINK_FAILED: '建帳號後接線失敗，已回滾。', ADMIN_FAILED: '建帳號失敗，請稍後再試。', QUERY_TOO_SHORT: '至少輸入 2 個字。',
+  NAME_REQUIRED: '要填名稱。', UNAUTHENTICATED: '登入已過期，請重新登入。', LINK_FAILED: '帳號沒建成，已經恢復原狀，請再試一次。', ADMIN_FAILED: '建帳號失敗，請稍後再試。', QUERY_TOO_SHORT: '至少輸入 2 個字。',
 };
 const FIELD_NAMES = { guide: '指引內容的格式不對', 'N.required': 'N 的必交／選交選項不對', 'O.required': 'O 的必交／選交選項不對', 'P.required': 'P 的必交／選交選項不對', 'Q.required': 'Q 的必交／選交選項不對', deptCode: '校系代碼不存在', terms: '用語要 1～30 個、每個最多 30 字', sourceQuote: '指引原句最多 300 字', email: 'email 格式不對', 'password（8–72 字元）': '暫時密碼要 8～72 字元', p_age_status: '年齡選項不對' };
 const detailText = (x) => (Array.isArray(x) ? x.map(detailText).join('、') : x && typeof x === 'object' ? x.note || '' : FIELD_NAMES[String(x)] || String(x));
-const errText = (d) => (ERRS[d.error] || `這一步沒有成功（${d.error}）`) + (d.detail != null && d.detail !== '' ? '：' + detailText(d.detail) : '');
+const errText = (d) => (ERRS[d.error] || '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給育才仕行政。') + (d.detail != null && d.detail !== '' ? '：' + detailText(d.detail) : '');
 let toastTimer = 0;
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4500); }
 async function call(fn, args, opts = {}) {
@@ -226,7 +226,7 @@ ACT.logout = async () => { await toLogin(''); };
 async function enter() {
   show('login', false); show('boot', true);
   let w; try { w = await call('staff_whoami'); } catch (e) { return; }
-  if (!(w.roles || []).includes('staff')) { await toLogin('這個帳號不是 staff。' + ((w.roles || []).includes('teacher') ? '老師請到老師頁。' : (w.roles || []).includes('student') ? '學生請到學生頁。' : '')); return; }
+  if (!(w.roles || []).includes('staff')) { await toLogin('這個帳號不是行政帳號。' + ((w.roles || []).includes('teacher') ? '老師請到老師頁。' : (w.roles || []).includes('student') ? '學生請到學生頁。' : '')); return; }
   S.me = w; $('who').textContent = w.email || ''; show('boot', false); show('app', true);
   try { await loadBase(); } catch (e) { return; } route();
 }
@@ -250,11 +250,11 @@ function viewCases() {
   view(`<div class="card"><h2>案件總覽（${(S.cases || []).length}）</h2><div class="grid2"><div><label class="f" for="c-q">搜尋（暱稱或 email）</label><input type="text" id="c-q" data-in="cf" data-k="q" value="${esc(f.q)}"></div>
     <div><label class="f" for="c-track">軌別</label><select id="c-track" data-in="cf" data-k="track"><option value="">全部</option><option value="bigClass" ${f.track === 'bigClass' ? 'selected' : ''}>大班</option><option value="oneOnOne" ${f.track === 'oneOnOne' ? 'selected' : ''}>1 對 1</option></select></div></div>
     <div class="row" style="margin-top:10px"><button class="btn sm" data-act="reloadCases">查詢</button></div></div>
-    <div class="card"><div class="trow head"><div>學生</div><div>班別／軌別</div><div>老師</div><div>階段／文件</div><div>下一步／阻塞</div></div><div id="case-list">${caseRows()}</div></div><div id="case-detail"></div>`);
+    <div class="card"><div class="trow head"><div>學生</div><div>班別／軌別</div><div>老師</div><div>階段／文件</div><div>下一步／卡在哪</div></div><div id="case-list">${caseRows()}</div></div><div id="case-detail"></div>`);
 }
 const caseRows = () => (S.cases || []).map((c) => `<div class="trow pick" data-act="openCase" data-id="${esc(c.caseId)}"><div><b>${esc(c.nickname)}</b><div class="muted small">${esc(c.email || '')}</div></div>
   <div>${esc(c.cohortName || '—')}<div class="muted small">${esc(TRACK[c.track] || c.track)}</div></div><div>${esc(c.teacherName || '（未指派）')}</div>
-  <div><span class="pill main">${esc(c.stage)}</span><span class="pill ${c.hasAiConsent ? 'ok' : 'warn'}">${c.hasAiConsent ? 'AI 同意' : '無 AI 同意'}</span><div class="muted small">文件 ${c.docDone}／${c.docTotal} 已完成</div></div>
+  <div><span class="pill main">${esc(c.stage)}</span><span class="pill ${c.hasAiConsent ? 'ok' : 'warn'}">${c.hasAiConsent ? '已同意使用 AI' : '還沒同意使用 AI'}</span><div class="muted small">文件 ${c.docDone}／${c.docTotal} 已完成</div></div>
   <div class="small">${esc(c.nextAction || '—')}${c.blocker ? `<div><span class="pill bad">${esc(c.blocker)}</span></div>` : ''}</div></div>`).join('') || '<p class="muted">沒有符合的案件。</p>';
 IN.cf = (el) => { S.ui.cf[el.dataset.k] = el.value; };
 ACT.reloadCases = async () => {
@@ -351,7 +351,7 @@ ACT.mkAccount = async (el) => {
   } catch (e) { res = { ok: false, error: 'ADMIN_FAILED' }; }
   a.pw = ''; $('ac-pw').value = ''; el.disabled = false;
   const who = $('ac-who').selectedOptions[0].textContent;
-  S.ui.acResult = res && res.ok ? `<div class="ok-box"><b>帳號已建立</b>：${esc(who)}<div class="small">authUserId：<code>${esc(res.authUserId)}</code></div><div class="small muted">密碼不會顯示，請另外告訴本人。</div></div>` : `<div class="bad-box">${esc(errText(res || { error: 'ADMIN_FAILED' }))}</div>`;
+  S.ui.acResult = res && res.ok ? `<div class="ok-box"><b>帳號已建立</b>：${esc(who)}<div class="small">帳號編號：<code>${esc(res.authUserId)}</code></div><div class="small muted">密碼不會顯示，請另外告訴本人。</div></div>` : `<div class="bad-box">${esc(errText(res || { error: 'ADMIN_FAILED' }))}</div>`;
   $('ac-out').innerHTML = S.ui.acResult; if (res && res.ok) toast('帳號已建立'); else toast(errText(res || { error: 'ADMIN_FAILED' }), true);
 };
 // ── 同意登錄 ──
@@ -363,8 +363,8 @@ function viewConsent() {
     <div class="grid2"><div><label class="f" for="cs-by">誰簽的</label><select id="cs-by" data-in="cs" data-k="by"><option value="guardian" ${c.by === 'guardian' ? 'selected' : ''}>監護人</option><option value="self" ${c.by === 'self' ? 'selected' : ''}>本人</option></select></div>
       <div><label class="f" for="cs-method">登錄方式</label><select id="cs-method" data-in="cs" data-k="method"><option value="paper" ${c.method === 'paper' ? 'selected' : ''}>紙本</option><option value="tally" ${c.method === 'tally' ? 'selected' : ''}>Tally 表單</option></select></div>
       ${c.by === 'guardian' ? inp('guardian', '監護人姓名') : inp('signer', '簽署人姓名（本人）')}${inp('contact', '聯絡方式')}${inp('at', '簽署日期（紙本必填）', 'date')}${inp('ref', '附件檔名（紙本必填）')}${inp('scope', '同意書版本')}</div>
-    <label class="chk"><input type="checkbox" data-in="csChk" data-k="ai" ${c.ai ? 'checked' : ''}> 同意 AI 處理（沒勾＝這位學生的問答改由老師出題）</label>
-    <label class="chk"><input type="checkbox" data-in="csChk" data-k="exp" ${c.exp ? 'checked' : ''}> 同意經驗分享（experienceOptIn）</label>
+    <label class="chk"><input type="checkbox" data-in="csChk" data-k="ai" ${c.ai ? 'checked' : ''}> 同意使用 AI（沒勾的話，這位學生的問答由老師出題）</label>
+    <label class="chk"><input type="checkbox" data-in="csChk" data-k="exp" ${c.exp ? 'checked' : ''}> 同意經驗分享</label>
     <div style="margin-top:8px"><button class="btn" data-act="saveConsent">登錄同意</button></div></div>`);
 }
 IN.cs = (el) => { S.ui.cs[el.dataset.k] = el.value; if (el.dataset.k === 'by') viewConsent(); }; IN.csChk = (el) => { S.ui.cs[el.dataset.k] = el.checked; };
@@ -400,7 +400,7 @@ ACT.assignTeacher = async (el) => {
 };
 // ── 訂單與額度（28n：開訂單＝待收款 → 收到轉帳或現金後按「已收款」→ 額度才出現；未成年或年齡未確認要記付款的家長）──
 // 對內叫「後台收款紀錄」；收款主體與對外文件等會計（設計稿 16.1 第 12 條），畫面不出現對外憑證的字眼。
-const KIND = { reviewRound: ['批改', '輪'], autoDept: ['Auto 產稿', '科系'], tutorHour: ['一對一', '小時'] };
+const KIND = { reviewRound: ['批改', '次'], autoDept: ['訪談成稿', '科系'], tutorHour: ['一對一', '小時'] };
 const ORDER_STATUS = { pending: ['待收款', 'warn'], paid: ['已收款', 'ok'], cancelled: ['已取消', ''], refunded: ['已退款', 'bad'], partiallyRefunded: ['部分退款', 'bad'] };
 const PAY_METHOD = { transfer: '轉帳', cash: '現金', other: '其他' }, AGE = { adult: '成年', minor: '未成年', unknown: '年齡未確認' };
 const PAYER_FIELD = { name: '付款人姓名', relation: '與學生關係', contact: '聯絡方式' };
@@ -458,7 +458,7 @@ const productRows = () => (S.ui.od.products || []).map((p) => `<div class="orow 
   <div><label class="f" for="pr-${esc(p.code)}" style="margin:0">價格（元）</label><input type="number" min="0" step="1" id="pr-${esc(p.code)}" value="${p.priceTwd}"></div><div><button class="btn sm ghost" data-act="prSave" data-code="${esc(p.code)}">存價格</button></div></div>`).join('');
 function renderOrders() {
   const o = S.ui.od, act = (o.products || []).filter((p) => p.active), minorish = !!(o.sq && o.sq.student && o.sq.student.ageStatus !== 'adult'), pi = (k, label, ph = '') => `<div><label class="f" for="od-p-${k}">${label}</label><input type="text" id="od-p-${k}" data-in="odPayer" data-k="${k}" value="${esc(o.payer[k])}" placeholder="${esc(ph)}"></div>`;
-  view(`<div class="card"><h2>開訂單</h2><p class="muted" style="margin:0 0 6px">錢照舊人工收：先在這裡開訂單（待收款），收到轉帳或現金後，在下面「訂單」那一列按「已收款」，學生的額度才會出現。</p>
+  view(`<div class="card"><h2>開訂單</h2><p class="muted" style="margin:0 0 6px">款項一樣是人工收。<br>1. 先在這裡開訂單，這時是「待收款」。<br>2. 收到轉帳或現金後，到下面「訂單」那一列按「已收款」。<br>3. 按了之後，學生才會有額度。</p>
     <label class="f" for="od-student">學生</label><select id="od-student" data-in="odStudent"><option value="">請選…</option>${studentOptions(o.student)}</select><div id="od-quota">${quotaHtml()}</div>
     <h3>買什麼</h3>${act.map((p) => `<div class="orow p3"><div>${esc(p.name)}<div class="muted small">每份含 ${p.unitsPerQty} ${esc((KIND[p.quotaKind] || ['', ''])[1])}</div></div><div class="small">${money(p.priceTwd)}／份</div>
       <div><label class="f" for="od-q-${esc(p.code)}" style="margin:0">數量</label><input type="number" min="0" max="20" step="1" id="od-q-${esc(p.code)}" data-in="odQty" data-k="${esc(p.code)}" value="${esc(o.qty[p.code] || 0)}"></div></div>`).join('') || '<p class="muted">沒有上架中的商品。</p>'}
@@ -471,7 +471,7 @@ function renderOrders() {
     <p class="muted small" style="margin:4px 0 0">通路分潤目前不啟用，只記這位學生從哪裡來。</p>
     <div style="margin-top:10px"><button class="btn" id="od-create" data-act="odCreate">開訂單（待收款）</button></div></div>
     <div class="card"><div class="row spread"><h2 style="margin:0">訂單</h2><select id="od-filter" data-in="odFilter" style="width:auto"><option value="">全部</option>${Object.entries(ORDER_STATUS).map(([v, t]) => `<option value="${v}" ${o.filter === v ? 'selected' : ''}>${t[0]}</option>`).join('')}</select></div><div id="od-list">${orderRows()}</div></div>
-    <div class="card"><h2>商品與價格</h2><p class="muted small" style="margin:0 0 6px">價格是 owner 11-12 給的暫定價。改了只影響之後開的訂單；已開的訂單照開單時的價格與輪數。</p><div id="pr-list">${productRows()}</div></div>
+    <div class="card"><h2>商品與價格</h2><p class="muted small" style="margin:0 0 6px">現在是暫定價。改了只影響之後開的訂單；已開的訂單照開單時的價格與次數。</p><div id="pr-list">${productRows()}</div></div>
     <div class="card" id="bs-card">${bsHtml()}</div>`);
 }
 // ── 11-13 一對一的兩個規則（28p_booking.sql；設計稿第十四章第 21 條，等 owner 與法務）：空白＝不限制，學生的預約頁照這裡顯示，畫面不寫死期限 ──
@@ -479,8 +479,8 @@ const BS_KEYS = [['tutor.packValidDays', '一對一時數的有效天數', '天'
 function bsHtml() {
   const s = S.ui.bs;
   if (!s) return '<h2>一對一的規則</h2><p class="muted small">讀取中…</p>';
-  if (s.off) return '<h2>一對一的規則</h2><p class="muted small">資料庫還沒更新到這一版（28p），這裡先不能設。</p>';
-  return `<h2>一對一的規則</h2><p class="muted small" style="margin:0 0 6px">這兩個規則還沒定（等 owner 與法務），先不限制。空白＝不限制；要限制時填數字按「存」，改動會留紀錄。</p>
+  if (s.off) return '<h2>一對一的規則</h2><p class="muted small">一對一的規則現在還不能設定，功能開放後再回來設。</p>';
+  return `<h2>一對一的規則</h2><p class="muted small" style="margin:0 0 6px">這兩個規則還沒決定，先不限制。留空白就是不限制。要限制就填數字再按「存」，改過的會留紀錄。</p>
     ${BS_KEYS.map(([k, t, u, h]) => `<div class="orow p3" data-bs="${k}"><div>${esc(t)}<div class="muted small">${esc(h)}</div><div class="small">現在：<b>${s.v[k] == null ? '不限制' : `${s.v[k]} ${u}`}</b></div></div>
       <div><label class="f" for="bs-${k.replace('.', '-')}" style="margin:0">${u}（空白＝不限制）</label><input type="number" min="0" step="1" id="bs-${k.replace('.', '-')}" value="${s.v[k] == null ? '' : s.v[k]}"></div>
       <div><button class="btn sm ghost" data-act="bsSave" data-k="${k}">存</button></div></div>`).join('')}`;
@@ -551,7 +551,7 @@ const rgFoundHtml = () => (S.ui.rg.found || []).map((d) => `<div class="rrow" st
 const rgListHtml = () => { const r = S.ui.rg; return r.busy ? '<p class="muted"><span class="spin"></span>讀取這一班的志願…</p>' : r.list ? SG.renderClassList(r.list, r.status) : ''; };
 function viewGuide() {
   const r = S.ui.rg = S.ui.rg || RG0();
-  view(`<div class="card"><h2>校系指引</h2><p class="muted" style="margin:0 0 6px">各校的審查資料準備指引，由機器整理成表。只有這一班同學填的志願系需要老師確認；沒確認的會在學生端標「機器整理，以官方連結為準」。</p>
+  view(`<div class="card"><h2>校系指引</h2><p class="muted" style="margin:0 0 6px">各校的審查資料準備指引，由系統整理成表。只有這一班同學填的志願系需要老師確認；沒確認的系，學生頁會請他看官方原文。</p>
     <div class="grid2"><div><label class="f" for="rg-year">學年度</label><input type="text" id="rg-year" data-in="rg" data-k="year" value="${esc(r.year)}"></div><div><label class="f" for="rg-ch">管道</label><select id="rg-ch" data-in="rg" data-k="ch"><option value="UNI" ${r.ch === 'UNI' ? 'selected' : ''}>一般大學</option><option value="TECH" ${r.ch === 'TECH' ? 'selected' : ''}>技專</option></select></div></div>
     <label class="f" for="rg-q">找校系（校名與系名，至少 2 字）</label><div class="row"><input type="text" id="rg-q" data-in="rg" data-k="q" value="${esc(r.q)}" style="flex:1"><button class="btn sm" data-act="rgFind">搜尋</button></div>
     <div id="rg-found">${rgFoundHtml()}</div>
@@ -559,7 +559,7 @@ function viewGuide() {
     <div id="rg-classbox" class="${r.only ? '' : 'hidden'}"><label class="f" for="rg-cohort">哪一班</label><div class="row"><select id="rg-cohort" data-in="rg" data-k="cohort" style="flex:1"><option value="">全部班別</option>${(S.cohorts || []).map((c) => `<option value="${esc(c.name)}" ${r.cohort === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select><button class="btn sm ghost" data-act="rgReload">重新讀取</button></div>
       <div id="rg-class">${rgListHtml()}</div></div></div>
     <div id="rg-editor">${r.rec ? SG.renderEditor(r.rec) : ''}</div><div id="rg-intro">${r.rec ? rgIntroHtml(r.rec) : ''}</div>
-    <div class="card"><h2>校系指引用語（手打）</h2><p class="muted" style="margin:0 0 6px">把校系備審指引裡的能力用語建進詞庫，每個詞附指引原句。系統只能從詞庫裡提議能力標籤。</p>
+    <div class="card"><h2>校系指引用語（手打）</h2><p class="muted" style="margin:0 0 6px">把各系備審指引裡的能力用語存進來，每個詞附上指引原句。系統建議能力標籤時，只會用這裡有的詞。</p>
     <div class="grid2"><div><label class="f" for="gd-year">學年度</label><input type="text" id="gd-year" data-in="gd" data-k="year" value="${esc(g.year)}"></div><div><label class="f" for="gd-ch">管道</label><select id="gd-ch" data-in="gd" data-k="ch"><option value="UNI" ${g.ch === 'UNI' ? 'selected' : ''}>一般大學</option><option value="TECH" ${g.ch === 'TECH' ? 'selected' : ''}>技專</option></select></div></div>
     <label class="f" for="gd-q">找校系（校名與系名，至少 2 字）</label><div class="row"><input type="text" id="gd-q" data-in="gd" data-k="q" value="${esc(g.q)}" style="flex:1"><button class="btn sm" data-act="findDept">搜尋</button></div>
     <div id="gd-found">${foundHtml()}</div>

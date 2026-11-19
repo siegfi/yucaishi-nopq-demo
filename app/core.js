@@ -13,15 +13,15 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:
 const S = { home: null, uid: '', doc: null, docId: null, ui: {}, poll: 0, rt: 0, terms: [], termsMiss: {}, sc: null, mine: null, reqSeen: null };   // ui：畫面上還沒存的輸入；rt：換頁計數（慢回應不蓋掉新頁）
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET', 'NOT_STUDENT', 'NOT_TEACHER', 'NOT_STAFF']);
 const ERRS = {
-  NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是 staff。',
+  NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是行政帳號，請改用行政帳號登入。',
   CASE_NOT_FOUND: '找不到這一篇（或不是你的）。', NOT_FOUND: '找不到這個項目（或不是你的）。', NOT_ASSIGNED: '這個項目不是你的。', CONSENT_MISSING: '同意書還沒登錄完成，暫時不能繼續，請聯絡育才仕。',
-  AI_CONSENT_MISSING: '沒有 AI 處理同意，這一步改由老師進行。', STATE_INVALID: '現在這一步不能這樣做，已為你更新畫面。',
-  STALE: '畫面已過期（別處有更新），已為你重新載入。', QUOTA_EXCEEDED: '今天的系統次數用完了，請明天再試或請老師接手。', VALIDATION: '資料不完整或格式不對',
-  HAS_WISH_EVENT: '這版存過志願，會留著，不能刪。', ACK_REQUIRED: '請先看完落點分析的說明並勾選，再存成志願。', AI_DISABLED: 'AI 解讀目前沒有開放，請按「請老師看」。',
-  AI_OFF: '這一步由老師接手（目前沒有開 AI）。',   // 2026-11-12 28l：AI 總開關關著
+  AI_CONSENT_MISSING: '這一步由老師來做。', STATE_INVALID: '這個動作現在不能做，畫面已經更新，請再看一次。',
+  STALE: '這一頁有更新，已經重新載入。剛才的動作請再做一次。', QUOTA_EXCEEDED: '今天的系統次數用完了，請明天再試，或請老師幫忙。', VALIDATION: '資料不完整或格式不對',
+  HAS_WISH_EVENT: '這版存過志願，會留著，不能刪。', ACK_REQUIRED: '請先看完落點分析的說明並勾選，再存成志願。', AI_DISABLED: '這個功能現在沒有開放，請按「請老師看」。',
+  AI_OFF: '這一步由老師來做。',   // 2026-11-12 28l：AI 總開關關著
 };
-const FIELD_NAMES = { inventory: '八類盤點還沒做完，請聯絡育才仕協助', gridTemplate: '這一篇的欄位還沒準備好', answer: '回答不可空白（最多 2000 字）', turnId: '這一題已不存在',
-  text: '內容不可空白或太長', assetIds: '文字或檔案至少要一項', decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '能力標籤不在詞庫', freeText: '整段文字不可空白（最多 5000 字）',
+const FIELD_NAMES = { inventory: '你的學習歷程還沒整理完，請找育才仕幫忙', gridTemplate: '這一篇的欄位還沒準備好', answer: '回答不可空白（最多 2000 字）', turnId: '這一題已不存在',
+  text: '內容不可空白或太長', assetIds: '文字或檔案至少要一項', decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '這個能力標籤不在可以選的清單裡，請重新選', freeText: '整段文字不可空白（最多 5000 字）',
   sectionMap: '對回欄位的資料格式不對', textBySection: '稿件格式不對', scores: '成績要在 0 到 15 級分之間', items: '志願最多六個，而且要是有效的校系', deptCode: '有一個校系代碼找不到',
   nopqType: '這份稿標的是另一篇，和你選的文件對不上', extractedText: '這個檔案沒有讀到文字，請改用「貼文字」' };
 function detailText(x) {
@@ -30,7 +30,7 @@ function detailText(x) {
   const k = String(x).split(':')[0]; return FIELD_NAMES[k] || String(x);
 }
 function errText(d) {
-  const base = ERRS[d.error] || ('這一步沒有成功（' + d.error + '）');
+  const base = ERRS[d.error] || '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給老師。';
   return d.error === 'VALIDATION' && d.detail != null ? base + '：' + detailText(d.detail) : base;
 }
 let toastTimer = 0;
@@ -44,7 +44,7 @@ const RPC_LIMIT = 25000, HOME_TTL = 60000;
 const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|luodian_ai_status|ai_switch_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢
 let homeCache = null, homeAt = 0, lastFailMsg = '';
 const WAIT_MSG = { me_home: '正在讀你的資料…', get_doc_state: '正在打開這一篇…', open_doc: '正在打開這一篇…', my_inventory: '正在讀你的東西…', my_wishlist: '正在讀你的志願…',
-  my_files: '正在讀你的檔案…', my_materials: '正在讀老師整理出的事…', list_terms: '正在讀能力標籤…', list_luodian_versions: '正在讀你存過的落點版本…' };
+  my_files: '正在讀你的檔案…', my_materials: '正在讀整理出的事…', list_terms: '正在讀能力標籤…', list_luodian_versions: '正在讀你存過的落點版本…' };
 async function rpcLimited(fn, args) {
   const ctl = typeof AbortController === 'function' ? new AbortController() : null; let timer = 0, late = false;
   const limit = new Promise((res) => { timer = setTimeout(() => { late = true; if (ctl) ctl.abort(); res({ data: null, error: { message: 'TIMEOUT' } }); }, RPC_LIMIT); });
@@ -292,7 +292,7 @@ function decodeLd1(raw) {   // 解碼不連網；年度、檢查碼不對就回 
       const L = ldIndex(); old.codes.forEach((c) => { const x = L.by115.get(String(c)); if (x) d.codes.push(codeOf(x.id)); else d.unmapped.push(String(c)); });
     } else d.unmapped = old.codes.slice();
   }
-  if (d.apiChannel !== CHANNEL) return { ok: false, message: '這份志願代碼不是大學申請入學的，NOPQ通目前只收大學申請，也可以改用手選。' };
+  if (d.apiChannel !== CHANNEL) return { ok: false, message: '這組代碼不是大學申請入學的，NOPQ通只收申請入學。你可以改成自己選系。' };
   return d;
 }
 function loginBanner() {
@@ -305,7 +305,7 @@ window.addEventListener('load', loginBanner);
 // 開機：連不上（網路斷、系統暫停）時開機畫面不再一直轉，改成一句話＋「再試一次」。同時問一次 AI 總開關（28l；舊資料庫沒有這支就當不知道）
 const BOOT_HTML = $('boot').innerHTML;
 function bootFail() {
-  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">可能是網路斷了，或系統暫時休息中。請檢查網路，再按「再試一次」。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
+  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">請檢查網路，再按「再試一次」。還是連不上，請找育才仕。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
 }
 ACT.bootRetry = () => { $('boot').innerHTML = BOOT_HTML; enter(); };
 async function enter() {
@@ -343,7 +343,7 @@ function guard(f) {
 ACT.reload = () => { homeAt = 0; route(); };
 function setTab(t) { document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === t)); show('tabs', t !== 'doc'); }
 const view = (html) => { $('view').innerHTML = html; };
-const loading = '<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">載入中…</span><div class="ld-slow small hidden" style="margin-top:6px">還在讀，沒有壞掉；第一次打開會比較久。</div></div>';
+const loading = '<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">載入中…</span><div class="ld-slow small hidden" style="margin-top:6px">第一次打開會比較久，請再等一下。</div></div>';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ── 名稱對照 ──
 const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' };
@@ -379,21 +379,21 @@ function needSentence(sum) {
 const STEP_CARD = {
   2: { t: '先填學測成績，看你的位置和能去的校系。', b: '填成績', href: '#/score' },
   3: { t: '從清單裡挑最多六個你想去的系，存成志願。', b: '去挑科系', href: '#/score' },
-  4: { t: '看看這幾系的審查資料準備指引：每一系要你交什麼。', b: '去看', href: '#/need' },
+  4: { t: '看這幾系要你交哪些審查資料。', b: '看各系要交什麼', href: '#/need' },
   5: { t: '說說你手上有什麼，老師才知道從哪裡幫你。', b: '回答兩個問題', href: '#/mine' },
 };
 function docTodo(h) {
   const d = h.docs || [], by = (st) => d.find((x) => x.state === st); let x;
-  if ((x = by('submission_pending'))) return { t: `老師給了你一個題目：把「${docTitle(x)}」的答案寫好，交給老師。`, doc: x, b: '去寫答案' };
-  if ((x = by('interviewing'))) return { t: `老師在等你講一件事（${docTitle(x)}）。說不清楚也可以。`, doc: x, b: '去回答' };
+  if ((x = by('submission_pending'))) return { t: `題目出來了：把「${docTitle(x)}」的答案寫好交出去。`, doc: x, b: '去寫答案' };
+  if ((x = by('interviewing'))) return { t: `「${docTitle(x)}」有一題等你回答。說不清楚也可以。`, doc: x, b: '去回答' };
   if ((x = by('draft_open'))) return { t: `輪到你寫「${docTitle(x)}」的稿了，寫好按「改好再給我看一次」。`, doc: x, b: '去寫稿' };
-  if ((x = by('feedback_published'))) return { t: `老師的話出來了，先看一下「${docTitle(x)}」。`, doc: x, b: '去看老師的話' };
-  if ((x = d.find((z) => z.state === 'warmup' && (z.nopqType === 'N_diverseSummary' || z.nopqType === 'O_reflection')))) return { t: `開始「${docTitle(x)}」：老師會問你第一個問題。`, doc: x, b: '開始' };
-  if ((x = by('review_pending') || by('self_check_pending') || by('feedback_pending'))) return { t: `「${docTitle(x)}」交給老師了，老師的話出來前不用再做什麼。`, doc: x, b: '看一下', wait: true };
-  if ((x = by('assignment_pending'))) return { t: '你說的老師收到了，正在準備下一個題目。', doc: x, b: '看一下', wait: true };
+  if ((x = by('feedback_published'))) return { t: `「${docTitle(x)}」的回覆出來了，先看一下。`, doc: x, b: '去看回覆' };
+  if ((x = d.find((z) => z.state === 'warmup' && (z.nopqType === 'N_diverseSummary' || z.nopqType === 'O_reflection')))) return { t: `開始「${docTitle(x)}」：先回答第一個問題。`, doc: x, b: '開始' };
+  if ((x = by('review_pending') || by('self_check_pending') || by('feedback_pending'))) return { t: x.state === 'review_pending' ? `「${docTitle(x)}」交給老師了，老師的話出來前不用再做什麼。` : `「${docTitle(x)}」交出去了，回覆出來前不用再做什麼。`, doc: x, b: '看一下', wait: true };
+  if ((x = by('assignment_pending'))) return { t: '你說的收到了，正在準備下一個題目。', doc: x, b: '看一下', wait: true };
   const core = d.filter((z) => z.nopqType === 'N_diverseSummary' || z.nopqType === 'O_reflection');
   if (core.length && core.every((z) => z.state === 'finalized')) return { t: 'N 和 O 都定稿了。接著寫每個志願系的 P、Q。', href: '#/write', b: '看稿', wait: true };
-  return { t: '老師還沒幫你建立文件。請聯絡育才仕。', wait: true };
+  return { t: '老師還沒幫你開好要寫的稿子。請找育才仕。', wait: true };
 }
 function scanText(j) {
   const sc = j.scan; if (!sc) return '';

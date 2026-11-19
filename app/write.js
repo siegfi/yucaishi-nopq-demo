@@ -1,9 +1,9 @@
 'use strict';   // 原本整支主程式包在一個函式裡並開嚴格模式；拆檔後每個檔各自開
 // ── 寫：文件清單 ──
 const DOC_STEP = {
-  warmup: ['還沒開始', '開始'], interviewing: ['老師在等你講一件事', '繼續'], assignment_pending: ['老師正在準備下一個題目', '看一下'],
-  submission_pending: ['老師給了你一個題目', '去寫答案'], feedback_pending: ['已交給老師，等老師的話', '看一下'], feedback_published: ['老師的話出來了', '去看'],
-  draft_open: ['輪到你寫稿', '去寫'], self_check_pending: ['老師正在看你的稿', '看一下'], review_pending: ['老師正在改你的稿', '看一下'], finalized: ['定稿了', '看稿'],
+  warmup: ['還沒開始', '開始'], interviewing: ['有一題等你回答', '繼續'], assignment_pending: ['正在準備下一個題目', '看一下'],
+  submission_pending: ['題目出來了', '去寫答案'], feedback_pending: ['已交出，等回覆', '看一下'], feedback_published: ['回覆出來了', '去看'],
+  draft_open: ['輪到你寫稿', '去寫'], self_check_pending: ['正在整理你的稿', '看一下'], review_pending: ['老師正在改你的稿', '看一下'], finalized: ['定稿了', '看稿'],
 };
 async function viewWrite() {
   setTab('write'); view(loading); const my = S.rt;
@@ -13,14 +13,14 @@ async function viewWrite() {
     ${early ? `<div class="hint">前面還有一步沒走完：${esc(early.t)} <a href="${esc(early.href)}">去看看</a></div>` : ''}
     ${aiStatementHint(w && w.ok ? w.items : [], !!h.consent.ai)}
     ${h.consent.general ? '' : '<div class="hint">同意書還沒登錄完成，暫時不能開始寫。請聯絡育才仕。</div>'}
-    ${!h.consent.ai ? '<div class="hint">目前沒有 AI 處理同意：你回答後，會由老師接著出題。</div>' : S.aiOn === false ? '<div class="hint">目前沒有開 AI：你回答、交稿之後，這一步由老師接手，不用在畫面上等。</div>' : ''}
-    ${docs.length ? docListHtml(docs, w && w.ok ? w.items || [] : [], j.wishlistSummary || {}, !(w && w.ok)) :'<p class="muted">老師還沒幫你建立文件。</p>'}</div>`);
+    ${!h.consent.ai ? '<div class="hint">你回答之後，由老師出下一題。</div>' : S.aiOn === false ? '<div class="hint">你回答、交稿之後由老師來做，不用在畫面上等。</div>' : ''}
+    ${docs.length ? docListHtml(docs, w && w.ok ? w.items || [] : [], j.wishlistSummary || {}, !(w && w.ok)) :'<p class="muted">老師還沒幫你開好要寫的稿子。</p>'}</div>`);
 }
 // 2026-11-12 換 116（owner 拍板 D7：提醒、不代填）：志願裡有系要交 AI 使用聲明時，在「寫」頁提醒；聲明是學生自己寫，系統不替他判斷
 function aiStatementHint(items, aiOn) {
   const need = (items || []).filter((it) => NG.needsAiStatement(it)); if (!need.length) return '';
   const names = need.map((it) => (it.schoolName || '') + ' ' + (it.name || '')).join('、');
-  return `<div class="hint"><b>你的志願裡有 ${need.length} 系要交「AI 使用聲明」</b>（${esc(names)}）。聲明要你自己寫${aiOn ? '；你在 NOPQ通用 AI 補問、拆格寫過的篇章，聲明時要照實寫' : ''}。怎麼交、檔案在哪下載，看<a href="#/need">「審查資料準備指引說明」</a>裡那幾系的說明。</div>`;
+  return `<div class="hint"><b>你的志願裡有 ${need.length} 系要交「AI 使用聲明」</b>（${esc(names)}）。聲明要你自己寫${aiOn ? '。你在 NOPQ通用過追問、寫作建議，或請育才仕代擬的稿，聲明裡要照實寫' : ''}。怎麼交、檔案在哪下載，看<a href="#/need">「審查資料準備指引說明」</a>裡那幾系的說明。</div>`;
 }
 // 2026-11-08 架構稿 W4：P、Q 每個志願系各一篇（整段稿）；已不在志願的系收在最下面，稿都還在
 const isPQ = (d) => d.nopqType === 'P_motivation' || d.nopqType === 'Q_futurePlan';
@@ -33,14 +33,15 @@ function docRow(d, short, note) {   // short：放在某一系那一組裡，標
 // 2026-11-13 改版建議第 31 條（USER 原話「寫NOPQ，你這邊很亂。應該要每個科系繳交要一個群」）：一個科系一組，該系要交的 P、Q 收在同一組，照志願順序；
 // N、O 不分系（一篇給所有志願系），另成一組放最上面；已不在志願的系也一系一組，收在最下面。組的標題寫該系要不要交（指引的必交／選交）與定稿幾篇。
 const DOC_ORDER = { N_diverseSummary: 1, O_reflection: 2, P_motivation: 3, Q_futurePlan: 4 };
+// 2026-11-17 owner「都照建議」第②題：不再寫「必交」，改依 116 簡章／去年指引有沒有列（用語都在 guide_pure.js 的 NG.WORDS）
 function reqPills(it) {
-  if (!it || !NG.hasGuide(it)) return '<span class="pill warn">指引還沒整理，看官方連結</span>';
-  return ['P', 'Q'].map((k) => { const s = NG.reqState(it.guide, k); return s === 'must' ? `<span class="pill ok">${k} 必交</span>` : s === 'opt' ? `<span class="pill">${k} 選交</span>` : ''; }).join('') || '<span class="pill warn">指引沒分 P、Q，看官方連結</span>';
+  if (!it || (!NG.hasGuide(it) && !NG.gi116(it))) return `<span class="pill warn">${esc(NG.WORDS.noGuideYet)}</span>`;
+  return ['P', 'Q'].map((k) => { const s = NG.needOf(it, k); return NG.isListed(s) ? NG.needPill(k, s) : ''; }).join('') || `<span class="pill warn">${esc(NG.WORDS.allNone)}</span>`;
 }
 // 2026-11-14 回饋清單第 42 條：指引已整理、但沒寫這一篇（P 或 Q）要不要交 → 那一列加一句說明；指引還沒整理的系不加（組名已寫）；不改「每系都開 P、Q」
 function noReqNote(it) {
-  if (!it || !NG.hasGuide(it)) return null;
-  return (d) => { const k = d.nopqType === 'P_motivation' ? 'P' : d.nopqType === 'Q_futurePlan' ? 'Q' : '', s = k ? NG.reqState(it.guide, k) : 'x'; return k && s !== 'must' && s !== 'opt' ? '這系的指引沒寫要不要交 ' + k : ''; };
+  if (!it || (!NG.hasGuide(it) && !NG.gi116(it))) return null;
+  return (d) => { const k = d.nopqType === 'P_motivation' ? 'P' : d.nopqType === 'Q_futurePlan' ? 'Q' : '', s = k ? NG.needOf(it, k) : 'x'; return k && !NG.isListed(s) ? NG.fill(NG.WORDS.notListed, { k }) : ''; };
 }
 function groupHtml(title, sub, list, extra, noteOf) {
   const fin = list.filter((d) => d.state === 'finalized').length;
@@ -51,7 +52,9 @@ function docListHtml(docs, wish, ws, wishFail) {   // wishFail＝志願資料（
   const no = docs.filter((d) => !isPQ(d)), pq = docs.filter(isPQ), on = pq.filter((d) => d.inWishlist !== false), off = pq.filter((d) => d.inWishlist === false);
   const byKey = (list) => { const m = new Map(); list.forEach((d) => { const k = String(d.deptCode || '') + '|' + (d.deptName || ''); if (!m.has(k)) m.set(k, []); m.get(k).push(d); }); return [...m.values()]; };
   const wishOf = (d) => (wish || []).find((it) => String(it.deptCode) === String(d.deptCode));
-  const nNeed = ws && ws.total ? `你的 ${ws.total} 個志願系：${ws.needN != null ? ws.needN + ' 系要 N' : ''}${ws.needO != null ? '、' + ws.needO + ' 系要 O' : ''}。一篇給所有志願系，點進去看每一系對它的要求。` : '一篇給所有志願系。';
+  // owner 第②題：N、O 幾系「列了」照每一系的 116 簡章／去年指引算（不再用後端 115 的 required 計數）；讀不到志願就退回一句話
+  const nCount = (k) => (wish || []).filter((it) => NG.isListed(NG.needOf(it, k))).length;
+  const nNeed = wish && wish.length ? NG.fill(NG.WORDS.wishCount, { total: wish.length, parts: ['N', 'O'].map((k) => NG.fill(NG.WORDS.wishPart, { c: nCount(k), k })).join('、') }) : '一篇給所有志願系。';
   const onGroups = byKey(on).sort((a, b) => (a[0].wishRank || 99) - (b[0].wishRank || 99));
   return (no.length ? groupHtml('N、O（每一系共用）', esc(nNeed), no) : '')
     + onGroups.map((g) => { const d = g[0], it = wishOf(d); return groupHtml(`${d.wishRank ? '第 ' + esc(d.wishRank) + ' 志願　' : ''}${esc(d.deptName || '（系名查不到）')}`, '', g, ' ' + (wishFail ? '<span class="pill warn">這一系的要求暫時讀不到，重新整理再看</span>' : reqPills(it)), wishFail ? null : noReqNote(it)); }).join('')
@@ -66,12 +69,12 @@ async function viewDoc(id) {
   S.doc = d; S.focus = null; await loadTerms(); syncUi(); renderDoc();
   // 11-13 第 32 條：這一篇要對照的要點（28o my_doc_focus；跟之後送 AI 批改的是同一份）。先畫稿，要點回來再補；後端沒有這支就不出這一欄
   call('my_doc_focus', { p_case_doc_id: id }, { quiet: true, noRefresh: true }).then((r) => { if (r && r.ok && r.focus && S.docId === id) { S.focus = r.focus; renderDoc(); } }).catch(() => null);
-  if (d.pendingJobId) runAi(d.pendingJobId, '老師還在整理上一步，稍等一下…', true);
+  if (d.pendingJobId) runAi(d.pendingJobId, '還在整理上一步，稍等一下…', true);
 }
 async function refreshDoc() { if (!S.docId) return null; const d = await GET(); if (d.ok && d.caseDocId === S.docId) { S.doc = d; if (termsStale()) await loadTerms(); syncUi(); renderDoc(); } return d; }
 async function runAi(jobId, label, silent) {
   if (!jobId) return;
-  const my = ++S.poll, fired = new Set(); S.ui.waiting = label || '老師在看，通常幾秒鐘…'; renderDoc();
+  const my = ++S.poll, fired = new Set(); S.ui.waiting = label || '正在整理，通常幾秒鐘…'; renderDoc();
   let dead = false;   // 2026-11-12 楊老師回饋階段 0①：AI 那一支叫不起來（雲端沒部署、連不上）就不再空等 60 秒，直接說由老師接手
   const fire = async (id) => {
     fired.add(id);
@@ -85,7 +88,7 @@ async function runAi(jobId, label, silent) {
     if (!fired.has(d.pendingJobId)) { await fire(d.pendingJobId); continue; }   // 資料庫接著建的下一個任務也要叫起來
     await sleep(2000);
   }
-  if (dead && S.poll === my) { await GET().then((d) => { if (d.ok) S.doc = d; }).catch(() => null); if (!silent) toast('這一步由老師接手，你寫的內容都已保留。'); }
+  if (dead && S.poll === my) { await GET().then((d) => { if (d.ok) S.doc = d; }).catch(() => null); if (!silent) toast('這一步由老師來做，你寫的內容都已保留。'); }
   if (S.poll === my) { S.ui.waiting = null; if (S.doc && termsStale()) await loadTerms(); syncUi(); renderDoc(); }
 }
 // 畫面輸入的暫存：伺服器端版本或題目變了才重設，其餘重畫時保留使用者打到一半的字
@@ -101,33 +104,33 @@ function syncUi() {
   }
 }
 const HINTS = {
-  warmup: '按「開始」，老師會問你第一個問題。',
+  warmup: '按「開始」，先回答第一個問題。',
   interviewing: '',
-  assignment_pending: '你說的老師收到了，正在準備下一個題目，出好會顯示在這裡。',
-  submission_pending: '老師給了你一個題目。把答案貼在下面的框，按「交給老師」。',
-  feedback_pending: '已交給老師，等老師的話。出來前不用再做什麼。',
-  feedback_published: '老師的話出來了。接下來老師會決定再問一輪，或讓你開始寫第一版。',
+  assignment_pending: '你說的收到了，正在準備下一個題目，出好會顯示在這裡。',
+  submission_pending: '題目出來了。把答案貼在下面的框，寫好就交出去。',
+  feedback_pending: '已交出，等回覆。出來前不用再做什麼。',
+  feedback_published: '回覆出來了，先看下面。接下來會再問一輪，或讓你開始寫第一版。',
   draft_open: '輪到你寫稿了。每一欄寫完按「儲存」，都填好後按「改好再給我看一次」。',
-  self_check_pending: '老師正在看你的稿，結果出來前稿件鎖定。',
+  self_check_pending: '正在整理你的稿，結果出來前稿件鎖定。',
   review_pending: '已交給老師改，稿件鎖定，等老師的話。',
   finalized: '這篇定稿了。稿件已鎖定。',
 };
 const PQ_HINTS = {
-  draft_open: '照這系的題目寫。寫一段按「儲存」，確定了按「交給老師」。也可以用檔案帶入（Word、PDF、文字檔）。',
+  draft_open: NG.WORDS.pqDraftOpen,   // 沒有對照點時 headCard 換成 NG.WORDS.pqDraftOpenNone（主線 11-17 驗收 P3）
   review_pending: '已交給老師改，稿件鎖定，等老師的話。',
   finalized: '這篇定稿了。稿件已鎖定。',
 };
-const JOB_ERR = { CONSENT: '沒有 AI 處理同意', QUOTA: '今天的次數用完了', STALE: '等太久沒有回應' };
+const JOB_ERR = { CONSENT: '這一步由老師來做', QUOTA: '今天的次數用完了', STALE: '等太久沒有回應' };
 function headCard() {
   const d = S.doc, home = ((S.home || {}).docs || []).find((x) => x.caseDocId === d.caseDocId), lj = d.lastJob, jobFail = lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected');
   const aiOff = d.aiSwitch === false || (lj && lj.error === 'AI_OFF');   // 28l：AI 總開關關著（或上一次因為沒開而停掉）
-  const hint = (d.docMode === 'free' ? PQ_HINTS : HINTS)[d.state];
+  const hint = d.docMode === 'free' && d.state === 'draft_open' && !NG.focusHasPoints(S.focus) ? NG.WORDS.pqDraftOpenNone : (d.docMode === 'free' ? PQ_HINTS : HINTS)[d.state];
   return `<div class="card active"><a href="#/write" class="small" style="text-decoration:none">← 回到「撰寫NOPQ」</a>
     <h2 style="margin-top:4px">${esc(home ? docTitle(home) : (TYPE_NAME[d.nopqType] || d.nopqType) + (d.schoolName ? '｜' + d.schoolName + ' ' + (d.deptName || '') : ''))}</h2>
     ${hint ? `<div class="hint" style="margin-top:0">${esc(hint)}</div>` : ''}
     ${S.ui.waiting ? `<div class="hint" style="border-color:var(--accent)"><span class="spin"></span>${esc(S.ui.waiting)}</div>` : ''}
-    ${jobFail && aiOff && d.docMode !== 'free' ? '<div class="hint">這一步由老師接手：你交出去的回答和稿都已保留，老師看過會回你，不用在畫面上等。</div>'
-      : jobFail ? `<div class="issue">上一次沒有成功${lj.error ? '（' + esc(JOB_ERR[lj.error] || '暫時出錯') + '）' : ''}。你的內容都已保留，可以請老師接手。</div>` : ''}</div>`;
+    ${jobFail && aiOff && d.docMode !== 'free' ? '<div class="hint">這一步由老師來做：你交出去的回答和稿都已保留，老師看過會回你，不用在畫面上等。</div>'
+      : jobFail ? `<div class="issue">上一次沒有成功${lj.error ? '（' + esc(JOB_ERR[lj.error] || '暫時出錯') + '）' : ''}。你的內容都已保留，可以請老師幫忙。</div>` : ''}</div>`;
 }
 function renderDoc() {
   if (!S.doc || S.doc.caseDocId !== S.docId) return;
@@ -147,33 +150,20 @@ function withFocus(head, rest) {
   const fx = focusCard(); document.body.classList.toggle('docwide', !!fx);
   return fx ? `${head}<div class="dwrap"><div class="dmainc">${rest}</div><aside class="dfocus" aria-label="這系要你寫到的要點">${fx}</aside></div>` : head + rest;
 }
-const focusStr = (a) => (Array.isArray(a) ? a.map((x) => (typeof x === 'string' ? x : x && (x.text || x.term || x.quote))).filter(Boolean) : []);
 function focusCard() {
   const f = S.focus; if (!f || !Array.isArray(f.depts) || !f.depts.length) return '';
-  const L = f.letter, single = isPQ(S.doc), lims = (dp) => (dp.limits || []).map((l) => (NG.limitText ? NG.limitText(l) : '')).filter(Boolean);
-  const li = (arr) => `<ul class="plain">${arr.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
-  const dept = (dp, full) => {
-    const pr = focusStr(dp.prompts), emp = focusStr(dp.emphasis).filter((t) => !pr.includes(t)), ab = focusStr(dp.abilities), lm = lims(dp);
-    const req = dp.required === true ? `<span class="pill ok">${L} 必交</span>` : dp.required === false ? `<span class="pill">${L} 選交</span>` : '';
-    if (!full) {   // N、O：每一系一小段（志願順序）
-      if (!pr.length && !emp.length && !req) return '';
-      return `<div class="fdept"><b>${dp.rank ? esc(dp.rank) + '. ' : ''}${esc((dp.schoolName || '') + ' ' + (dp.name || ''))}</b> ${req}${pr.length ? `<div class="small">要回答：</div>${li(pr)}` : ''}${emp.length ? `<div class="small">系上強調：${esc(emp.slice(0, 2).join('；'))}</div>` : ''}${lm.length ? `<div class="muted small">篇幅：${esc(lm.join('；'))}</div>` : ''}</div>`;
-    }
-    return `${req ? `<div style="margin:0 0 6px">${req}</div>` : ''}
-      ${pr.length ? `<div class="fsec"><b>這一篇要回答（自述要答）</b><ul class="fchk">${pr.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : `<div class="fsec muted small">這系的指引裡沒有 ${L} 的題目（學校沒公開或老師還沒建檔），先到「審查資料準備指引說明」看官方連結。</div>`}
-      ${emp.length ? `<div class="fsec"><b>系上特別強調</b>${li(emp)}</div>` : ''}
-      ${ab.length ? `<div class="fsec"><b>這系看重</b><div>${ab.map((t) => `<span class="pill">${esc(t)}</span>`).join('')}</div></div>` : ''}
-      ${lm.length ? `<div class="fsec"><b>篇幅</b><div class="small">${esc(lm.join('；'))}</div></div>` : ''}`;
-  };
+  const L = f.letter, single = isPQ(S.doc);
+  // 2026-11-17 主線驗收裁定：一系的內容由 guide_pure.js 的 NG.focusDeptHtml 畫（題目只來自項目層；沒過檢查的系不講「沒有題目」、不點名，一律同一句＋官方連結；115 的強調、看重、篇幅不畫）
+  const dept = (dp, full) => NG.focusDeptHtml(dp, L, full);
   if (single) {
     const dp = f.depts[0];
     return `<div class="card focus"><h3>對照：${esc((dp.schoolName || '') + ' ' + (dp.name || ''))} 要你寫到</h3>${dept(dp, true)}
-      <p class="fnote">交給老師之前，一條一條對照，確認每一點都寫到了。老師批改時也會對照這幾點。</p></div>`;
+      <p class="fnote">${esc(NG.focusHasPoints(f) ? NG.WORDS.focusNote : NG.WORDS.focusNoteNone)}</p></div>`;
   }
-  const rows = f.depts.map((dp) => dept(dp, false)).filter(Boolean), quiet = f.depts.length - rows.length;
+  const rows = f.depts.map((dp) => dept(dp, false)).filter(Boolean), unc = f.depts.some((dp) => dp.checked !== true);
   return `<div class="card focus"><h3>對照：你的志願系對 ${L} 的要求</h3><p class="muted small" style="margin:0 0 6px">${L} 一篇給所有志願系，寫的時候把下面各系要的都照顧到。</p>
-    ${rows.join('') || `<div class="muted small">你的志願系的指引都沒有特別寫 ${L} 要寫什麼，照老師的題目寫。</div>`}${rows.length && quiet ? `<div class="muted small">另有 ${quiet} 系的指引沒有特別寫 ${L} 要寫什麼。</div>` : ''}
-    <p class="fnote">交給老師之前，對照一下每一系要的都寫到了沒。老師批改時也會對照這幾點。</p></div>`;
+    ${unc ? `<p class="small" style="margin:0 0 6px">${esc(NG.WORDS.uncheckedMulti)}</p>` : ''}${rows.join('')}
+    <p class="fnote">${esc(NG.focusHasPoints(f) ? NG.WORDS.focusNoteMulti : NG.WORDS.focusNoteNone)}</p></div>`;
 }
 const assignmentRest = () => (['assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published'].includes(S.doc.state) ? '' : assignmentCard());
 const warmupCard = () => '<div class="card"><button class="btn" data-act="startDoc">開始</button></div>';
@@ -207,44 +197,44 @@ const ARCH_LINE = {
   N_diverseSummary: 'N 分三段：你是誰、三件你做過的事、你想去哪。',
   O_reflection: 'O 分三段：高一到現在學習上的轉變、兩三件課程成果或活動、你想對審查老師說的最後一句話。',
 };
-const WHO = { system: '老師問', ai: '老師追問', teacher: '老師問' };
+const WHO = { system: '育才仕題目', ai: '追問', teacher: '老師問' };
 function teacherCard() {
   const d = S.doc, turns = (d.cycle && d.cycle.turns) || [], open = turns.find((t) => !t.answered), u = S.ui;
   const first = !turns.some((t) => t.answered), arch = first ? ARCH_LINE[d.nopqType] : '';
   let tail = '';
   if (open) {
     tail = `<textarea class="big" data-in="answer" placeholder="想到什麼寫什麼，不用整理。" maxlength="2000" ${u.waiting ? 'disabled' : ''}>${esc(u.answer || '')}</textarea>
-      <div class="row spread" style="margin-top:6px"><span class="muted small" id="ans-cnt">${nlen(u.answer)} 字</span><button class="btn" data-act="sendAnswer" ${u.waiting ? 'disabled' : ''}>交給老師</button></div>`;
+      <div class="row spread" style="margin-top:6px"><span class="muted small" id="ans-cnt">${nlen(u.answer)} 字</span><button class="btn" data-act="sendAnswer" ${u.waiting ? 'disabled' : ''}>${d.aiEnabled ? '交出去' : '交給老師'}</button></div>`;
   } else if (!u.waiting) {
     tail = !d.aiEnabled || u.teacherAsks
-      ? `<div class="hint">${d.aiSwitch === false ? '這一步由老師接手：' : ''}你的回答老師收到了，老師會接著出下一題。也可以按「今天先到這」。</div>`
-      : '<div class="hint">老師沒有接著出題。你可以按「今天先到這」，等老師準備下一個題目。</div>';
+      ? `<div class="hint">${d.aiSwitch === false ? '這一步由老師來做：' : ''}你的回答老師收到了，老師會接著出下一題。也可以按「今天先到這」。</div>`
+      : '<div class="hint">目前沒有接著的題目。你可以按「今天先到這」，等下一個題目。</div>';
   }
   if (!u.waiting) tail += u.confirmStop
-    ? '<div class="hint">確定今天先到這？老師會根據你已經說的，準備下一個題目。<div class="row" style="margin-top:6px"><button class="btn sm" data-act="stopInterview">確定先到這</button><button class="btn sm ghost" data-act="stopCancel">繼續回答</button></div></div>'
+    ? '<div class="hint">確定今天先到這？會根據你已經說的，準備下一個題目。<div class="row" style="margin-top:6px"><button class="btn sm" data-act="stopInterview">確定先到這</button><button class="btn sm ghost" data-act="stopCancel">繼續回答</button></div></div>'
     : '<div style="margin-top:10px"><button class="btn ghost sm" data-act="stopAsk">今天先到這</button></div>';
-  return `<div class="card active"><div class="teach"><b>老師的話</b>${arch ? `<p>${esc(arch)}</p>` : ''}${open ? `<p><b>${esc(open.question)}</b></p>` : ''}</div>${tail}</div>`;
+  return `<div class="card active"><div class="teach"><b>${esc(open ? WHO[open.role] || '題目' : '題目')}</b>${arch ? `<p>${esc(arch)}</p>` : ''}${open ? `<p><b>${esc(open.question)}</b></p>` : ''}</div>${tail}</div>`;
 }
 IN.answer = (el) => { S.ui.answer = el.value; const c = $('ans-cnt'); if (c) c.textContent = nlen(el.value) + ' 字'; };
 ACT.stopAsk = () => { S.ui.confirmStop = true; renderDoc(); };
 ACT.stopCancel = () => { S.ui.confirmStop = false; renderDoc(); };
 ACT.sendAnswer = async (el) => {
   const t = ((S.doc.cycle || {}).turns || []).find((x) => !x.answered), text = (S.ui.answer || '').trim();
-  if (!t) return; if (!text) return toast('先寫一點再交給老師。', true);
+  if (!t) return; if (!text) return toast('先寫一點再交。', true);
   el.disabled = true;
   const r = await call('interview_answer', { p_case_doc_id: S.docId, p_turn_id: t.id, p_answer: text, p_client_request_id: 'ans-' + t.id });
   if (!r.ok) { el.disabled = false; return; }
   S.ui.teacherAsks = !!r.teacherAsks; await refreshDoc();
-  if (r.jobId) await runAi(r.jobId, '老師在讀你寫的，通常幾秒鐘…');
-  else if (r.teacherAsks) toast(r.quotaExceeded ? '今天的系統次數用完了，這題由老師接手。' : r.aiOff ? '這一步由老師接手，你的回答已存好。' : '這題由老師出，你的回答已存好。');
+  if (r.jobId) await runAi(r.jobId, '正在整理你寫的，通常幾秒鐘…');
+  else if (r.teacherAsks) toast(r.quotaExceeded ? '今天的系統次數用完了，這題由老師來出。' : r.aiOff ? '這一步由老師來做，你的回答已存好。' : '這題由老師出，你的回答已存好。');
 };
 ACT.stopInterview = async () => {
   S.ui.confirmStop = false; const r = await call('interview_stop', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion }); if (!r.ok) return;
-  await refreshDoc(); toast('好，今天先到這。老師會根據你說的準備下一個題目。'); if (r.jobId) runAi(r.jobId, '老師在準備下一個題目（你不用等）…', true);
+  await refreshDoc(); toast('好，今天先到這。會根據你說的準備下一個題目。'); if (r.jobId) runAi(r.jobId, '正在準備下一個題目（你不用等）…', true);
 };
 function chatCard() {
   const turns = ((S.doc.cycle || {}).turns || []).filter((t) => t.answered); if (!turns.length) return '';
-  return `<details class="card"><summary>之前聊的（${turns.length}）</summary><div class="chat">${turns.map((t) => `<div class="bub q"><span class="who">${esc(WHO[t.role] || '老師問')}｜${esc(cellLabel(t.sectionKey, t.fieldKey))}</span>${esc(t.question)}</div><div class="bub a"><span class="who">我說的</span>${esc(t.answer || '（略過）')}</div>`).join('')}</div></details>`;
+  return `<details class="card"><summary>之前聊的（${turns.length}）</summary><div class="chat">${turns.map((t) => `<div class="bub q"><span class="who">${esc(WHO[t.role] || '題目')}｜${esc(cellLabel(t.sectionKey, t.fieldKey))}</span>${esc(t.question)}</div><div class="bub a"><span class="who">我說的</span>${esc(t.answer || '（略過）')}</div>`).join('')}</div></details>`;
 }
 // ── 老師整理出的重點（唯讀）；能力詞庫來自 list_terms，稿裡的標籤欄要用 ──
 const ORIGIN_NAME = { cluster: '學群通用', guide: '校系指引', teacher: '老師補充' };
@@ -260,16 +250,16 @@ function pointsCard() {
   const pc = S.doc.cycle && S.doc.cycle.pointCard; if (!pc) return '';
   const pts = (pc.points || []).filter((p) => p.status !== 'rejected'); if (!pts.length) return '';
   const groups = {}; pts.forEach((p) => { const g = cellLabel(p.sectionKey, p.fieldKey); (groups[g] = groups[g] || []).push(p); });
-  return `<details class="card"><summary>老師整理出的重點（${pts.length}）</summary>${Object.keys(groups).map((g) => `<h3>${esc(g)}</h3>` + groups[g].map((p) => `<div class="pt"><div class="txt">${esc(p.text)}</div></div>`).join('')).join('')}</details>`;
+  return `<details class="card"><summary>整理出的重點（${pts.length}）</summary>${Object.keys(groups).map((g) => `<h3>${esc(g)}</h3>` + groups[g].map((p) => `<div class="pt"><div class="txt">${esc(p.text)}</div></div>`).join('')).join('')}</details>`;
 }
 // ── 老師給的題目與老師的話 ──
-const ASG_TYPE = { worksheet: '學習單', reply: '回覆老師的問題', write_section: '試寫一小段' };
+const ASG_TYPE = { worksheet: '學習單', reply: '回答幾個問題', write_section: '試寫一小段' };
 const VERDICT = { needs_work: '還需要補強', almost: '接近了', ready: '可以了' };
 const itemText = (x) => (typeof x === 'string' ? x : x && typeof x === 'object' ? [x.note || x.text || x.issue || x.question || '', x.quote ? `（「${x.quote}」）` : ''].join('') : String(x));
 function feedbackHtml(fb) {
   const b = fb.body || {}, ai = fb.reviewedLabel === 'ai_unreviewed', li = (arr) => `<ul class="plain">${arr.map((x) => `<li>${esc(itemText(x))}</li>`).join('')}</ul>`;
   const issues = (b.issues || []).map((i) => (i.sectionKey ? `【${cellLabel(i.sectionKey, i.fieldKey)}】` : '') + itemText(i));
-  return `<h3>老師的話　${ai ? '<span class="badge ai">AI 老師的意見，真人老師還沒看過</span>' : ''}</h3>
+  return `<h3>${ai ? '育才仕寫作建議　<span class="badge ai">依育才仕老師的批改標準由系統整理，老師還沒逐字看過</span>' : '老師的話'}</h3>
     ${b.text ? `<div style="white-space:pre-wrap">${esc(b.text)}</div>` : ''}${Array.isArray(b.items) && b.items.length ? li(b.items) : ''}
     ${issues.length ? `<div class="muted small">可以再補強的地方</div>${li(issues)}` : ''}${Array.isArray(b.strengths) && b.strengths.length ? `<div class="muted small">做得不錯的地方</div>${li(b.strengths)}` : ''}
     ${b.verdict ? `<div class="pill">${esc(VERDICT[b.verdict] || b.verdict)}</div>` : ''}`;
@@ -277,24 +267,24 @@ function feedbackHtml(fb) {
 function assignmentCard() {
   const d = S.doc, a = d.assignment; if (!a) return '';
   const sub = a.submission, canSubmit = d.state === 'submission_pending', pq = Array.isArray(a.personalQuestions) ? a.personalQuestions : [];
-  return `<details class="card ${canSubmit ? 'active' : ''}" ${canSubmit || d.state === 'feedback_pending' || d.state === 'feedback_published' ? 'open' : ''}><summary>老師給你的題目（${esc(ASG_TYPE[a.type] || a.type)}）</summary>
+  return `<details class="card ${canSubmit ? 'active' : ''}" ${canSubmit || d.state === 'feedback_pending' || d.state === 'feedback_published' ? 'open' : ''}><summary>這一輪的題目（${esc(ASG_TYPE[a.type] || a.type)}）</summary>
     <p style="white-space:pre-wrap;margin:8px 0 4px"><b>題目：</b>${esc(a.prompt)}</p>
-    ${pq.length ? `<div class="muted small">老師針對你的問題</div><ul class="plain">${pq.map((q) => `<li>${esc(itemText(q))}</li>`).join('')}</ul>` : ''}
+    ${pq.length ? `<div class="muted small">針對你的問題</div><ul class="plain">${pq.map((q) => `<li>${esc(itemText(q))}</li>`).join('')}</ul>` : ''}
     ${a.dueAt ? `<div class="muted small">截止：${esc(when(a.dueAt))}</div>` : ''}
     ${sub ? `<h3>我交的（第 ${sub.revision} 版，${esc(when(sub.submittedAt))}）</h3><div class="cell"><div class="ro">${esc(sub.text || '（沒有文字）')}</div></div>` : ''}
     ${canSubmit ? `<label class="f" for="asg-text">把答案貼在這裡（Word、PDF、文字檔可以用框下面的「用檔案帶入」）</label>
       <textarea id="asg-text" data-in="assignText" maxlength="5000" style="min-height:140px" ${d.pendingJobId ? 'disabled' : ''}>${esc(S.ui.assignText || '')}</textarea>
-      <div class="row spread" style="margin-top:6px"><span class="muted small" id="asg-cnt">${nlen(S.ui.assignText)} 字</span><button class="btn" data-act="submitAssign" ${S.ui.waiting ? 'disabled' : ''}>交給老師</button></div>` : ''}
-    ${a.feedback ? feedbackHtml(a.feedback) : (sub ? '<div class="hint">已交給老師，等老師的話。</div>' : '')}</details>`;
+      <div class="row spread" style="margin-top:6px"><span class="muted small" id="asg-cnt">${nlen(S.ui.assignText)} 字</span><button class="btn" data-act="submitAssign" ${S.ui.waiting ? 'disabled' : ''}>${d.aiEnabled ? '交出去' : '交給老師'}</button></div>` : ''}
+    ${a.feedback ? feedbackHtml(a.feedback) : (sub ? '<div class="hint">已交出，等回覆。</div>' : '')}</details>`;
 }
 IN.assignText = (el) => { S.ui.assignText = el.value; const c = $('asg-cnt'); if (c) c.textContent = nlen(el.value) + ' 字'; };
 ACT.submitAssign = async (el) => {
-  const a = S.doc.assignment, text = (S.ui.assignText || '').trim(); if (!a) return; if (!text) return toast('先寫一點再交給老師。', true);
+  const a = S.doc.assignment, text = (S.ui.assignText || '').trim(); if (!a) return; if (!text) return toast('先寫一點再交。', true);
   el.disabled = true;
   const r = await call('submit_assignment', { p_assignment_id: a.id, p_text: text, p_asset_ids: [], p_client_request_id: `sub-${a.id}-${(a.submission ? a.submission.revision : 0) + 1}` });
   if (!r.ok) { el.disabled = false; return; }
-  await refreshDoc(); toast('交給老師了。');
-  if (r.jobId) await runAi(r.jobId, '老師在看你的答案，通常幾秒鐘…');
+  await refreshDoc(); toast(r.jobId ? '交出去了。' : '交給老師了。');
+  if (r.jobId) await runAi(r.jobId, '正在整理你的答案，通常幾秒鐘…');
 };
 // 之前各輪的題目、我交的、老師的話；目前這一輪在上面的「老師給你的題目」
 document.addEventListener('toggle', (ev) => { if (ev.target.id === 'hist-card' && S.ui) S.ui.histOpen = ev.target.open; }, true);   // 重畫時保留摺疊
@@ -305,9 +295,9 @@ function historyCard() {
     return `<div class="pt"><div class="row spread"><b>第 ${h.roundNumber} 輪</b><span class="pill">${esc(ASG_TYPE[a.type] || a.type)}</span></div>
       <p style="white-space:pre-wrap;margin:6px 0 2px"><b>題目：</b>${esc(a.prompt)}</p>${a.dueAt ? `<div class="muted small">截止：${esc(when(a.dueAt))}</div>` : ''}
       ${s ? `<h3>我交的（第 ${s.revision} 版，${esc(when(s.submittedAt))}）</h3><div class="cell"><div class="ro">${esc(s.text || '（沒有文字）')}</div></div>` : '<div class="muted small" style="margin-top:6px">這一輪沒有交。</div>'}
-      ${f ? feedbackHtml(f) : s ? '<div class="muted small" style="margin-top:6px">這一輪沒有收到老師的話。</div>' : ''}</div>`;
+      ${f ? feedbackHtml(f) : s ? '<div class="muted small" style="margin-top:6px">這一輪沒有收到回覆。</div>' : ''}</div>`;
   }).join('');
-  return `<details id="hist-card" class="card" ${S.ui.histOpen ? 'open' : ''}><summary>之前的題目和老師的話（${past.length} 輪）</summary>${rows}</details>`;
+  return `<details id="hist-card" class="card" ${S.ui.histOpen ? 'open' : ''}><summary>之前的題目和回覆（${past.length} 輪）</summary>${rows}</details>`;
 }
 // ── 稿（第 7 幕）：欄位稿；上傳的稿是整段稿，原樣顯示、原樣改 ──
 const cellKeyOf = (e) => (!e.fieldKey || e.fieldKey === 'text' ? e.sectionKey : e.sectionKey + '.' + e.fieldKey);
@@ -377,21 +367,20 @@ function draftCard() {
   return `<details class="card ${editable ? 'active' : ''}" open><summary>你的稿${d.state === 'finalized' ? '　<span class="pill ok">定稿了</span>' : ''}</summary>
     ${freeHtml}${cellsHtml}${editable && !free && vc.canAdd ? '<button class="btn ghost sm" data-act="addSeg">＋ 再加一段</button>' : ''}
     <div class="row spread" style="margin-top:10px"><span class="muted small" id="tot-cnt">${esc(totalText())}</span><span class="pill warn ${u.dirty && editable ? '' : 'hidden'}" id="dirty">還沒儲存</span></div>
-    ${checkList ? `<h3>再給老師看之前要先處理</h3>${checkList}` : ''}
+    ${checkList ? `<h3>交出去之前要先處理</h3>${checkList}` : ''}
     ${editable ? `<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="saveDraft">儲存</button><button class="btn" data-act="selfCheck" ${u.waiting ? 'disabled' : ''}>改好再給我看一次</button></div>` : ''}
     ${sc && sc.status !== 'queued' && sc.status !== 'running' ? selfCheckHtml(sc, d) : ''}</details>`;
 }
 // ── P、Q 整段稿（W4）：題目取該系指引；沒有題目就請他先看官方分則，不自編通用題 ──
 function pqCard() {
   const d = S.doc, u = S.ui, letter = d.nopqType === 'P_motivation' ? 'P' : 'Q', editable = d.state === 'draft_open', max = d.maxChars || 5000;
-  const prompts = (d.prompts || []).filter((p) => p && (!p.doc || p.doc === letter)).map((p) => (typeof p === 'string' ? p : p.text)).filter(Boolean);
   const lims = (d.limits || []).map((l) => (window.NG && NG.limitText ? NG.limitText(l) : '')).filter(Boolean);
   const others = ((S.home || {}).docs || []).filter((x) => x.nopqType === d.nopqType && x.caseDocId !== d.caseDocId && (x.freeLen || 0) > 0);
   const where = ((d.schoolName || '') + ' ' + (d.deptName || '')).trim() || '這系';
   return `<div class="card ${editable ? 'active' : ''}">
     ${d.inWishlist === false ? '<div class="hint" style="margin-top:0">這系已經不在你的志願裡，寫過的稿都還留著；選回來就會回到上面的清單。</div>' : ''}
     ${S.focus ? `<h3 style="margin-top:0">${esc(where)}</h3><div class="muted small">題目和這系的要點在「對照」那一欄（寬螢幕在右邊，手機在上面），邊寫邊對照。</div>` : `<h3 style="margin-top:0">${esc(where)} 要你回答</h3>
-    ${prompts.length ? `<ul class="plain">${prompts.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : `<div class="muted">這系的指引裡沒有 ${letter} 的題目${d.guideSource === 'missing' || !d.guideSource ? '（學校沒公開或老師還沒建檔）' : ''}，先到「審查資料準備指引說明」看官方連結。</div>`}
+    ${NG.pqGuideHtml(d, letter)}
     ${lims.length ? `<div class="muted small" style="margin-top:4px">篇幅：${esc(lims.join('；'))}</div>` : ''}`}
     ${editable ? `<label class="f" for="free-text">你的${letter === 'P' ? '就讀動機' : '未來學習計畫'}</label><textarea id="free-text" class="big" data-in="free" maxlength="${max}">${esc(u.freeText || '')}</textarea>`
       : `<div class="cell"><div class="ro">${esc(u.freeText || '') || '（沒有內容）'}</div></div>`}
@@ -427,15 +416,15 @@ ACT.dlReview = async (el) => {
   try {
     const ss = await sb.auth.getSession(), tok = ss.data && ss.data.session && ss.data.session.access_token;
     const res = await fetch('/export/review.docx?doc=' + encodeURIComponent(S.docId), { headers: { authorization: 'Bearer ' + (tok || '') } });
-    if (!res.ok) { toast(res.status === 403 ? '老師還沒發佈這一輪，發佈後才下載得到。' : res.status === 404 ? '這個版本目前只能在本機試用版下載。' : '下載沒有成功，請稍後再試。', true); return; }
+    if (!res.ok) { toast(res.status === 403 ? '老師還沒發佈這一輪，發佈後才下載得到。' : res.status === 404 ? '現在還下載不到這份批改，請跟老師說。' : '下載沒有成功，請稍後再試。', true); return; }
     const m = /filename\*=UTF-8''([^;]+)/i.exec(res.headers.get('content-disposition') || ''), name = m ? decodeURIComponent(m[1]) : 'NOPQ通批改版.docx';
     const url = URL.createObjectURL(await res.blob()), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
 };
 function selfCheckHtml(sc, d) {
   const failed = sc.status === 'failed' || sc.status === 'rejected', iss = (sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}${i.quote ? `<br><q>${esc(i.quote)}</q>` : ''}</div>`).join('');
-  return `<h3>最近一次老師的話　<span class="badge ai">AI 老師的意見，真人老師還沒看過</span></h3>
-    ${failed ? `<div class="issue">這次老師的話沒有出來，你的稿件內容都在。${d.state === 'self_check_pending' ? '可以直接交給老師看。' : ''}</div>${d.state === 'self_check_pending' ? '<button class="btn" data-act="sendReview">交給老師看</button>' : ''}`
+  return `<h3>最近一次的育才仕寫作建議　<span class="badge ai">依育才仕老師的批改標準由系統整理，老師還沒逐字看過</span></h3>
+    ${failed ? `<div class="issue">這次的寫作建議沒有整理出來，你的稿件內容都在。${d.state === 'self_check_pending' ? '可以直接交給老師看。' : ''}</div>${d.state === 'self_check_pending' ? '<button class="btn" data-act="sendReview">交給老師看</button>' : ''}`
       : `${iss || '<div class="pill ok">沒有發現需要補的地方</div>'}${(sc.strengths || []).length ? `<div class="muted small">做得不錯</div><ul class="plain">${sc.strengths.map((s) => `<li>${esc(itemText(s))}</li>`).join('')}</ul>` : ''}${sc.verdict ? `<div class="pill">${esc(VERDICT[sc.verdict] || sc.verdict)}</div>` : ''}`}`;
 }
 function collectDraft() {   // 要送出的稿：空白的文字欄不送；表格欄把「學期,科目,成績」每行轉成物件
@@ -475,11 +464,11 @@ ACT.selfCheck = async (el) => {
       return;
     }
     S.ui.sqlIssues = null; await refreshDoc();
-    if (r.jobId) await runAi(r.jobId, '老師在看你的稿，通常幾秒鐘…'); else if (r.manualCheck) toast(S.doc && S.doc.aiSwitch === false ? '已交給老師，這一步由老師接手。' : '已交給老師（沒有 AI 處理同意，由老師直接看）。');
+    if (r.jobId) await runAi(r.jobId, '正在整理你的稿，通常幾秒鐘…'); else if (r.manualCheck) toast(S.doc && S.doc.aiSwitch === false ? '已交給老師，這一步由老師來做。' : '已交給老師，這一步由老師來做。');
   } finally { el.disabled = false; }
 };
 ACT.sendReview = async () => { const r = await call('submit_for_review', { p_case_doc_id: S.docId, p_state_version: S.doc.stateVersion }); if (r.ok) { await refreshDoc(); toast('已交給老師。'); } };
-const DECISION = { return: '退回修改', reopen: '重開問答', finalize: '定稿' }, AUTHOR = { student: '你', teacher: '老師', ai: 'AI 老師' };
+const DECISION = { return: '退回修改', reopen: '重新問答', finalize: '定稿' }, AUTHOR = { student: '你', teacher: '老師', ai: '寫作建議' };
 function reviewCard() {
   const rv = S.doc.review; if (!rv || !(rv.decision || (rv.items || []).length || (rv.edits || []).length || rv.summary)) return '';
   const items = (rv.items || []).map((i) => `<div class="cm">${i.sectionKey ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}<q>${esc(i.quote)}</q><div>${esc(i.issue)}</div>${i.question ? `<div class="muted">老師問：${esc(i.question)}</div>` : ''}</div>`).join('');
@@ -501,7 +490,7 @@ function verPlain(d, ver) {   // 一版的文字（比較用）：整段稿＝�
 async function verGet(id) {
   const vu = verUi(); if (vu.cache[id]) return vu.cache[id];
   let r; try { r = await call('get_draft_version', { p_case_doc_id: S.docId, p_version_id: id }, { quiet: true }); } catch (e) { r = null; }
-  if (!r || !r.ok) { toast(r && r.error === 'NOT_FOUND' ? '找不到這一版。' : '這一版現在還打不開（系統還沒更新到這個功能）。', true); return null; }
+  if (!r || !r.ok) { toast(r && r.error === 'NOT_FOUND' ? '找不到這一版。' : '這一版現在還不能打開。需要看的話，請找育才仕。', true); return null; }
   return (vu.cache[id] = r.version);
 }
 const verName = (v) => `第 ${v.versionNumber} 版（${AUTHOR[v.authorType] || v.authorType}，${when(v.createdAt)}）`;
@@ -592,9 +581,9 @@ function finalCard() {   // 定稿那一篇：複製全文＋看全文（D7 先�
 }
 ACT.toggleFull = () => { S.ui.showFull = !S.ui.showFull; renderDoc(); };
 ACT.copyFull = async () => { const d = S.doc, t = fullTextOf(d, d.draft && d.draft.currentVersion); toast((await copyText(t)) ? '全文複製好了，可以貼到你的排版檔。' : '這個瀏覽器不讓我複製，請按「看全文」自己選取複製。', !t); };
-// 「我要交的」：首頁資料（me_home 的 docs）＋志願（my_wishlist 的指引：哪幾篇必交／選交）。N、O 每一系共用一份；P、Q 每系各一篇。
+// 「我要交的」：首頁資料（me_home 的 docs）＋志願（my_wishlist 的指引與 116 項目層：哪幾篇有列）。N、O 每一系共用一份；P、Q 每系各一篇。
 const DLV_TYPES = [['N', 'N_diverseSummary'], ['O', 'O_reflection'], ['P', 'P_motivation'], ['Q', 'Q_futurePlan']];
-const REQ_TEXT = { must: '必交', opt: '選交', none: '指引沒列' };
+// 2026-11-17 owner 第②題：「必交／選交／指引沒列」改用 NG.WORDS（116 簡章有列／去年指引有列／選繳…）
 async function viewDeliver() {
   setTab('write'); view(loading); const my = S.rt;
   const [h, w] = await Promise.all([call('me_home'), call('my_wishlist')]); if (!h.ok || !w.ok || my !== S.rt) return; S.home = h;
@@ -602,17 +591,20 @@ async function viewDeliver() {
   const docOf = (type, code) => docs.find((d) => d.nopqType === type && (type === 'N_diverseSummary' || type === 'O_reflection' || d.deptCode === code));
   const row = (letter, d, req) => {
     const st = d ? (DOC_STEP[d.state] || [d.state])[0] : '還沒有這一篇', fin = d && d.state === 'finalized';
-    return `<div class="doc-row"><div class="dmain"><b>${esc(DOC_SHORT[letter])}</b> <span class="pill ${req === 'must' ? 'main' : ''}">${esc(REQ_TEXT[req] || '')}</span>
+    return `<div class="doc-row"><div class="dmain"><b>${esc(DOC_SHORT[letter])}</b> <span class="pill ${req === 'cac' || req === 'cacOpt' ? 'main' : ''}">${esc(NG.WORDS[req] || '')}</span>
       <div class="muted small">${fin ? '<span class="pill ok">定稿了</span>' : esc(st)}${d && d.freeLen ? '｜' + d.freeLen + ' 字' : ''}</div></div>
       ${d ? `<div class="row">${fin ? `<button type="button" class="btn sm" data-act="dlvCopy" data-id="${esc(d.caseDocId)}">複製全文</button>` : ''}<button type="button" class="btn sm ghost" data-act="openDoc" data-id="${esc(d.caseDocId)}" data-state="${esc(d.state)}">${fin ? '看' : '去寫'}</button></div>` : ''}</div>`;
   };
   const cards = items.map((it) => {
-    const has = NG.hasGuide(it), g = has ? it.guide : null;   // 同「要交什麼」頁（guide_pure.js 的 hasGuide／reqState）
-    const list = DLV_TYPES.map(([L, type]) => ({ L, d: docOf(type, it.deptCode), req: has ? NG.reqState(g, L) : 'must' })).filter((x) => x.req !== 'none' || x.d && x.d.state === 'finalized');
-    const need = list.filter((x) => x.req === 'must'), fin = list.filter((x) => x.d && x.d.state === 'finalized');
+    const has = NG.hasGuide(it) || !!NG.gi116(it);   // 同「審查資料準備指引說明」頁（guide_pure.js 的 needOf）
+    const list = DLV_TYPES.map(([L, type]) => ({ L, d: docOf(type, it.deptCode), req: NG.needOf(it, L) })).filter((x) => x.req !== 'none' || x.d && x.d.state === 'finalized');
+    const fin = list.filter((x) => x.d && x.d.state === 'finalized');
+    // 2026-11-17 指引重建階段一（設計稿 guide_rebuild_design_v0.2 0.6⑥）：116 簡章另外要交的（R 之後用官方名稱、學習歷程檔案大類）列在下面；
+    // R 之後要寫的那幾篇系統還不能寫（階段四），照實講。上面 N–Q 那幾列的要不要交用 NG.WORDS（owner 第②題）。
+    const gi = NG.gi116 ? NG.gi116(it) : null, more = gi ? NG.renderZones116(gi, { skipNQ: true, desc: false, title: NG.WORDS.z116More }) : '';
     return `<div class="card"><h2 style="margin-top:0">第 ${esc(it.rank)} 志願｜${esc(it.schoolName || '')} ${esc(it.name || '')}</h2>
-      <p style="margin:0 0 6px">要交 ${list.length} 篇${need.length !== list.length ? `（必交 ${need.length}）` : ''}，定稿 <b>${fin.length}</b> 篇${fin.length >= need.length && need.length ? '　<span class="pill ok">必交的都定稿了</span>' : ''}。${has ? '' : '<span class="muted small">這系還沒有建指引，先當四篇都要交，以官方分則為準。</span>'}</p>
-      ${list.map((x) => row(x.L, x.d, x.req)).join('')}</div>`;
+      <p style="margin:0 0 6px">${esc(NG.fill(NG.WORDS.dlvCount, { n: list.length, f: fin.length }))}${fin.length >= list.length && list.length ? `　<span class="pill ok">${esc(NG.WORDS.dlvAllDone)}</span>` : ''}${has ? '' : `<span class="muted small">${esc(NG.WORDS.nodata)}</span>`}</p>
+      ${list.map((x) => row(x.L, x.d, x.req)).join('')}${more}</div>`;
   });
   view(`<div class="card active"><h2>我要交的</h2><p style="margin:0">照你的志願，一系一張：每一系要交哪幾篇、哪幾篇定稿了。N、O 每一系用同一份；P、Q 每系各寫一篇。定稿的可以直接「複製全文」。</p>
     <p class="muted small" style="margin:6px 0 0">${esc(COPY_NOTE)} 排版（PPT、Canva）之後才做。</p></div>

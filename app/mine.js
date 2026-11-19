@@ -94,12 +94,12 @@ const matRow = (it) => `<div class="pt"><b>${esc(it.title)}</b> <span class="mut
 const noMatFiles = () => { const m = S.mine; return mineStage() === 'parse' && m.busy !== 'parse' && !(m.items || []).length && !m.mats.length; };
 function parseBlock() {
   const m = S.mine, items = m.items || [];
-  if (m.busy === 'parse') return '<div class="card active"><h2>老師在讀你的檔案</h2><div class="hint"><span class="spin"></span>通常幾秒鐘…</div></div>';
+  if (m.busy === 'parse') return '<div class="card active"><h2>正在讀你的檔案</h2><div class="hint"><span class="spin"></span>通常幾秒鐘…</div></div>';
   if (noMatFiles()) return '<div class="card active"><h2>還沒收到你的檔案</h2><p style="margin:0 0 10px">你說學習歷程有東西，但還沒丟上來。回去貼文字或丟檔案就好。</p><button type="button" class="btn" data-act="mineReset">回去丟</button></div>';
-  if (items.length) return `<div class="card active"><h2>整理出 ${items.length} 件事</h2><p class="muted" style="margin:0 0 6px">這是老師從你的檔案裡讀出來的。接下來老師會從這些事問起。</p>${items.map(matRow).join('')}<div style="margin-top:12px"><a class="btn" href="#/write">往下，開始寫</a></div></div>`;
-  if (S.aiOn === false) return `<div class="card active"><h2>檔案收到了</h2><p style="margin:0 0 8px">這一步由老師接手：老師會直接看你的檔案，找出你做過的事。你可以先往下寫。</p><a class="btn" href="#/write">往下寫</a></div>`;   // 28l：沒開 AI
-  return `<div class="card active"><h2>檔案還沒整理</h2><p style="margin:0 0 8px">${esc(m.parseMsg || '你丟了學習歷程的檔案，讓老師讀一下，找出你做過的事。')}</p>
-    <div class="row"><button type="button" class="btn" data-act="runParse" ${m.mats.length ? '' : 'disabled'}>請老師讀一下</button><a class="btn ghost" href="#/write">先不用，往下寫</a></div></div>`;
+  if (items.length) return `<div class="card active"><h2>整理出 ${items.length} 件事</h2><p class="muted" style="margin:0 0 6px">這是系統從你的檔案裡整理出來的，老師還沒逐字看過。接下來會從這些事問起。</p>${items.map(matRow).join('')}<div style="margin-top:12px"><a class="btn" href="#/write">往下，開始寫</a></div></div>`;
+  if (S.aiOn === false) return `<div class="card active"><h2>檔案收到了</h2><p style="margin:0 0 8px">老師會直接看你的檔案，找出你做過的事。你可以先往下寫。</p><a class="btn" href="#/write">往下寫</a></div>`;   // 28l：沒開 AI
+  return `<div class="card active"><h2>檔案還沒整理</h2><p style="margin:0 0 8px">${esc(m.parseMsg || '你丟了學習歷程的檔案，按下面的按鈕整理一下，找出你做過的事。')}</p>
+    <div class="row"><button type="button" class="btn" data-act="runParse" ${m.mats.length ? '' : 'disabled'}>整理我的檔案</button><a class="btn ghost" href="#/write">先不用，往下寫</a></div></div>`;
 }
 function lessonsCard() {
   const ls = (S.home || {}).lessons || []; if (!ls.length) return '';
@@ -113,7 +113,7 @@ function renderMine() {
   if (st === 'ask') html = `<div class="card"><h2>你手上有什麼？</h2></div>${qBlock(1)}${qBlock(2)}${askFoot()}`;
   else if (st === 'submit') html = submitBlock();
   else if (st === 'draftDone') html = '<div class="card active"><h2>稿交給老師了</h2><p style="margin:0 0 10px">去「撰寫NOPQ」看老師的話。</p><a class="btn" href="#/write">去看</a></div>';
-  else if (st === 'blank') html = '<div class="card active"><h2>好，我們從聊開始</h2><p style="margin:0 0 10px">老師會先問你做過的事，你想到什麼說什麼。</p><a class="btn" href="#/write">開始</a></div>';
+  else if (st === 'blank') html = '<div class="card active"><h2>好，我們從聊開始</h2><p style="margin:0 0 10px">會先問你做過的事，你想到什麼說什麼。</p><a class="btn" href="#/write">開始</a></div>';
   else html = parseBlock();
   if (st !== 'ask' && !noMatFiles()) html += '<div class="card"><button type="button" class="btn ghost sm" data-act="mineReset">重新回答這兩個問題</button></div>';   // 「還沒收到檔案」那張卡自己就有回去丟的鈕，不再多放一顆
   html += lessonsCard();
@@ -202,7 +202,7 @@ async function runParse() {
   for (const f of m.mats) {
     try {
       const r = await call('parse_material', { p_file_asset_id: f.id }, { quiet: true });
-      if (!r.ok) { fail = r.error === 'AI_OFF' ? '這一步由老師接手：老師會直接看你的檔案，你可以先往下寫。' : r.error === 'AI_CONSENT_MISSING' || r.error === 'QUOTA_EXCEEDED' ? errText(r) + '你可以直接往下，老師會看你的檔案。' : errText(r); if (r.error === 'AI_OFF') { S.aiOn = false; break; } continue; }
+      if (!r.ok) { fail = r.error === 'AI_OFF' ? '這一步由老師來做：老師會直接看你的檔案，你可以先往下寫。' : r.error === 'AI_CONSENT_MISSING' || r.error === 'QUOTA_EXCEEDED' ? errText(r) + '你可以直接往下，老師會看你的檔案。' : errText(r); if (r.error === 'AI_OFF') { S.aiOn = false; break; } continue; }
       try { await sb.functions.invoke('nopq-ai', { body: { jobId: r.jobId } }); } catch (e) { /* 結果看 my_materials */ }
     } catch (e) { fail = '連線失敗，稍後再試。'; }
   }
@@ -212,7 +212,7 @@ async function runParse() {
     if (fail) break;
     await sleep(2000);
   }
-  m.busy = ''; m.items = items; m.parseMsg = items.length ? '' : (fail || '還沒整理出東西，等一下再回來看，或直接往下寫，老師會先問你。');
+  m.busy = ''; m.items = items; m.parseMsg = items.length ? '' : (fail || '還沒整理出東西，等一下再回來看，或直接往下寫，會先從問答開始。');
   renderMine();
 }
 ACT.runParse = () => runParse();
@@ -316,9 +316,9 @@ function invSumHtml() {
       <span class="st">${list.length ? Object.keys(st).map((t) => `<span class="pill ${st[t][1]}">${esc(t)} ${st[t][0]}</span>`).join('') + (edited ? `<span class="pill warn">交出後又改過 ${edited}</span>` : '') : '<span class="muted small">還沒有</span>'}</span></button>`;
   };
   const total = INV_KINDS.reduce((a, kd) => a + (inv[kd.k] || []).length, 0);
-  return `<div class="card active"><h2>我的學習歷程</h2><p style="margin:0 0 8px">總清單：盤點你的學習歷程目前到哪裡。共 ${total} 份${none.length ? `，另有 ${none.length} 份還沒分類` : ''}${hid.length ? `，收起來的 ${hid.length} 份` : ''}。點一類跳過去看。</p>
+  return `<div class="card active"><h2>我的學習歷程</h2><p style="margin:0 0 8px">這裡列出你放進來的所有資料。共 ${total} 份${none.length ? `，另有 ${none.length} 份還沒分類` : ''}${hid.length ? `，收起來的 ${hid.length} 份` : ''}。點一類跳過去看。</p>
     <div class="invsums">${INV_KINDS.map(row).join('')}</div>
-    <p class="muted small" style="margin:8px 0 0">以前的資料（高一、高二的作品、紀錄、寫過的稿）都可以放進來；放進來的每一份都可以按「改」修改、存檔，交給老師之後也可以改。課程學習成果和多元表現寫好，可以交給老師看；N、O、P、Q 的稿交給老師改（在最下面）。</p></div>`;
+    <p class="muted small" style="margin:8px 0 0">高一、高二的作品、紀錄、寫過的稿都可以放進來。放進來的每一份都可以按「改」，交給老師之後也能改。課程學習成果和多元表現寫好後，可以交給老師看。N、O、P、Q 的稿在最下面交給老師改。</p></div>`;
 }
 ACT.invJump = (el) => { const c = $('inv-' + el.dataset.k); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 function invHtml() {
@@ -328,14 +328,14 @@ function invHtml() {
   return invSumHtml()
     + INV_KINDS.filter((kd) => kd.k !== 'statement').map(invKindCard).join('')
     + (none.length ? `<div class="card"><h2>還沒分類的（${none.length}）</h2><p class="muted small" style="margin:0 0 6px">之前上傳的檔，選一下是哪一類。</p>${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">選類別</option>${INV_KINDS.map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}</div>` : '')
-    + (m.items && m.items.length ? `<div class="card"><h2>老師從你的檔案整理出 ${m.items.length} 件事</h2>${m.items.map(matRow).join('')}</div>` : '')
+    + (m.items && m.items.length ? `<div class="card"><h2>從你的檔案整理出 ${m.items.length} 件事</h2><p class="muted small" style="margin:0 0 6px">系統整理的，老師還沒逐字看過。</p>${m.items.map(matRow).join('')}</div>` : '')
     + lessonsCard()
     + INV_KINDS.filter((kd) => kd.k === 'statement').map(invKindCard).join('')
     + invHiddenHtml()
     + `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就可以往下寫，之後隨時回來補。</p><div class="row">
-      ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>請老師讀一下，整理出我做過的事</button>` : ''}
+      ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>讀我的檔案，整理出我做過的事</button>` : ''}
       <button type="button" class="btn" data-act="invDone" ${m.busy ? 'disabled' : ''}>盤點好了，往下寫</button></div>
-      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>老師在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
+      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>正在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
 }
 const invMine = () => { const m = S.mine; m.invTitle = m.invTitle || {}; m.invText = m.invText || {}; m.invPick = m.invPick || {}; m.invType = m.invType || 'N'; return m; };
 // ── 2026-11-12 階段 1①：改、換一份、收起來、收回、拿回來（28m）──
@@ -352,7 +352,7 @@ function invEditHtml(it, ed) {
     ${rounds ? `<div style="margin-top:8px"><div class="muted small">交給老師的紀錄</div>${rounds}</div>` : ''}</div>`;
 }
 function invSwapHtml(it, kd, sw) {
-  return `<div class="hint" style="margin-top:8px"><b>換一份</b>：新的一份會接手這一份的類別和標題；舊的收起來（在最下面「收起來的」找得到，老師的紀錄也還在）。
+  return `<div class="hint" style="margin-top:8px"><b>換一份</b>：新的一份會沿用這一份的類別和標題。舊的會收到最下面「收起來的」，老師的紀錄也還在。
     <label class="f" for="is-text-${esc(it.id)}">新的內容</label><textarea id="is-text-${esc(it.id)}" class="big" data-in="invNewText" data-id="${esc(it.id)}" maxlength="60000" placeholder="把新的內容貼上來，或按下面「用檔案帶入」">${esc(sw.text || '')}</textarea>
     <div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="invSwapSave">換成這一份</button>
       ${LOCAL_SERVER ? `<label class="btn sm ghost" style="cursor:pointer">改成上傳一個檔案<input type="file" data-in="invSwapFile" accept=".docx,.pdf,.txt,.md" style="display:none"></label>` : ''}

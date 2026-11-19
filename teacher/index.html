@@ -64,7 +64,7 @@
     <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
     <div id="l-err" class="err hidden"></div>
     <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
-    <p class="muted small" style="margin:12px 0 0">學生請到 <a href="../app/">學生頁</a>。忘記密碼請聯絡育才仕 staff。</p>
+    <p class="muted small" style="margin:12px 0 0">學生請到 <a href="../app/">學生頁</a>。忘記密碼請找育才仕行政。</p>
   </form>
 </div>
 <div id="app" class="hidden">
@@ -88,12 +88,12 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:
 const S = { home: null, students: null, doc: null, docId: null, ui: {}, filter: '', lessons: [], cohorts: [], terms: [], dTerms: [], termsMiss: {}, sel: null };   // lessons／cohorts：排課頁讀回來的；dTerms：這一篇的詞庫
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET']);
 const ERRS = {
-  NOT_TEACHER: '這個帳號不是老師帳號。學生請到學生頁登入。', NOT_STUDENT: '這個帳號不是學生帳號。', NOT_STAFF: '這個帳號不是 staff。',
+  NOT_TEACHER: '這個帳號不是老師帳號。學生請到學生頁登入。', NOT_STUDENT: '這個帳號不是學生帳號。', NOT_STAFF: '這個帳號不是行政帳號，請改用行政帳號登入。',
   CASE_NOT_FOUND: '找不到這一篇。', NOT_ASSIGNED: '這位學生不是你帶的，看不到也不能動。', CONSENT_MISSING: '這位學生的同意書還沒登錄完成。',
-  AI_CONSENT_MISSING: '這位學生沒有 AI 處理同意。', STATE_INVALID: '現在這一步不能這樣做，已為你更新畫面。', STALE: '畫面已過期（學生或別處剛更新過），已為你重新載入，請再操作一次。',
-  QUOTA_EXCEEDED: '這位學生今天的系統次數用完了。', VALIDATION: '資料不完整或格式不對', AI_OFF: '目前沒有開 AI，這一步由你接手。',
+  AI_CONSENT_MISSING: '這位學生還沒同意使用 AI。', STATE_INVALID: '這個動作現在不能做，畫面已經更新，請再看一次。', STALE: '這一頁有更新，已經重新載入。剛才的動作請再做一次。',
+  QUOTA_EXCEEDED: '這位學生今天的系統次數用完了。', VALIDATION: '資料不完整或格式不對', AI_OFF: '現在沒開 AI，這一步由你來做。',
 };
-const FIELD_NAMES = { decisions: '沒有選任何重點', pointId: '找不到這個重點', termIds: '能力標籤不在詞庫', text: '文字不可空白或太長', type: '作業類型', prompt: '題目（必填，最多 2000 字）', dueAt: '截止時間（必填）',
+const FIELD_NAMES = { decisions: '沒有選任何重點', pointId: '找不到這個重點', termIds: '這個能力標籤不在可以選的清單裡，請重新選', text: '文字不可空白或太長', type: '作業類型', prompt: '題目（必填，最多 2000 字）', dueAt: '截止時間（必填）',
   fromSuggestionJobId: '系統建議的編號不對', body: '回饋內容不可空白', next: '下一步沒選', fieldKey: '欄位不存在', sectionKey: '欄位不存在', newText: '新文字太長', reason: '改字理由（必填，最多 300 字）',
   quote: '選取的文字不在這一欄裡（請在同一欄內重新框選）', issue: '意見不可空白', items: '意見清單格式不對', decision: '決定沒選', summary: '退回與重開要寫總評', term: '用語不可空白（最多 30 字）' };
 function detailText(x) {
@@ -103,7 +103,7 @@ function detailText(x) {
   if (/externalUrl/.test(k)) return '連結要 https:// 開頭'; if (/LessonSession_title|"title"/.test(k)) return '課名要 1～100 字'; if (/format/.test(k)) return '形式不對';
   return FIELD_NAMES[k] || (/violates|constraint|relation/.test(k) ? '格式不符規則' : String(x));
 }
-const errText = (d) => (ERRS[d.error] || `這一步沒有成功（${d.error}）`) + (d.error === 'VALIDATION' && d.detail != null ? '：' + detailText(d.detail) : '');
+const errText = (d) => (ERRS[d.error] || '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給育才仕行政。') + (d.error === 'VALIDATION' && d.detail != null ? '：' + detailText(d.detail) : '');
 let toastTimer = 0;
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4500); }
 // 2026-11-12 楊老師試用回饋 階段 0②（OUTPUTS/nopq_yang_feedback_revision_v0.1.md 第四節 (b) 第 9–11 項）：每次跟資料庫要資料都有等待上限；
@@ -167,7 +167,7 @@ ACT.logout = async () => { await toLogin(''); };
 // 開機：連不上時開機畫面不再一直轉，改成一句話＋「再試一次」（2026-11-12）
 const BOOT_HTML = $('boot').innerHTML;
 function bootFail() {
-  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">可能是網路斷了，或系統暫時休息中。請檢查網路，再按「再試一次」。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
+  $('boot').innerHTML = '<div class="card" style="max-width:440px;margin:40px auto;text-align:left"><h2>連不上系統</h2><p class="muted">請檢查網路，再按「再試一次」。還是連不上，請找育才仕行政。</p><div class="row"><button type="button" class="btn" data-act="bootRetry">再試一次</button><button type="button" class="btn ghost" data-act="logout">回登入頁</button></div></div>';
 }
 ACT.bootRetry = () => { $('boot').innerHTML = BOOT_HTML; enter(); };
 async function enter() {
@@ -192,13 +192,13 @@ function route() {
 }
 ACT.reloadView = () => route();
 const view = (html) => { $('view').innerHTML = html; };
-const loading = '<div class="center muted" data-loading="1"><span class="spin"></span>載入中…<div class="ld-slow small hidden" style="margin-top:6px">還在讀，沒有壞掉；第一次打開會比較久。</div></div>';
+const loading = '<div class="center muted" data-loading="1"><span class="spin"></span>載入中…<div class="ld-slow small hidden" style="margin-top:6px">第一次打開會比較久，請再等一下。</div></div>';
 const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' }, TRACK = { bigClass: '大班', oneOnOne: '1 對 1' };
 const AGE = { adult: '成年', minor: '未成年', unknown: '年齡未確認' };
 const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 // ── 今天要做 ──
-const TILES = [['pendingPoints', '待看重點', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '待出作業', ['assignment_pending']],
-  ['pendingFeedback', '待回饋', ['feedback_pending']], ['pendingReviews', '待批改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '待決定開始寫', ['feedback_published']]];
+const TILES = [['pendingPoints', '學生剛回答，等你看', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '等你出作業', ['assignment_pending']],
+  ['pendingFeedback', '等你回饋', ['feedback_pending']], ['pendingReviews', '學生交稿，等你改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '等你決定能不能開始寫', ['feedback_published']]];
 async function viewHome() {
   view(loading); const my = RT, h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
   if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把首頁畫回去蓋掉別頁（2026-11-14，同排課區塊的做法）
@@ -214,8 +214,8 @@ async function viewStudents() {
   let list = r.students.slice().sort((a, b) => stuck(b) - stuck(a) || a.nickname.localeCompare(b.nickname));
   if (states) list = list.filter((s) => s.docs.some((d) => states.includes(d.state))); const top = list.length && stuck(list[0]) > 0 ? list[0].studentId : null;
   view(`<div class="card"><div class="row spread"><h2 style="margin:0">我的學生</h2>${f ? `<span>篩選：<span class="pill main">${esc(f[1])}</span><button class="btn sm ghost" data-act="clearFilter">看全部</button></span>` : ''}</div>
-    <p class="muted small" style="margin:6px 0 0">依「卡最久」排序。每位學生下面是 N、O 的狀態，以及有動靜的 P、Q（交來批改、定稿過的；其餘只列篇數）。</p></div><div class="card">${list.map((s) => `<div class="srow"><div><b>${esc(s.nickname)}</b> ${top === s.studentId ? '<span class="pill warn">卡最久</span>' : ''}
-      <div class="muted small">${esc(TRACK[s.track] || s.track)}｜${esc(s.cohortName || '')}</div><span class="pill ${s.aiConsent ? 'ok' : 'warn'}">${s.aiConsent ? 'AI 已同意' : '無 AI 同意'}</span><span class="pill">${esc(AGE[s.ageStatus] || s.ageStatus)}</span></div>
+    <p class="muted small" style="margin:6px 0 0">卡最久的學生排最前面。每位學生下面列 N、O 的進度。P、Q 只列交來批改或已經定稿的，其他只寫篇數。</p></div><div class="card">${list.map((s) => `<div class="srow"><div><b>${esc(s.nickname)}</b> ${top === s.studentId ? '<span class="pill warn">卡最久</span>' : ''}
+      <div class="muted small">${esc(TRACK[s.track] || s.track)}｜${esc(s.cohortName || '')}</div><span class="pill ${s.aiConsent ? 'ok' : 'warn'}">${s.aiConsent ? '已同意使用 AI' : '還沒同意使用 AI'}</span><span class="pill">${esc(AGE[s.ageStatus] || s.ageStatus)}</span></div>
       <div>${stuDocsHtml(s, states, live)}<div class="lvbox" id="lv_${esc(s.studentId)}"><button type="button" class="btn sm ghost" data-act="lvShow" data-id="${esc(s.studentId)}">落點分析版本</button></div></div></div>`).join('') || '<p class="muted">沒有符合的學生。</p>'}</div>`);
 }
 // ── 2026-11-09 落點分析改版 L7（設計稿 §九 L7、§10.3(b)）：學生排過的版本、每次存成志願的紀錄（不能改）、AI 回覆與檢查結果、「請老師看」 ──
@@ -230,7 +230,7 @@ function lvPanel(sid, d) {
     ${lk.length ? `<div class="hint"><b>學生請你看（${lk.length}）</b>${lk.map((x) => `<div class="small">${esc(when(x.createdAt))}　${esc((x.versionIds || []).map(seqOf).join('、'))}${x.note ? '：「' + esc(x.note) + '」' : ''} <button type="button" class="btn sm ghost" data-act="lvDone" data-id="${esc(x.id)}" data-sid="${esc(sid)}">看過了</button></div>`).join('')}</div>` : ''}
     <h3>版本（${vs.length}）</h3>${lvMore(vs, (v) => `<div class="small" style="padding:2px 0"><b>第 ${v.seq} 版「${esc(v.title)}」</b> ${esc(when(v.createdAt))}${LV_ST[v.status] ? ` <span class="pill">${LV_ST[v.status]}</span>` : ''}<br>${esc(lvMix(v.rules))}｜${v.scoreKind === 'official' ? '正式成績' : '模考或預估'}<br><span class="muted">${esc(lvPicks(v.picks))}</span>${v.note ? `<br>備註：${esc(v.note)}` : ''}</div>`) || '<p class="muted small">還沒有存過版本。</p>'}
     <h3>存成志願的紀錄（${ev.length}，不能改）</h3>${lvMore(ev, (e) => `<div class="small" style="padding:2px 0">${esc(when(e.createdAt))}　${esc(e.versionId ? seqOf(e.versionId) : '（不經落點分析）')}・從${esc(LV_SRC[e.source] || e.source)}
-      <span class="pill ${e.followed && e.followed.mix222 ? 'ok' : 'warn'}">2／2／2 ${e.followed && e.followed.mix222 ? '有照' : '沒照'}</span><span class="pill ${e.followed && e.followed.groupsLe3 ? 'ok' : 'warn'}">學群 ${e.followed && e.followed.groupsLe3 ? '≤3' : '超過 3'}</span>
+      <span class="pill ${e.followed && e.followed.mix222 ? 'ok' : 'warn'}">${e.followed && e.followed.mix222 ? '有照' : '沒照'}「夢幻 2、正常 2、保底 2」</span><span class="pill ${e.followed && e.followed.groupsLe3 ? 'ok' : 'warn'}">${e.followed && e.followed.groupsLe3 ? '學群 3 個以內' : '學群超過 3 個'}</span>
       <br>${esc(lvMix(e.rules))}${e.overrideNote ? `<br>學生寫的理由：「${esc(e.overrideNote)}」` : ''}<br><span class="muted">勾過說明版本 ${esc(e.disclaimerVersion)}・按確認 ${esc(when(e.ackAt))}</span></div>`) || '<p class="muted small">還沒有從落點分析存過志願。</p>'}
     <h3>AI 解讀（${ai.length}）</h3>${lvMore(ai, (j) => `<div class="small" style="padding:2px 0">${esc(when(j.createdAt))}　<span class="pill ${j.status === 'done' ? 'ok' : 'warn'}">${j.status === 'done' ? '通過檢查' : '被退回或失敗'}</span>${j.error ? ` 原因：${esc(j.error)}` : ''}
       ${j.status === 'done' && j.result ? (j.result.perDept || []).map((p) => `<br>・${esc(p.deptId)}：${esc(p.line1)}${p.line2 ? ' ' + esc(p.line2) : ''}`).join('') : ''}</div>`) || '<p class="muted small">沒有 AI 解讀紀錄。</p>'}
@@ -318,7 +318,7 @@ const JOB_NAME = { interview: '追問', ability: '挑能力標籤', assignment_s
 const STATES = ['warmup', 'interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published', 'draft_open', 'self_check_pending', 'review_pending', 'finalized'];
 const NEXT_HINT = { warmup: '學生還沒開始這一篇。', interviewing: '學生在回答問題。你可以看重點、對某個重點追問。', assignment_pending: '輪到你出作業（有系統建議會列在下面）。', submission_pending: '作業已出，等學生繳交。',
   feedback_pending: '學生交了作業，輪到你回饋，並決定再問一輪，或讓學生開始寫。', feedback_published: '回饋已發。輪到你決定是不是「可以開始寫了」（條件滿足才能按）。', draft_open: '學生在寫稿。你可以直接改字，也可以等學生交來批改。',
-  self_check_pending: '學生的稿正在做送出前檢查。', review_pending: '學生把稿交來了：可以直接改字、寫逐句意見，最後退回／重開問答／定稿。', finalized: '這一篇已定稿。' };
+  self_check_pending: '學生的稿正在做送出前檢查。', review_pending: '學生交稿了。你可以直接改字、寫逐句意見，最後選退回、重新問答或定稿。', finalized: '這一篇已定稿。' };
 async function viewDoc(id) {
   S.docId = id; S.ui = { pr: {}, tool: 'edit' }; S.sel = null; S.localEdits = {}; S.dTerms = []; S.termsMiss = {}; view(loading);
   const d = await call('teacher_doc', { p_case_doc_id: id }, { noRefresh: true }); if (!d.ok) { location.hash = '#/students'; return; }
@@ -340,9 +340,9 @@ function headCard() {
   return `<div class="card active"><a href="#/students" class="small" style="text-decoration:none">← 我的學生</a>
     <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(TYPE_NAME[d.nopqType] || d.nopqType)}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
-      ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? 'AI 沒有開（你要自己出題、自己選能力標籤）' : '學生沒有 AI 同意（你要自己出題）'}</span></div>
+      ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? '沒開 AI，題目和能力標籤要你自己來' : '學生還沒同意使用 AI，題目要你自己出'}</span></div>
     <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇（通常一分鐘內會好），等一下按「重新整理」。</div>' : ''}
-    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你接手（目前沒有開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）沒有成功：學生的內容都在，可由你接手。</div>`) : ''}
+    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你來做（現在沒開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）沒有成功：學生的內容都在，可以由你來做。</div>`) : ''}
     <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="reload">重新整理</button></div></div>`;
 }
 ACT.reload = async () => { await refreshDoc(); toast('已更新'); };
@@ -362,7 +362,7 @@ function pointsCard() {
     const x = prOf(p), sel = ptTerms(p), cand = p.status === 'candidate';
     const acts = [['', '不動'], ['adopt', '採用'], ['delete', '刪除']].concat(canAsk ? [['ask', '改問（追問）']] : []);
     return `<div class="pt ${cand ? 'cand' : ''}"><div class="row spread"><span class="small muted">${esc(cellLabel(p.sectionKey, p.fieldKey))}｜第 ${p.round || 1} 輪</span>
-      <span>${cand ? `<span class="badge ai">${big ? '系統列點，未經老師審閱；學生還沒確認' : '系統列點；學生還沒確認'}</span>` : '<span class="badge">學生已確認</span>'}${p.teacherMark ? `<span class="pill ok">你已${esc({ adopt: '採用', ask: '追問', delete: '刪除' }[p.teacherMark] || p.teacherMark)}</span>` : ''}</span></div>
+      <span>${cand ? `<span class="badge ai">${big ? '系統先抓的重點，你還沒看過，學生也還沒確認' : '系統先抓的重點，學生還沒確認'}</span>` : '<span class="badge">學生已確認</span>'}${p.teacherMark ? `<span class="pill ok">你已${esc({ adopt: '採用', ask: '追問', delete: '刪除' }[p.teacherMark] || p.teacherMark)}</span>` : ''}</span></div>
       <div class="txt">${esc(p.text)}</div>${(p.sourceRefs || []).filter((r) => r && r.quote).map((r) => `<blockquote>來源：「${esc(r.quote)}」</blockquote>`).join('')}
       <div>${sel.map((t) => `<span class="pill on">${esc(termName(t))}</span>`).join('') || '<span class="muted small">還沒有能力標籤</span>'}</div>
       <div class="row" style="margin-top:6px">${acts.map(([v, t]) => `<label><input type="radio" name="pr-${esc(p.id)}" value="${v}" data-in="prAct" data-id="${esc(p.id)}" ${x.action === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
@@ -401,7 +401,7 @@ function assignCard() {
   }
   const u = S.ui; u.asg = u.asg || defaultAsg(); const x = u.asg, r = sg && sg.result, secs = [...new Map(expandCells(gridSpec(), 4).map((c) => [c.section, c.secLabel]))];
   return `<details class="card active" open><summary>出作業</summary>
-    ${sg ? (r && r.prompt ? `<div class="hint"><span class="badge ai">系統建議，未經老師審閱</span><p style="margin:6px 0;white-space:pre-wrap">${esc(ASG_TYPE[r.type] || r.type)}：${esc(r.prompt)}</p>${r.why ? `<div class="muted small">原因：${esc(r.why)}</div>` : ''}<button class="btn sm" data-act="useSuggest">採用建議（帶進下面的表單，可再改）</button></div>`
+    ${sg ? (r && r.prompt ? `<div class="hint"><span class="badge ai">系統的建議，你還沒看過</span><p style="margin:6px 0;white-space:pre-wrap">${esc(ASG_TYPE[r.type] || r.type)}：${esc(r.prompt)}</p>${r.why ? `<div class="muted small">原因：${esc(r.why)}</div>` : ''}<button class="btn sm" data-act="useSuggest">採用建議（帶進下面的表單，可再改）</button></div>`
       : `<div class="hint">系統建議${sg.status === 'failed' || sg.status === 'rejected' ? '沒有產生成功' : '還在產生'}，你可以自己出。</div>`) : '<div class="hint">這位學生沒有 AI 建議，請自己出題。</div>'}
     <label class="f" for="a-type">類型</label><select id="a-type" data-in="asg" data-k="type">${Object.entries(ASG_TYPE).map(([k, t]) => `<option value="${k}" ${x.type === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
     ${x.type === 'write_section' ? `<label class="f" for="a-sec">試寫哪一欄</label><select id="a-sec" data-in="asg" data-k="sectionKey"><option value="">（不指定）</option>${secs.map(([k, t]) => `<option value="${esc(k)}" ${x.sectionKey === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}
@@ -433,8 +433,8 @@ function feedbackCard() {
   u.fb = u.fb || { text: '', items: '', next: 'none' }; const x = u.fb;
   return `<details class="card ${pending ? 'active' : ''}" ${pending ? 'open' : ''}><summary>作業回饋${pending ? '（輪到你）' : ''}</summary>
     <h3>學生交的（第 ${a.submission.revision} 版，${esc(when(a.submission.submittedAt))}）</h3><div class="cellv"><div class="ro">${esc(a.submission.text || '（沒有文字）')}</div></div>
-    ${fbs.map((f) => `<h3>${f.reviewedLabel === 'ai_unreviewed' ? '<span class="badge ai">系統列點，未經老師審閱（只有你看得到）</span>' : '<span class="badge">內部回饋</span>'}</h3>${fbBodyHtml(f.body || {})}`).join('')}
-    ${a.feedback ? `<h3><span class="badge ${a.feedback.reviewedLabel === 'ai_unreviewed' ? 'ai' : ''}">${a.feedback.reviewedLabel === 'ai_unreviewed' ? '已發給學生：系統列點，未經老師審閱' : '已發給學生的回饋'}</span></h3>${fbBodyHtml(a.feedback.body || {})}` : ''}
+    ${fbs.map((f) => `<h3>${f.reviewedLabel === 'ai_unreviewed' ? '<span class="badge ai">系統先抓的重點，你還沒看過（只有你看得到）</span>' : '<span class="badge">內部回饋</span>'}</h3>${fbBodyHtml(f.body || {})}`).join('')}
+    ${a.feedback ? `<h3><span class="badge ${a.feedback.reviewedLabel === 'ai_unreviewed' ? 'ai' : ''}">${a.feedback.reviewedLabel === 'ai_unreviewed' ? '已發給學生：系統先抓的重點，你還沒看過' : '已發給學生的回饋'}</span></h3>${fbBodyHtml(a.feedback.body || {})}` : ''}
     ${pending ? `<label class="f" for="f-text">回饋（發給學生）</label><textarea id="f-text" data-in="fb" data-k="text">${esc(x.text)}</textarea>
       <label class="f" for="f-items">重點提醒（選填，一行一點）</label><textarea id="f-items" data-in="fb" data-k="items" style="min-height:60px">${esc(x.items)}</textarea>
       <div class="row" style="margin-top:8px">${[['none', '只發回饋'], ['reopen', '再問一輪（問還缺的地方）'], ['allow_draft', '直接讓學生開始寫']].map(([v, t]) => `<label><input type="radio" name="f-next" value="${v}" data-in="fbNext" ${x.next === v ? 'checked' : ''}> ${t}</label>`).join('')}</div>
@@ -454,8 +454,8 @@ function gapText(g) {
 }
 function allowCard() {
   const d = S.doc; if (d.state !== 'feedback_published') return ''; const gaps = (d.cycle.pointCard.gaps || []), hard = gaps.filter((g) => g.kind !== 'unclear'), soft = gaps.filter((g) => g.kind === 'unclear');
-  return `<details class="card active" open><summary>讓學生開始寫</summary><p class="muted" style="margin:6px 0">條件：每個必填欄位至少一個學生確認過的重點、每個重點有來源、每段至少一個能力標籤；「說不清的事」可以由你標略過。</p>
-    ${hard.some((g) => g.kind === 'no_term') && !d.aiEnabled ? '<div class="hint">沒有 AI 幫忙挑能力標籤：到上面「重點審閱」，每一點選「採用」、點下面的能力標籤，再按「送出審閱」，這裡就會放行。</div>' : ''}
+  return `<details class="card active" open><summary>讓學生開始寫</summary><p class="muted" style="margin:6px 0">要先做到三件事：<br>1. 每個必填欄位至少有一個學生確認過的重點。<br>2. 每個重點都有來源。<br>3. 每段至少有一個能力標籤。<br>「說不清的事」你可以標成略過。</p>
+    ${hard.some((g) => g.kind === 'no_term') && !d.aiEnabled ? '<div class="hint">沒有 AI 幫忙挑能力標籤時，你要自己挑：<br>1. 到上面「重點審閱」，每一點選「採用」。<br>2. 點下面的能力標籤。<br>3. 按「送出審閱」，這裡的按鈕就能按了。</div>' : ''}
     ${hard.length ? `<div class="muted small">還缺的地方（${hard.length}）</div>${hard.map((g) => `<div class="issue">${esc(gapText(g))}</div>`).join('')}` : '<div class="pill ok">條件都滿足了</div>'}
     ${soft.length ? `<div class="muted small">說不清的事（${soft.length}）</div>${soft.map((g) => `<div class="issue">${esc(g.note || g.kind)}</div>`).join('')}<label class="row"><input type="checkbox" data-in="skip" ${S.ui.skip ? 'checked' : ''}> 標略過這些「說不清的事」</label>` : ''}
     <div style="margin-top:10px"><button class="btn" data-act="allowDraft">可以開始寫了</button></div></details>`;
@@ -466,7 +466,7 @@ ACT.allowDraft = async (el) => {
   if (!r.ok) { el.disabled = false; return; } await refreshDoc(); toast('已告訴學生：可以開始寫了。');
 };
 // ── 批改頁：左原文、右工具 ──
-const AUTHOR = { student: '學生', teacher: '老師', ai: '系統' }, DECISION = { return: '退回修改', reopen: '重開問答', finalize: '定稿' };
+const AUTHOR = { student: '學生', teacher: '老師', ai: '系統' }, DECISION = { return: '退回修改', reopen: '重新問答', finalize: '定稿' };
 const tableText = (v) => (Array.isArray(v) ? v.map((r) => [r.term || r[0] || '', r.subject || r[1] || '', r.score || r[2] || ''].join(',')).join('\n') : v || '');
 function editFor(key, val) {
   let hit = null; ((S.doc.review && S.doc.review.edits) || []).forEach((e) => { if (cellKeyOf(e) === key && e.afterText === val) hit = e; });
@@ -505,7 +505,7 @@ function toolsHtml(canEdit, rv) {
       <button class="btn" data-act="saveCm">儲存逐句意見</button><div class="muted small">儲存會取代上一次存的整份意見；發佈前學生看不到。</div>`;
   } else {
     body = !review ? '<div class="hint">學生把稿交來後才能發佈。</div>' : `<div class="muted small">學生送審：第 ${rv ? rv.round : 1} 輪</div><div class="row" style="margin:8px 0">${Object.entries(DECISION).map(([k, t]) => `<label><input type="radio" name="dec" value="${k}" data-in="decision" ${u.decision === k ? 'checked' : ''}> ${t}</label>`).join('')}</div>
-      <label class="f" for="sum">總評（退回、重開問答必填；定稿選填）</label><textarea id="sum" data-in="summary" maxlength="3000">${esc(u.summary)}</textarea><div style="margin-top:8px"><button class="btn" data-act="publish">發佈</button></div>`;
+      <label class="f" for="sum">總評（退回、重新問答必填；定稿選填）</label><textarea id="sum" data-in="summary" maxlength="3000">${esc(u.summary)}</textarea><div style="margin-top:8px"><button class="btn" data-act="publish">發佈</button></div>`;
   }
   return `<div class="seg-tabs">${tab('edit', '直接改字')}${tab('comment', '逐句意見')}${tab('publish', '退回／重開／定稿')}</div>${body}`;
 }
@@ -515,7 +515,7 @@ function gradeCard() {
   return `<div class="card ${d.state === 'review_pending' ? 'active' : ''}"><h2>批改頁｜第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}寫的）${d.state === 'finalized' ? ' <span class="pill ok">已定稿</span>' : ''}${rv && rv.decision ? ` <span class="pill main">上次：${esc(DECISION[rv.decision] || rv.decision)}</span>` : ''}</h2>
     ${rv && LOCAL_SERVER ? '<div class="row" style="margin:0 0 8px"><button class="btn sm ghost" data-act="dlReview">下載批改版 Word（含追蹤修訂與逐句意見）</button><span class="muted small">發佈前下載＝目前改到哪裡；學生要等你發佈後才下載得到。</span></div>' : ''}
     <div class="two"><div><h3 style="margin-top:0">原文</h3>${cellsHtml(S.ui.tool === 'edit' && canEdit)}</div><div>${toolsHtml(canEdit, rv)}
-      ${sc && sc.status === 'done' ? `<h3>送出前檢查結果 <span class="badge ai">系統檢查，未經老師審閱</span></h3>${(sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}</div>`).join('') || '<div class="pill ok">沒有發現問題</div>'}` : ''}</div></div></div>`;
+      ${sc && sc.status === 'done' ? `<h3>送出前檢查結果 <span class="badge ai">系統檢查的結果，你還沒看過</span></h3>${(sc.issues || []).map((i) => `<div class="issue">${i.sectionKey && i.sectionKey !== 'total' ? '【' + esc(cellLabel(i.sectionKey, i.fieldKey)) + '】' : ''}${esc(i.note || i.kind)}</div>`).join('') || '<div class="pill ok">沒有發現問題</div>'}` : ''}</div></div></div>`;
 }
 ACT.tool = (el) => { S.ui.tool = el.dataset.tool; renderDoc(); };
 // W6b：批改版 Word（本機伺服器 /export/review.docx；老師改的字＝追蹤修訂、逐句意見＝Word 註解）
@@ -524,7 +524,7 @@ ACT.dlReview = async (el) => {
   try {
     const ss = await sb.auth.getSession(), tok = ss.data && ss.data.session && ss.data.session.access_token;
     const res = await fetch('/export/review.docx?doc=' + encodeURIComponent(S.docId), { headers: { authorization: 'Bearer ' + (tok || '') } });
-    if (!res.ok) { toast(res.status === 404 ? '找不到可以匯出的批改（或這個版本只能在本機試用版下載）。' : '下載沒有成功，請稍後再試。', true); return; }
+    if (!res.ok) { toast(res.status === 404 ? '找不到可以下載的批改。' : '下載沒有成功，請稍後再試。', true); return; }
     const m = /filename\*=UTF-8''([^;]+)/i.exec(res.headers.get('content-disposition') || ''), name = m ? decodeURIComponent(m[1]) : 'NOPQ通批改版.docx';
     const url = URL.createObjectURL(await res.blob()), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
@@ -562,8 +562,8 @@ ACT.saveCm = async (el) => {
 };
 IN.decision = (el) => { S.ui.decision = el.value; }; IN.summary = (el) => { S.ui.summary = el.value; };
 ACT.publish = async (el) => {
-  const u = S.ui, rv = S.doc.review; if (!u.decision) return toast('先選：退回修改、重開問答或定稿。', true);
-  if (u.decision !== 'finalize' && !u.summary.trim()) return toast('退回或重開問答要寫總評。', true);
+  const u = S.ui, rv = S.doc.review; if (!u.decision) return toast('先選：退回修改、重新問答或定稿。', true);
+  if (u.decision !== 'finalize' && !u.summary.trim()) return toast('退回或重新問答要寫總評。', true);
   el.disabled = true; const r = await call('teacher_publish_review', { p_review_id: rv.id, p_decision: u.decision, p_summary: u.summary.trim() || null }); if (!r.ok) { el.disabled = false; return; }
   await refreshDoc(); toast(`已發佈：${DECISION[r.decision]}，目前狀態：${S.doc.stateLabel}`);
 };
@@ -579,7 +579,7 @@ function verPlain(ver) {
 async function verGet(id) {
   const vu = verUi(); if (vu.cache[id]) return vu.cache[id];
   const r = await call('get_draft_version', { p_case_doc_id: S.docId, p_version_id: id }, { quiet: true }).catch(() => null);
-  if (!r || !r.ok) { toast('這一版現在還打不開（系統還沒更新到這個功能）。', true); return null; }
+  if (!r || !r.ok) { toast('這一版現在還不能打開。需要看的話，請找育才仕。', true); return null; }
   return (vu.cache[id] = r.version);
 }
 const verName = (v) => `第 ${v.versionNumber} 版（${AUTHOR[v.authorType] || v.authorType}，${when(v.createdAt)}）`;
@@ -624,7 +624,7 @@ const LERR = { SLOT_CONFLICT: '這個時間你開了一對一時段，直播課�
   LIVE_LESSON_CONFLICT: '這段時間裡有你的直播課。', SLOT_IN_PAST: '時間要在現在之後。', SLOT_BOOKED: '已經有學生約了這段，不能直接收回；要先取消那筆預約。',
   SLOT_CLOSED: '這段已經收回了。', SLOT_NOT_FOUND: '找不到這段時段（可能已經收回），已為你更新畫面。', BOOKING_NOT_FOUND: '找不到這筆預約，已為你更新畫面。',
   BOOKING_NOT_ACTIVE: '這筆預約已經取消或完成了，已為你更新畫面。', TOO_EARLY_TO_COMPLETE: '課還沒開始；開始之後才能按「已完成」。',
-  QUOTA_EXHAUSTED: '這位學生的時數不夠，這次沒有扣、預約維持「已約」。請聯絡 staff 查這位學生的時數。', NOT_ASSIGNED: '這個班別不是你帶的，沒辦法建課。' };
+  QUOTA_EXHAUSTED: '這位學生的時數不夠，這堂沒有扣時數，預約還是「已約」。請找育才仕行政查他的時數。', NOT_ASSIGNED: '這個班別不是你帶的，沒辦法建課。' };
 const lerr = (r) => LERR[r.error] || errText(r);
 const SKIP_WHY = { SLOT_OVERLAP: '跟已開的時段重疊', LIVE_LESSON_CONFLICT: '那時有直播課' };
 const WD = '日一二三四五六', p2 = (n) => String(n).padStart(2, '0');
@@ -643,7 +643,7 @@ async function viewLessons() {
 function renderLessons() {
   const tab = S.ui.ltab;
   const seg = [['live', '直播課（一對多）'], ['one', '一對一']].map(([k, t]) => `<button type="button" class="btn sm ${tab === k ? '' : 'ghost'}" data-act="lTab" data-k="${k}" aria-pressed="${tab === k}">${t}</button>`).join('');
-  view(`<div class="card"><h2>排課</h2><p class="muted" style="margin:0 0 8px">直播課是一對多：建一堂課，學生在課程頁看得到。一對一：你開有空的時段，學生用買好的時數來約；上完你按「已完成」才扣時數。</p><div class="seg-tabs" id="l-seg">${seg}</div></div>`
+  view(`<div class="card"><h2>排課</h2><p class="muted" style="margin:0 0 8px">直播課是一對多，建好一堂課，學生在課程頁就看得到。<br>一對一是你開有空的時段，學生用買好的時數來約。上完課你按「已完成」才會扣時數。</p><div class="seg-tabs" id="l-seg">${seg}</div></div>`
     + (tab === 'one' ? oneHtml() : liveHtml()));
 }
 ACT.lTab = (el) => { S.ui.ltab = el.dataset.k; S.ui.ask = null; renderLessons(); };
@@ -671,7 +671,7 @@ ACT.mkLesson = async (el) => {
 // ── 排課：一對一（老師開有空的時段；學生預約；上完按已完成才扣時數）──
 function oneHtml() {
   const g = S.ui.sf, list = S.ui.tslots;
-  const btn = list == null ? '<p class="err">一對一還沒開通（資料庫還沒更新到這一版），請聯絡育才仕 staff。</p>' : '<div style="margin-top:12px"><button class="btn" data-act="addSlot">開這個時段</button></div>';
+  const btn = list == null ? '<p class="err">一對一功能還不能用，請找育才仕行政。</p>' : '<div style="margin-top:12px"><button class="btn" data-act="addSlot">開這個時段</button></div>';
   const form = `<div class="card" id="l-one"><h2>開一對一時段</h2><p class="muted" style="margin:0 0 6px">開你有空的時間，一段＝一堂課（1 到 3 小時）。學生有買時數才約得到；同一段只能被一位學生約走。</p>
     <label class="f" for="s-at">開始時間（必填）</label><input type="datetime-local" id="s-at" data-in="sf" data-k="at" value="${esc(g.at)}">
     <label class="f" for="s-hours">長度</label><select id="s-hours" data-in="sf" data-k="hours">${[1, 2, 3].map((h) => `<option value="${h}" ${g.hours === String(h) ? 'selected' : ''}>${h} 小時</option>`).join('')}</select>
@@ -738,7 +738,7 @@ ACT.tcGo = async (el) => {
 // ── 補充用語 ──
 function viewTerms() {
   const f = S.ui.tf = S.ui.tf || { term: '', dept: '' };
-  view(`<div class="card"><h2>補充能力用語</h2><p class="muted" style="margin:0 0 6px">系統只能從「校系指引」「學群通用」「老師補充」三個來源的詞裡提議能力標籤。你補的詞只對你帶的學生生效。</p>
+  view(`<div class="card"><h2>補充能力用語</h2><p class="muted" style="margin:0 0 6px">系統建議能力標籤時，只會用這三種來源的詞：校系指引、學群通用、老師補充。你補的詞只有你帶的學生會用到。</p>
     <label class="f" for="t-term">用語（必填，最多 30 字）</label><input type="text" id="t-term" data-in="tf" data-k="term" maxlength="30" value="${esc(f.term)}">
     <label class="f" for="t-dept">對應校系代碼（選填）</label><input type="text" id="t-dept" data-in="tf" data-k="dept" maxlength="20" value="${esc(f.dept)}">
     <div style="margin-top:12px"><button class="btn" data-act="addTerm">加入</button></div></div>
