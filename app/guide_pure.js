@@ -197,11 +197,27 @@ function gi116(it) { var g = it && it.guideItems; return g && typeof g === 'obje
 function giSource(gi) { return (Array.isArray(gi.sources) ? gi.sources : []).filter(function (s) { return s && s.kind === 'cac_rules'; })[0] || {}; }
 function giYear(gi) { return giSource(gi).year || 116; }
 function itemName(x) { return x.officialName ? x.code + ' ' + x.officialName : (DOC_SHORT[x.code] || x.code); }
+// 2026-11-21 主線 P3②（「只有真的有題目的項目才能說『題目』」）：116 簡章那幾句的種類是匯入時照關鍵字分的（build_guide_items_cac116.py 的 QUESTION_RE），
+//   項目層 19 句被標成題目、其中 10 句其實不是：網址裡的「?」被當問號（006302、030042）；「需含／須包含」寫的是證明、作品、檔案要有什麼
+//   （001452 獸醫場所實習證明「需含實習時數、單位核章及獸醫師簽名」、056132 作品集、099422 證明、013012 等「需包含手寫自述…掃描成PDF」、018152）；
+//   寫了「題目」兩個字但只是叫你去網站看（001642）。畫面上凡是要分「題目／說明」的地方一律用 isQ；學校指引（sg:）的種類是階段二管線給的，照原樣。
+var Q_ASK = /請闡述|請論述|請論證|請說明|請回答|試述|試論|[？?]/, Q_WORD = /題目/, Q_MUST = /[需須應]包?含|必須包含/;
+var Q_POINTER = /詳閱|詳見|參閱|請至|網站|網頁|下載/, Q_DOC = /證明|檔案|PDF|掃描|簽名|核章|作品|正本|影本|手寫|格式|表格|項目說明|上傳/i;
+function isQ(p) {
+  if (typeof p === 'string') return true;   // 舊後端：題目只給字串
+  if (!p || typeof p !== 'object' || (p.kind && p.kind !== 'question')) return false;
+  if (!p.kind || String(p.sourceId || '').indexOf('sg:') === 0) return true;
+  var t = String(p.text || '').replace(/https?:\/\/[\x21-\x7e]+|www\.[\x21-\x7e]+/gi, ' ');   // 網址裡的 ? 不算問號（只吃到網址本身，中文不算網址）
+  if (Q_ASK.test(t)) return true;
+  if (Q_WORD.test(t)) return !Q_POINTER.test(t);   // 有「題目」：叫你去網站、網頁看的不算
+  if (Q_MUST.test(t)) return !Q_DOC.test(t);       // 「需含／須包含」：寫的是要寫到的內容才算；證明、作品、檔案、格式要有什麼不算
+  return false;
+}
 // 共用題目（kind＝question、appliesTo 兩項以上：學校指引同一列好幾項、分不出是哪一項）老師確認前不畫（主線 11-18 裁定第 3 題；後端 28q ④a 也收）
-function sharedQ(p, x) { return !!p && p.kind === 'question' && Array.isArray(p.appliesTo) && p.appliesTo.length > 1 && !(x && x.reviewed === true); }
+function sharedQ(p, x) { return !!p && isQ(p) && Array.isArray(p.appliesTo) && p.appliesTo.length > 1 && !(x && x.reviewed === true); }
 // 共用的說明照畫（學校原文本來就寫在同一格），後面加小標記（主線 11-18 第二次裁定第 3 題）
 function sameCellTag(p) { return p && Array.isArray(p.appliesTo) && p.appliesTo.length > 1 ? ' <span class="muted small">（' + esc(fill(WORDS.sameCell, { codes: p.appliesTo.join('、') })) + '）</span>' : ''; }
-function prompt116(x) { return (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.kind === 'question' && p.text && !sharedQ(p, x); }); }
+function prompt116(x) { return (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.text && isQ(p) && !sharedQ(p, x); }); }
 // 四區（設計稿 5.1）：write＝N、O、P、Q 與 R 之後要寫的（N 一律在這一區：簡章註 3，N 是考生自己做 PDF 另外上傳的，資料裡 N 標在多元表現那一組也一樣）；
 // portfolio＝A–M，從學習歷程檔案挑；school＝學校表格、作品、證明、推薦函，照學校說的方式交；other＝其他資料。
 function zones116(gi) {
@@ -223,7 +239,7 @@ function renderZones116(gi, o) {
     var opt = /選繳/.test((x.needQuote || '') + (x.officialName || ''));
     var ps = (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.text && (p.kind === 'question' || p.kind === 'advice') && !sharedQ(p, x); });
     return '<li><b>' + esc(zname(x)) + '</b>' + (opt ? ' <span class="pill">' + esc(WORDS.optShort) + '</span>' : '') + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '') + (btn || '')
-      + ps.map(function (p) { return '<div class="q116">' + esc(p.kind === 'question' ? WORDS.q116 : WORDS.adv116) + esc(p.text) + sameCellTag(p) + yrTag(srcLabel(p)) + '</div>'; }).join('') + '</li>';
+      + ps.map(function (p) { return '<div class="q116">' + esc(isQ(p) ? WORDS.q116 : WORDS.adv116) + esc(p.text) + sameCellTag(p) + yrTag(srcLabel(p)) + '</div>'; }).join('') + '</li>';
   };
   var w = o.skipNQ ? z.write.filter(function (x) { return x.code > 'Q'; }) : z.write;
   // A–M 一碼一列、寫出名稱；A 單獨一列，B–E（課程學習成果）、F–M（多元表現）各一行小標；A–M 以外的碼（照理不會有）照原樣列
@@ -260,17 +276,17 @@ function renderZones116(gi, o) {
 // 115 的系上強調、這系看重、篇幅不畫（後端也已收起；舊後端送來的一樣不畫）。
 // 2026-11-21 主線裁示：題目出處是 116 簡章時，題目底下不放「去年學校指引的題目我們正在重新核對」那一句（對照欄到了、還沒到都一樣）；
 //   那一句只跟 115 學校指引的內容放在一起（需求頁「去年（115）學校指引」那一行）。這一系列得出 116 題目 → 寫稿頁就不講 115 核對狀態。
-function is116Prompt(p) { return !!p && typeof p === 'object' && !!p.text && !!p.sourceId && String(p.sourceId).indexOf('sg:') !== 0 && (!p.kind || p.kind === 'question'); }
+function is116Prompt(p) { return !!p && typeof p === 'object' && !!p.text && !!p.sourceId && String(p.sourceId).indexOf('sg:') !== 0 && isQ(p); }
 function focusUncShown(dp) {   // 寫稿頁對照欄要不要講「去年學校指引…正在重新核對」：沒過檢查，而且這一系沒有列出 116 題目
   dp = dp || {};
-  var qs = (Array.isArray(dp.prompts) ? dp.prompts : []).filter(function (x) { return x && typeof x === 'object' && x.text && x.sourceId && x.kind === 'question'; });
+  var qs = (Array.isArray(dp.prompts) ? dp.prompts : []).filter(function (x) { return x && typeof x === 'object' && x.text && x.sourceId && isQ(x); });
   return dp.checked !== true && !qs.some(is116Prompt);
 }
 function focusDeptHtml(dp, L, full) {
   dp = dp || {};
   var pro = (Array.isArray(dp.prompts) ? dp.prompts : []).filter(function (x) { return x && typeof x === 'object' && x.text && x.sourceId; });
   // 11-18 主線第二次驗收 P2：題目（question）列「要回答」，說明（advice、criteria）另列「說明：」
-  var qs = pro.filter(function (x) { return x.kind === 'question'; }), adv = pro.filter(function (x) { return x.kind !== 'question'; });
+  var qs = pro.filter(isQ), adv = pro.filter(function (x) { return !isQ(x); });   // 11-21 P3②：照 isQ 分
   var st = dp.listed116 ? (/選繳/.test(dp.needQuote116 || '') ? 'cacOpt' : 'cac') : dp.required === true || dp.required === false ? 'guide' : '';
   var req = st ? needPill(L, st) : '', unc = dp.checked !== true, uncShow = focusUncShown(dp), y115 = (dp.guideYear || 115) + ' 學校指引';
   var link = safeUrl(dp.guideUrl) ? ' <a href="' + esc(dp.guideUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(WORDS.officialLink) + '</a>' : '';
@@ -300,8 +316,8 @@ function pqGuideHtml(d, letter) {
   var mine = function (p) { return !!p && (typeof p === 'string' || !p.doc || p.doc === letter); };
   var txt = function (p) { return typeof p === 'string' ? p : (p && p.text) || ''; };
   var ps = (Array.isArray(d.prompts) ? d.prompts : []).filter(mine).filter(txt);
-  var qs = ps.filter(function (p) { return typeof p === 'string' || !p.kind || p.kind === 'question'; });
-  var adv = ps.filter(function (p) { return typeof p === 'object' && p.kind && p.kind !== 'question'; }).concat((Array.isArray(d.advice) ? d.advice : []).filter(mine).filter(txt));
+  var qs = ps.filter(isQ);   // 11-21 P3②：照 isQ 分（字串、沒帶 kind 的照舊算題目）
+  var adv = ps.filter(function (p) { return !isQ(p); }).concat((Array.isArray(d.advice) ? d.advice : []).filter(mine).filter(txt));
   var y = d.guideYear || 115;
   // 2026-11-21：X（自傳、小論文…）的題目是開稿時釘的快照（116 簡章，或去年學校指引），每條照對照欄標出處——對照欄還沒到或沒拿到時，
   //   畫面原本只有題目、不標出處（對照欄到了才有「116 簡章」）。
@@ -324,16 +340,44 @@ function renderItems116(it, o) { var gi = gi116(it); return gi ? renderZones116(
 var SELF_LABEL = { aiFront: '要在學習歷程自述「首頁」放學校提供的 AI 使用聲明', aiSeparate: '要另外交 AI 使用聲明（檔案或表格）', aiNote: '作品或小論文用了 AI 要註明',
   chars: '分則寫了字數規定', pages: '分則寫了頁數規定' };
 function selfRules(it) { var s = it && it.stage2; return s && Array.isArray(s.selfRules) ? s.selfRules.filter(function (r) { return r && SELF_LABEL[r.kind]; }) : []; }
+// 2026-11-21 主線 P3①：分則原文片段（source_assets/cac_116/04_自述規定_116.tsv）是 11-07 照關鍵字各截一段、用「…」接起來的，
+//   同一句會被截好幾次（臺大獸醫 001452：750 字、250 字、1000 字三個關鍵字各截一段，三段幾乎全重疊，畫面貼了三次）。
+//   這裡把每段放回分則原文（stage2.reviewDesc，比對時不計空白）找位置，重疊或相鄰的合併成一段，照原文順序；
+//   原文裡找不到的段，跟別段是包含或頭尾重疊（至少 6 個字）的也併進去，其餘照原樣留著。同一系的幾條規則（字數＋頁數、幾條 AI 聲明）一起合。
+function quoteOverlap(a, b) { for (var n = Math.min(a.length, b.length); n > 0; n--) if (a.slice(-n) === b.slice(0, n)) return n; return 0; }
+function mergeQuotes(quotes, src) {
+  var parts = [];
+  (quotes || []).forEach(function (q) { String(q || '').split('…').forEach(function (s) { s = s.replace(/\s+/g, ' ').trim(); if (s) parts.push(s); }); });
+  var S = String(src || ''), nw = [], map = [];
+  for (var i = 0; i < S.length; i++) if (!/\s/.test(S.charAt(i))) { nw.push(S.charAt(i)); map.push(i); }
+  var N = nw.join(''), iv = [], loose = [];
+  parts.forEach(function (s) { var w = s.replace(/\s+/g, ''), k = N && w ? N.indexOf(w) : -1; if (k >= 0) iv.push([k, k + w.length]); else loose.push(s); });
+  iv.sort(function (a, b) { return a[0] - b[0] || b[1] - a[1]; });
+  var mg = [];
+  iv.forEach(function (x) { var last = mg[mg.length - 1]; if (last && x[0] <= last[1]) last[1] = Math.max(last[1], x[1]); else mg.push([x[0], x[1]]); });   // 重疊或相鄰（下一段的開頭不晚於上一段的結尾）
+  var out = mg.map(function (x) { return S.slice(map[x[0]], map[x[1] - 1] + 1).replace(/\s+/g, ' ').trim(); });
+  loose.forEach(function (s) {
+    for (var j = 0; j < out.length; j++) {
+      var o = out[j], ov;
+      if (o.indexOf(s) >= 0) return;
+      if (s.indexOf(o) >= 0) { out[j] = s; return; }
+      if ((ov = quoteOverlap(o, s)) >= 6) { out[j] = o + s.slice(ov); return; }
+      if ((ov = quoteOverlap(s, o)) >= 6) { out[j] = s + o.slice(ov); return; }
+    }
+    out.push(s);
+  });
+  return out;
+}
 function needsAiStatement(it) { return selfRules(it).some(function (r) { return r.kind === 'aiFront' || r.kind === 'aiSeparate'; }); }
 function rules116Html(it) {
   var s = it && it.stage2; if (!s || s.source !== 'cac-apply116') return '';
   var h = '', items = (Array.isArray(s.reviewItems) ? s.reviewItems : []).map(function (x) { return x && (x.text || x.name); }).filter(Boolean);
   var rs = selfRules(it), ai = rs.filter(function (r) { return /^ai/.test(r.kind); }), len = rs.filter(function (r) { return r.kind === 'chars' || r.kind === 'pages'; });
   if (ai.length) h += '<div class="issue small"><b>' + esc(SELF_LABEL[ai[0].kind]) + '。</b>聲明怎麼寫、檔案去哪下載，照分則說明到學校網站；NOPQ通不代填。'
-    + ai.map(function (r) { return '<div class="muted small">分則原文：「…' + esc(r.quote) + '…」</div>'; }).join('') + '</div>';
+    + mergeQuotes(ai.map(function (r) { return r.quote; }), s.reviewDesc).map(function (q) { return '<div class="muted small">分則原文：「…' + esc(q) + '…」</div>'; }).join('') + '</div>';
   var gi = gi116(it);   // 2026-11-17：有 116 項目層時，「要交什麼」與簡章原文改由卡片上方 renderItems116 顯示，這裡不重複
   if (items.length && !gi) h += '<div class="gline"><span class="k">116 簡章寫要交</span>' + esc(items.join('、')) + '</div>';
-  if (len.length) h += '<div class="gline"><span class="k">篇幅（分則原文）</span>' + len.map(function (r) { return '「…' + esc(r.quote) + '…」'; }).join('<br>') + yrTag('116 簡章') + '</div>';
+  if (len.length) h += '<div class="gline"><span class="k">篇幅（分則原文）</span>' + mergeQuotes(len.map(function (r) { return r.quote; }), s.reviewDesc).map(function (q) { return '「…' + esc(q) + '…」'; }).join('<br>') + yrTag('116 簡章') + '</div>';
   if (s.reviewDesc && !gi) { var d = String(s.reviewDesc).replace(/\s+/g, ' ').trim(); h += '<details class="small"><summary>116 簡章的審查資料說明（原文）</summary><div class="muted">' + esc(d.length > 600 ? d.slice(0, 600) + '…' : d) + '</div></details>'; }
   return h ? '<div class="r116">' + h + '</div>' : '';
 }
@@ -414,5 +458,5 @@ function renderDeptIntro(lines, fmtDate) {
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
     + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
-root.NG = { CAC_NAMES: CAC_NAMES, codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+root.NG = { isQ: isQ, mergeQuotes: mergeQuotes, CAC_NAMES: CAC_NAMES,codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);
