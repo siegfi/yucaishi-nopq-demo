@@ -13,11 +13,12 @@ function fetchStars(items) {
 async function viewNeed() {
   setTab('need'); view(loading); const my = S.rt;
   const w = await call('my_wishlist'); if (!w.ok || my !== S.rt) return;
-  const items = (w.items || []).slice().sort((a, b) => a.rank - b.rank);
+  // 11-20（28t）：R 以後要寫的那一項要知道開過了沒（開始寫／繼續寫）；用開機載好的首頁資料，不另外重撈（楊老師改版：換分頁不重撈首頁資料）
+  const items = (w.items || []).slice().sort((a, b) => a.rank - b.rank), docs = ((S.home || {}).docs || []);
   if (!items.length) { view('<div class="card"><h2>審查資料準備指引說明</h2><p>還沒存志願，所以還看不到每一系要你交什麼。</p><a class="btn" href="#/score">去挑科系</a> <a class="btn ghost" href="#/import">匯入落點通的志願</a></div>'); return; }
   const starP = fetchStars(items);
   const render = (stars) => view(`<div class="card active"><h2>審查資料準備指引說明</h2><p class="muted small" style="margin:0 0 6px">這幾系要你交什麼、題目是什麼。</p><p style="margin:0 0 6px">${esc(NG.guideSummary(items))}</p><p class="muted" style="margin:0">${esc(NG.WORDS.needIntro)}</p></div>
-    ${items.map((it) => NG.renderGuideCard(it, stars[String(it.deptCode)])).join('')}
+    ${items.map((it) => NG.renderGuideCard(it, stars[String(it.deptCode)], { docs })).join('')}
     <div class="card"><button class="btn" data-act="needDone">看過了，往下</button></div>`);
   render({}); markReqSeen();
   const stars = await starP; if (my !== S.rt || !Object.keys(stars).length) return;

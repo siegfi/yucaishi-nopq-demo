@@ -82,7 +82,10 @@ var WORDS = {
   zWrite: '要寫的，在這裡寫',           // 11-19 改，待楊老師確認（舊：要自己寫的）
   zPrep: '從學習歷程檔案挑的',           // 11-19 改，待楊老師確認（舊句見設計稿 5.1）
   zOther: '其他資料',
-  notYet: '這一篇現在還不能在這裡寫。先照題目寫在自己的檔案裡。',   // 11-19 改，待楊老師確認（舊：這一篇還不能在 NOPQ通 裡寫，先照題目準備）
+  notYet: '這一篇現在還不能在這裡寫。先照題目寫在自己的檔案裡。',   // 11-19 改，待楊老師確認（舊：這一篇還不能在 NOPQ通 裡寫，先照題目準備）。11-20 起只在呼叫端沒給系碼時才用（正常頁面都換成下面兩顆鈕）
+  startWrite: '開始寫',   // 11-20 審查資料第二步（28t）：R 以後要寫的（自傳、小論文…）在這裡寫
+  contWrite: '繼續寫',
+  xChanged: '題目換了',   // 11-20（28u）：已經開寫的那一篇，學校的題目換了
   hintUpload: '作品或影音',
   hintSchoolForm: '到這一系的網站下載表格，填好照學校說的方式交。',   // 11-19 改，待楊老師確認（舊：學校指定的表格）
   hintProof: '照簡章寫的方式交，有的要寄正本。',   // 11-19 改，待楊老師確認（舊：證明或推薦）
@@ -216,10 +219,10 @@ function renderZones116(gi, o) {
   o = o || {};
   var src = giSource(gi), yr = giYear(gi), tag = yr + ' 簡章', z = zones116(gi);
   var zname = function (x) { return x.officialName ? x.code + ' ' + x.officialName : (codeName(x.code) || itemName(x)); };
-  var li = function (x, note) {   // 題目（question）與說明（advice）都照原文列，各標來源；名稱或原文寫了「選繳」才標選繳（owner 第②題）
+  var li = function (x, note, btn) {   // 題目（question）與說明（advice）都照原文列，各標來源；名稱或原文寫了「選繳」才標選繳（owner 第②題）；btn＝已組好的按鈕 HTML（開始寫／繼續寫）
     var opt = /選繳/.test((x.needQuote || '') + (x.officialName || ''));
     var ps = (Array.isArray(x.prompts) ? x.prompts : []).filter(function (p) { return p && p.text && (p.kind === 'question' || p.kind === 'advice') && !sharedQ(p, x); });
-    return '<li><b>' + esc(zname(x)) + '</b>' + (opt ? ' <span class="pill">' + esc(WORDS.optShort) + '</span>' : '') + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '')
+    return '<li><b>' + esc(zname(x)) + '</b>' + (opt ? ' <span class="pill">' + esc(WORDS.optShort) + '</span>' : '') + (note ? ' <span class="muted small">' + esc(note) + '</span>' : '') + (btn || '')
       + ps.map(function (p) { return '<div class="q116">' + esc(p.kind === 'question' ? WORDS.q116 : WORDS.adv116) + esc(p.text) + sameCellTag(p) + yrTag(srcLabel(p)) + '</div>'; }).join('') + '</li>';
   };
   var w = o.skipNQ ? z.write.filter(function (x) { return x.code > 'Q'; }) : z.write;
@@ -236,7 +239,16 @@ function renderZones116(gi, o) {
   if (!w.length && !z.portfolio.length && !z.school.length && !z.other.length && !desc) return '';
   var h = '<div class="i116"><div><b>' + esc(o.title || fill(WORDS.z116Title, { y: yr })) + '</b>' + yrTag(tag) + '</div>';
   if (desc) h += '<div class="desc116"><span class="k">' + esc(WORDS.z116Desc) + '　</span>' + esc(desc) + yrTag(tag) + '</div>';
-  if (w.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zWrite) + '</span><ul class="plain">' + w.map(function (x) { return li(x, x.code > 'Q' ? WORDS.notYet : ''); }).join('') + '</ul></div>';
+  // 2026-11-20 審查資料第二步（28t）：R 以後要寫的那一項，呼叫端給了系碼（o.deptCode）就放「開始寫」（後端 open_extra_doc 建稿）；
+  //   這一系這一項已經開過（o.docs 裡有同代碼的 X 稿）就放「繼續寫」直接連到那一篇。沒給系碼（例如離線測試只畫內容）才照舊寫 notYet。
+  var xBtn = function (x) {
+    if (!(x.code > 'Q') || !o.deptCode) return '';
+    var d = (Array.isArray(o.docs) ? o.docs : []).filter(function (z) { return z && z.nopqType === 'X_extraWriting' && z.itemCode === x.code && String(z.deptCode) === String(o.deptCode); })[0];
+    var flag = d && d.promptFlag === 'changed' ? ' <span class="pill warn">' + esc(WORDS.xChanged) + '</span>' : '';   // 28u
+    return d ? flag + ' <a class="btn sm" href="#/doc/' + esc(d.caseDocId) + '">' + esc(WORDS.contWrite) + '</a>'
+      : ' <button type="button" class="btn sm" data-act="openExtra" data-dept="' + esc(o.deptCode) + '" data-code="' + esc(x.code) + '">' + esc(WORDS.startWrite) + '</button>';
+  };
+  if (w.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zWrite) + '</span><ul class="plain">' + w.map(function (x) { return li(x, x.code > 'Q' && !o.deptCode ? WORDS.notYet : '', xBtn(x)); }).join('') + '</ul></div>';
   if (z.portfolio.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zPrep) + '</span><div class="muted small">' + esc(WORDS.pickIntro) + '</div><ul class="plain">' + pick + '</ul>'
     + '<div style="margin-top:6px"><a class="btn sm ghost" href="#/mine">' + esc(WORDS.pickBtn) + '</a></div></div>';
   if (z.school.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zSchool) + '</span><ul class="plain">' + z.school.map(function (x) { return li(x, FORM_HINT[x.form] || ''); }).join('') + '</ul></div>';
@@ -246,13 +258,21 @@ function renderZones116(gi, o) {
 // 寫稿頁對照欄（write.js focusCard）一系的內容。dp＝28q nopq_review_focus 的一系；full＝P、Q 單系（true）或 N、O 多系的一小段（false）。
 // 題目只畫項目層給的（每條有 sourceId，標自己的來源年份）；沒過檢查的系不講「沒有題目」、不點名，一律同一句＋官方連結；過了檢查且真的沒題目才講「沒有」。
 // 115 的系上強調、這系看重、篇幅不畫（後端也已收起；舊後端送來的一樣不畫）。
+// 2026-11-21 主線裁示：題目出處是 116 簡章時，題目底下不放「去年學校指引的題目我們正在重新核對」那一句（對照欄到了、還沒到都一樣）；
+//   那一句只跟 115 學校指引的內容放在一起（需求頁「去年（115）學校指引」那一行）。這一系列得出 116 題目 → 寫稿頁就不講 115 核對狀態。
+function is116Prompt(p) { return !!p && typeof p === 'object' && !!p.text && !!p.sourceId && String(p.sourceId).indexOf('sg:') !== 0 && (!p.kind || p.kind === 'question'); }
+function focusUncShown(dp) {   // 寫稿頁對照欄要不要講「去年學校指引…正在重新核對」：沒過檢查，而且這一系沒有列出 116 題目
+  dp = dp || {};
+  var qs = (Array.isArray(dp.prompts) ? dp.prompts : []).filter(function (x) { return x && typeof x === 'object' && x.text && x.sourceId && x.kind === 'question'; });
+  return dp.checked !== true && !qs.some(is116Prompt);
+}
 function focusDeptHtml(dp, L, full) {
   dp = dp || {};
   var pro = (Array.isArray(dp.prompts) ? dp.prompts : []).filter(function (x) { return x && typeof x === 'object' && x.text && x.sourceId; });
   // 11-18 主線第二次驗收 P2：題目（question）列「要回答」，說明（advice、criteria）另列「說明：」
   var qs = pro.filter(function (x) { return x.kind === 'question'; }), adv = pro.filter(function (x) { return x.kind !== 'question'; });
   var st = dp.listed116 ? (/選繳/.test(dp.needQuote116 || '') ? 'cacOpt' : 'cac') : dp.required === true || dp.required === false ? 'guide' : '';
-  var req = st ? needPill(L, st) : '', unc = dp.checked !== true, y115 = (dp.guideYear || 115) + ' 學校指引';
+  var req = st ? needPill(L, st) : '', unc = dp.checked !== true, uncShow = focusUncShown(dp), y115 = (dp.guideYear || 115) + ' 學校指引';
   var link = safeUrl(dp.guideUrl) ? ' <a href="' + esc(dp.guideUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(WORDS.officialLink) + '</a>' : '';
   var li = function (x) { return '<li>' + esc(x.text) + sameCellTag(x) + yrTag(srcLabel(x)) + '</li>'; };
   // 11-18 主線第二次驗收 P1：「沒有」只能來自正面事實——後端 promptsNone＝true 才講 checkedNone；過了檢查但沒題目可給（待複核、共用題目扣住、舊後端沒給旗標）講 checkedPending
@@ -261,13 +281,13 @@ function focusDeptHtml(dp, L, full) {
     return '<div class="fdept"><b>' + (dp.rank ? esc(dp.rank) + '. ' : '') + esc((dp.schoolName || '') + ' ' + (dp.name || '')) + '</b> ' + req
       + (qs.length ? '<div class="small">' + esc(WORDS.focusAskShort) + '</div><ul class="plain">' + qs.map(li).join('') + '</ul>' : '')
       + (adv.length ? '<div class="small">' + esc(WORDS.adv116) + '</div><ul class="plain">' + adv.map(li).join('') + '</ul>' : '')
-      + (unc ? '<div class="small">' + esc(fill(WORDS.uncheckedLine, { y: dp.guideYear || 115 })) + link + yrTag(y115) + '</div>'
+      + (uncShow ? '<div class="small">' + esc(fill(WORDS.uncheckedLine, { y: dp.guideYear || 115 })) + link + yrTag(y115) + '</div>'
         : pend ? '<div class="small">' + esc(fill(WORDS.checkedPending, { y: dp.guideYear || 115 })) + link + yrTag(y115) + '</div>' : '') + '</div>';
   }
   return (req ? '<div style="margin:0 0 6px">' + req + '</div>' : '')
     + (qs.length ? '<div class="fsec"><b>' + esc(WORDS.focusAsk) + '</b><ul class="fchk">' + qs.map(li).join('') + '</ul></div>' : '')
     + (adv.length ? '<div class="fsec"><b>' + esc(WORDS.adv116) + '</b><ul class="plain">' + adv.map(li).join('') + '</ul></div>' : '')
-    + (unc ? '<div class="fsec small">' + esc(WORDS.uncheckedDoc) + link + yrTag(y115) + '</div>'
+    + (uncShow ? '<div class="fsec small">' + esc(WORDS.uncheckedDoc) + link + yrTag(y115) + '</div>'
       : pend ? '<div class="fsec small">' + esc(fill(WORDS.checkedPending, { y: dp.guideYear || 115 })) + link + yrTag(y115) + '</div>'
       : none ? '<div class="fsec muted small">' + esc(fill(WORDS.checkedNone, { k: L, y: dp.guideYear || 115 })) + '</div>' : '');
 }
@@ -283,9 +303,14 @@ function pqGuideHtml(d, letter) {
   var qs = ps.filter(function (p) { return typeof p === 'string' || !p.kind || p.kind === 'question'; });
   var adv = ps.filter(function (p) { return typeof p === 'object' && p.kind && p.kind !== 'question'; }).concat((Array.isArray(d.advice) ? d.advice : []).filter(mine).filter(txt));
   var y = d.guideYear || 115;
-  var li = function (p) { return '<li>' + esc(txt(p)) + (typeof p === 'object' ? sameCellTag(p) : '') + '</li>'; };
+  // 2026-11-21：X（自傳、小論文…）的題目是開稿時釘的快照（116 簡章，或去年學校指引），每條照對照欄標出處——對照欄還沒到或沒拿到時，
+  //   畫面原本只有題目、不標出處（對照欄到了才有「116 簡章」）。
+  var x = d.nopqType === 'X_extraWriting';
+  var li = function (p) { return '<li>' + esc(txt(p)) + (typeof p === 'object' ? sameCellTag(p) + (x ? yrTag(srcLabel(p)) : '') : '') + '</li>'; };
   var h = qs.length ? '<ul class="plain">' + qs.map(li).join('') + '</ul>' : '';
   if (adv.length) h += '<div class="muted small">' + esc(WORDS.adv116) + '</div><ul class="plain">' + adv.map(li).join('') + '</ul>';
+  // 2026-11-21 主線裁示：列出了 116 簡章的題目，底下就不放 115 學校指引的狀態句（「正在重新核對」「還沒有學校的準備指引」），跟對照欄同一條（focusUncShown）
+  if (qs.some(is116Prompt)) return h;
   if (d.guideSource === 'missing' || !d.guideSource) h += '<div class="muted">' + esc(WORDS.noGuide) + '</div>';
   else if (d.checked === true) h += qs.length ? '' : '<div class="muted">' + esc(d.promptsNone === true ? fill(WORDS.checkedNone, { k: letter, y: y }) : fill(WORDS.checkedPending, { y: y })) + '</div>';
   else h += '<div class="muted">' + esc(WORDS.uncheckedNoUrl) + '</div>';
@@ -294,7 +319,7 @@ function pqGuideHtml(d, letter) {
 function focusHasPoints(f) {
   return !!f && Array.isArray(f.depts) && f.depts.some(function (dp) { return dp && Array.isArray(dp.prompts) && dp.prompts.some(function (x) { return x && typeof x === 'object' && x.text && x.sourceId; }); });
 }
-function renderItems116(it) { var gi = gi116(it); return gi ? renderZones116(gi) : ''; }
+function renderItems116(it, o) { var gi = gi116(it); return gi ? renderZones116(gi, { deptCode: it && it.deptCode, docs: o && o.docs }) : ''; }   // 11-20：帶系碼與該生的稿（開始寫／繼續寫）
 // 2026-11-12 換 116（owner 拍板 D2／D3／D7）：116 簡章寫的審查資料、自述規定原文、AI 使用聲明提醒。只照原文顯示，不替學生判斷、不代填。
 var SELF_LABEL = { aiFront: '要在學習歷程自述「首頁」放學校提供的 AI 使用聲明', aiSeparate: '要另外交 AI 使用聲明（檔案或表格）', aiNote: '作品或小論文用了 AI 要註明',
   chars: '分則寫了字數規定', pages: '分則寫了頁數規定' };
@@ -330,10 +355,10 @@ function renderStar(s) {
   if (safeUrl(s.rulesUrl)) h += '<div><a href="' + esc(s.rulesUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(yr) + ' 繁星校系分則（甄選會）</a></div>';
   return h + '</div>';
 }
-function renderGuideCard(it, star) {
+function renderGuideCard(it, star, o) {   // o.docs＝學生的稿（me_home docs；11-20 起 R 以後要寫的那一項放開始寫／繼續寫）
   var f = factsOf(it), g = hasGuide(it) ? it.guide : null, name = (it.schoolName || '') + ' ' + (it.name || '');
   var h = '<div class="need guide-card"><div class="row spread"><b>' + esc(it.rank) + '. ' + esc(name.trim()) + '</b>' + snapPill(it.snapshot) + '</div>'
-    + renderItems116(it)
+    + renderItems116(it, o)
     + renderDigest(it)
     + '<div class="facts"><span><span class="k">審查資料</span>' + (f.hasReview ? (f.reviewPct != null ? esc(f.reviewPct) + '%' : '有') : '沒有') + '</span><span><span class="k">筆試</span>' + (f.written ? '有' : '沒有')
     + '</span><span><span class="k">面試</span>' + (f.interview ? '有' : '沒有') + '</span><span><span class="k">名額</span>' + (it.quota != null ? esc(it.quota) : '—') + '</span></div>'
@@ -389,5 +414,5 @@ function renderDeptIntro(lines, fmtDate) {
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
     + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
-root.NG = { CAC_NAMES: CAC_NAMES, codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+root.NG = { CAC_NAMES: CAC_NAMES, codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);

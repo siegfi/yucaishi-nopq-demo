@@ -209,3 +209,5 @@ header.top .who .shoplink { color:#fff; white-space:nowrap; font-size:13px; }
   .dwrap { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:0 14px; align-items:start; } .dwrap .dfocus { order:0; position:sticky; top:68px; max-height:calc(100vh - 80px); overflow:auto; }
 }
 .invitem .invsumm { margin-top:4px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; }
+/* 28u（指引重建設計稿第 12 節）：題目換了，原本／現在兩欄並列；窄螢幕自動上下排 */
+.pcols { display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0; } .pcols .pcol { flex:1 1 220px; min-width:0; } .pcols ul.plain { margin:2px 0 4px; }

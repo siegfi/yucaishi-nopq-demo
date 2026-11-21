@@ -46,6 +46,7 @@
   .cellv { border:1px solid var(--line); border-radius:6px; margin:8px 0; padding:8px 10px; background:#fff; } .cellv.edited { background:var(--yellow); border-color:#E0C84A; } .cellv.pick { box-shadow:0 0 0 2px var(--accent); cursor:pointer; }
   .cellv .lab { font-size:13px; font-weight:700; color:var(--main); display:flex; justify-content:space-between; gap:6px; flex-wrap:wrap; } .cellv .ro { white-space:pre-wrap; word-break:break-word; margin-top:3px; user-select:text; }
   .seg { margin:12px 0 4px; padding:5px 10px; border-left:4px solid var(--main); background:var(--soft); font-weight:700; border-radius:0 6px 6px 0; }
+  .pcols { display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0; } .pcols .pcol { flex:1 1 220px; min-width:0; } .pcols ul.plain { margin:2px 0 4px; }   /* 28u：題目換了，原本／現在 */
   .issue { border-left:4px solid var(--warn); padding:4px 10px; margin:6px 0; background:#FFF8EC; font-size:14px; } .cm { border-left:4px solid var(--accent); padding:6px 10px; margin:8px 0; background:#FFF8EC; font-size:14px; }
   .badge { display:inline-block; font-size:12px; padding:0 8px; border-radius:4px; background:#EEF1F5; color:var(--muted); border:1px solid var(--line); } .badge.ai { background:#FFF8EC; color:var(--warn); border-color:#F0D9A8; }
   .seg-tabs { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; } ul.plain { margin:4px 0; padding-left:20px; } .center { text-align:center; padding:30px 0; }
@@ -213,7 +214,7 @@ async function viewStudents() {
   const live = (d) => d.state !== 'warmup' && d.state !== 'finalized', stuck = (s) => Math.max(0, ...s.docs.filter(live).map((d) => d.stuckDays || 0));
   let list = r.students.slice().sort((a, b) => stuck(b) - stuck(a) || a.nickname.localeCompare(b.nickname));
   if (states) list = list.filter((s) => s.docs.some((d) => states.includes(d.state))); const top = list.length && stuck(list[0]) > 0 ? list[0].studentId : null;
-  view(`<div class="card"><div class="row spread"><h2 style="margin:0">我的學生</h2>${f ? `<span>篩選：<span class="pill main">${esc(f[1])}</span><button class="btn sm ghost" data-act="clearFilter">看全部</button></span>` : ''}</div>
+  view(promptFlagCard(r.students) + `<div class="card"><div class="row spread"><h2 style="margin:0">我的學生</h2>${f ?`<span>篩選：<span class="pill main">${esc(f[1])}</span><button class="btn sm ghost" data-act="clearFilter">看全部</button></span>` : ''}</div>
     <p class="muted small" style="margin:6px 0 0">卡最久的學生排最前面。每位學生下面列 N、O 的進度。P、Q 只列交來批改或已經定稿的，其他只寫篇數。</p></div><div class="card">${list.map((s) => `<div class="srow"><div><b>${esc(s.nickname)}</b> ${top === s.studentId ? '<span class="pill warn">卡最久</span>' : ''}
       <div class="muted small">${esc(TRACK[s.track] || s.track)}｜${esc(s.cohortName || '')}</div><span class="pill ${s.aiConsent ? 'ok' : 'warn'}">${s.aiConsent ? '已同意使用 AI' : '還沒同意使用 AI'}</span><span class="pill">${esc(AGE[s.ageStatus] || s.ageStatus)}</span></div>
       <div>${stuDocsHtml(s, states, live)}<div class="lvbox" id="lv_${esc(s.studentId)}"><button type="button" class="btn sm ghost" data-act="lvShow" data-id="${esc(s.studentId)}">落點分析版本</button></div></div></div>`).join('') || '<p class="muted">沒有符合的學生。</p>'}</div>`);
@@ -246,17 +247,34 @@ ACT.lvDone = async (el) => {
   try { const r = await call('teacher_done_look_request', { p_id: el.dataset.id }); if (!r.ok) return; toast('標成看過了。'); const d = await call('teacher_student_luodian', { p_student_id: el.dataset.sid }); if (d.ok) $('lv_' + el.dataset.sid).innerHTML = lvPanel(el.dataset.sid, d); } finally { el.disabled = false; }
 };
 // 2026-11-08 架構稿 W5：P、Q 每個志願系各一篇，一位學生最多 12 篇；只列有動靜的（交來批改、定稿過、有輪次、或被篩選命中的），其餘一行篇數
-const isPQ = (d) => d.nopqType === 'P_motivation' || d.nopqType === 'Q_futurePlan';
+// 2026-11-20 審查資料第二步（28t）：各系自訂的寫作（自傳、小論文…）＝X_extraWriting，跟 P、Q 一樣是每系一篇的整段稿；標題寫代碼＋項目名稱＋系名
+const isPQ = (d) => d.nopqType === 'P_motivation' || d.nopqType === 'Q_futurePlan' || d.nopqType === 'X_extraWriting';   // 系別稿（P、Q、X）
+const docTypeName = (d) => (d && d.nopqType === 'X_extraWriting' ? ((d.itemCode || '') + ' ' + (d.itemLabel || '這一系要寫的')).trim() : (TYPE_NAME[d.nopqType] || d.nopqType));
+// 2026-11-20（28u，指引重建設計稿第 12 節）：學校的題目換了／今年沒有這一項——稿子不動，每篇掛旗標（promptFlag）；清單最上面一張卡置頂列出，已定稿的排最前面
+//   （已定稿＋題目換了＝要不要重開由老師決定，R22）。後端還沒套 28u 時沒有 promptFlag，這張卡不出現。
+const PROMPT_FLAG = { changed: ['warn', '題目換了'], gone: ['', '今年沒有這一項'] };
+const flagPill = (d) => { const f = PROMPT_FLAG[d && d.promptFlag]; return f ? `<span class="pill ${f[0]}">${esc(f[1])}</span>` : ''; };
+function promptFlagCard(students) {
+  const rows = [];
+  (students || []).forEach((s) => (s.docs || []).forEach((d) => { if (PROMPT_FLAG[d.promptFlag]) rows.push({ s, d }); }));
+  if (!rows.length) return '';
+  const rank = (x) => (x.d.promptFlag === 'changed' && x.d.state === 'finalized' ? 0 : x.d.promptFlag === 'changed' ? 1 : 2);
+  rows.sort((a, b) => rank(a) - rank(b) || String(a.d.promptSince || '').localeCompare(String(b.d.promptSince || '')));
+  return `<div class="card" id="prompt-flags"><h2 style="margin:0">學校的題目換了（${rows.length} 篇）</h2>
+    <p class="muted small" style="margin:6px 0 0">稿子都沒動。學生頁已經提醒；已定稿的那幾篇學生不能自己換，要不要重開由你決定（可以在那一篇留言給學生）。</p>
+    ${rows.map(({ s, d }) => `<div class="row spread" style="padding:3px 0"><span><b>${esc(s.nickname)}</b>　${esc(docTypeName(d))}${d.deptName ? ' ' + esc(d.deptName) : ''}　${flagPill(d)}<span class="pill main">${esc(d.stateLabel)}</span>${d.state === 'finalized' && d.promptFlag === 'changed' ? '<span class="pill warn">已定稿，請你決定</span>' : ''}</span>
+      <a class="btn sm" href="#/doc/${esc(d.caseDocId)}">看</a></div>`).join('')}</div>`;
+}
 function stuDocRow(d, states, live) {
-  const name = (TYPE_NAME[d.nopqType] || d.nopqType).slice(0, 1) + (isPQ(d) && d.deptName ? ' ' + d.deptName : '');
-  return `<div class="row spread" style="padding:3px 0"><span>${esc(name)}　<span class="pill main">${esc(d.stateLabel)}</span>${d.round ? `<span class="pill">第 ${d.round} 輪</span>` : ''}${isPQ(d) && d.inWishlist === false ? '<span class="pill">已不在志願</span>' : ''}${live(d) && d.stuckDays >= 1 ? `<span class="pill warn">卡 ${d.stuckDays} 天</span>` : ''}</span>
+  const name = (d.nopqType === 'X_extraWriting' ? docTypeName(d) : (TYPE_NAME[d.nopqType] || d.nopqType).slice(0, 1)) + (isPQ(d) && d.deptName ? ' ' + d.deptName : '');
+  return `<div class="row spread" style="padding:3px 0"><span>${esc(name)}　${flagPill(d)}<span class="pill main">${esc(d.stateLabel)}</span>${d.round ? `<span class="pill">第 ${d.round} 輪</span>` : ''}${isPQ(d) && d.inWishlist === false ? '<span class="pill">已不在志願</span>' : ''}${live(d) && d.stuckDays >= 1 ? `<span class="pill warn">卡 ${d.stuckDays} 天</span>` : ''}</span>
     <a class="btn sm ${states && states.includes(d.state) ? '' : 'ghost'}" href="#/doc/${esc(d.caseDocId)}">${d.state === 'warmup' ? '看' : '處理'}</a></div>`;
 }
 function stuDocsHtml(s, states, live) {
   const docs = s.docs || [], no = docs.filter((d) => !isPQ(d)), pq = docs.filter(isPQ);
-  const busy = pq.filter((d) => d.state === 'review_pending' || d.state === 'finalized' || d.round || (states && states.includes(d.state) && d.state !== 'draft_open'));
+  const busy = pq.filter((d) => d.state === 'review_pending' || d.state === 'finalized' || d.round || d.promptFlag || (states && states.includes(d.state) && d.state !== 'draft_open'));   // 28u：掛旗標的也列出來
   const rest = pq.length - busy.length;
-  return no.concat(busy).map((d) => stuDocRow(d, states, live)).join('') + (rest > 0 ? `<div class="muted small" style="padding:3px 0">另有 P、Q ${rest} 篇學生還在寫（還沒交來）</div>` : '');
+  return no.concat(busy).map((d) => stuDocRow(d, states, live)).join('') + (rest > 0 ? `<div class="muted small" style="padding:3px 0">另有每系各寫的稿（P、Q、自傳、小論文等）${rest} 篇學生還在寫（還沒交來）</div>` : '');
 }
 // ── 素材待回（W5）：學生把課程學習成果、多元表現交來看；老師回一段意見，或請學生補一下 ──
 const KIND_NAME = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現', statement: '學習歷程自述' }, MAT_STATUS = { pending: '待回', replied: '已回', needMore: '請學生補', withdrawn: '學生收回' };   // withdrawn：28m 學生在老師回之前收回
@@ -330,6 +348,24 @@ function syncUi() {
   if (u.key === key) return; u.key = key; u.pr = {}; u.editKey = null; u.editText = ''; u.editReason = ''; u.asg = null; u.fb = null; u.skip = false;
   u.items = JSON.parse(JSON.stringify((d.review && d.review.items) || [])); u.cm = { issue: '', question: '' }; u.decision = ''; u.summary = '';
 }
+// 28u：這一篇的題目換了／今年沒有這一項——原本（學生寫的時候）與現在的題目並列（teacher_doc 的 promptCheck；沒有就不出現）
+const pText = (p) => (typeof p === 'string' ? p : p && p.text) || '';
+function promptColT(title, side) {
+  const qs = (side.prompts || []).map(pText).filter(Boolean), adv = (side.advice || []).map(pText).filter(Boolean);
+  const lims = [...new Set((side.limits || []).map((l) => (l && (l.pages != null || l.chars != null) ? [l.chars != null ? '最多 ' + l.chars + ' 字' : '', l.pages != null ? '限 ' + l.pages + ' 頁' : ''].filter(Boolean).join('、') : (l && (l.quote || l.text)) || '')).filter(Boolean))];
+  return `<div class="pcol"><div class="muted small">${esc(title)}</div>${qs.length ? `<ul class="plain">${qs.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : '<div class="small">（沒有指定題目）</div>'}
+    ${adv.length ? `<div class="muted small">說明</div><ul class="plain">${adv.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}${lims.length ? `<div class="muted small">篇幅：${esc(lims.join('；'))}</div>` : ''}</div>`;
+}
+function promptCheckHtml(d) {
+  const pc = d.promptCheck; if (!pc) return '';
+  if (pc.status === 'gone') return '<div class="issue" id="prompt-check">今年的簡章沒有這一項了：稿子保留，學生端改成只能看和複製。</div>';
+  if (pc.status !== 'changed') return '';
+  const o = pc.old || {}, c = pc.current || {}, nameCh = (pc.diff || []).includes('name') && c.itemLabel;
+  const lead = pc.finalized ? '這一篇定稿時用的題目，後來學校改了。稿子沒動、也沒有退回；要不要重開請你決定（可以留言告訴學生）。'
+    : '學校的題目換了：學生頁已經提醒，學生按「照新題目改」之後才換成新題目，稿子不會自動改。';
+  return `<div class="issue" id="prompt-check"><b>${esc(lead)}</b>${nameCh ? `<div class="small">項目名稱：${esc(o.itemLabel || '')} → ${esc(c.itemLabel)}</div>` : ''}
+    <div class="pcols">${promptColT('原本的題目（學生寫的時候）', o)}${promptColT('現在的題目', c)}</div></div>`;
+}
 function renderDoc() {
   const d = S.doc; if (!d || d.caseDocId !== S.docId) return; const y = window.scrollY;
   const late = ['draft_open', 'self_check_pending', 'review_pending', 'finalized'].includes(d.state);   // 進到稿件階段，批改頁放最前面
@@ -338,10 +374,10 @@ function renderDoc() {
 function headCard() {
   const d = S.doc, i = Math.max(0, STATES.indexOf(d.state)), st = d.internal && d.internal.student, lj = d.lastJob;
   return `<div class="card active"><a href="#/students" class="small" style="text-decoration:none">← 我的學生</a>
-    <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(TYPE_NAME[d.nopqType] || d.nopqType)}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
+    <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(docTypeName(d))}${d.nopqType === 'X_extraWriting' && d.deptName ? '｜' + esc((d.schoolName || '') + ' ' + d.deptName) : ''}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
       ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? '沒開 AI，題目和能力標籤要你自己來' : '學生還沒同意使用 AI，題目要你自己出'}</span></div>
-    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇（通常一分鐘內會好），等一下按「重新整理」。</div>' : ''}
+    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${promptCheckHtml(d)}${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇（通常一分鐘內會好），等一下按「重新整理」。</div>' : ''}
     ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你來做（現在沒開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）沒有成功：學生的內容都在，可以由你來做。</div>`) : ''}
     <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="reload">重新整理</button></div></div>`;
 }

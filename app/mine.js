@@ -248,7 +248,8 @@ async function invLoad() {
   try { const r = await call('my_inventory', {}, { quiet: true }); if (!r || !r.ok) { S.mine.inv = null; return false; } S.mine.inv = invNorm(r); S.mine.invHidden = Array.isArray(r.hidden) ? r.hidden : null; return true; }
   catch (e) { if (e && e.message === 'NET') throw e; S.mine.inv = null; return false; }   // 2026-11-12：連線失敗／等太久不退回舊的兩題問答，交給 guard 出重新載入鈕
 }
-const invDocs = (type) => ((S.home || {}).docs || []).filter((d) => ['warmup', 'interviewing', 'draft_open'].includes(d.state) && (!type || d.nopqType === DOC_TYPE_OF[type]) && d.inWishlist !== false);
+// 2026-11-20（28t）：各系自訂的寫作（X）不收上傳的現成稿（後端 submit_uploaded_draft 刻意不收），所以不列進「交給老師改」的選單
+const invDocs = (type) => ((S.home || {}).docs || []).filter((d) => ['warmup', 'interviewing', 'draft_open'].includes(d.state) && (!type || d.nopqType === DOC_TYPE_OF[type]) && d.inWishlist !== false && d.nopqType !== 'X_extraWriting');
 // 2026-11-12 楊老師試用回饋 階段 1①（D4、D5）：每一筆可以改（標題、文字）、換一份、收起來（不真刪，最下面「收起來的」拿得回來）；
 // 交給老師之後、老師還沒回之前不能改、不能收起，但可以「收回」；老師回了之後可以改，改完再交＝新的一輪。後端沒有 28m（清單沒有 canEdit）就不出這幾顆。
 const REV_HINT = { pending: '等老師看的時候不能改、不能收起；要改先按「收回」。', needMore: '老師請你補一下：按「改」補好，再按「補好了，再交給老師看」（算新的一輪）。',

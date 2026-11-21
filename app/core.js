@@ -17,6 +17,8 @@ const ERRS = {
   CASE_NOT_FOUND: '找不到這一篇（或不是你的）。', NOT_FOUND: '找不到這個項目（或不是你的）。', NOT_ASSIGNED: '這個項目不是你的。', CONSENT_MISSING: '同意書還沒登錄完成，暫時不能繼續，請聯絡育才仕。',
   AI_CONSENT_MISSING: '這一步由老師來做。', STATE_INVALID: '這個動作現在不能做，畫面已經更新，請再看一次。',
   STALE: '這一頁有更新，已經重新載入。剛才的動作請再做一次。', QUOTA_EXCEEDED: '今天的系統次數用完了，請明天再試，或請老師幫忙。', VALIDATION: '資料不完整或格式不對',
+  NOT_IN_WISHLIST: '這一系現在不在你的志願裡，選回來才能寫。', NOT_WRITABLE: '這一項現在不是在這裡寫的，請看這一系的說明或問老師。',   // 11-20（28t）開始寫
+  ITEM_GONE: '今年的簡章沒有要你寫這一項了，這篇只能看和複製。',   // 11-20（28u）題目換了：今年沒有這一項
   HAS_WISH_EVENT: '這版存過志願，會留著，不能刪。', ACK_REQUIRED: '請先看完落點分析的說明並勾選，再存成志願。', AI_DISABLED: '這個功能現在沒有開放，請按「請老師看」。',
   AI_OFF: '這一步由老師來做。',   // 2026-11-12 28l：AI 總開關關著
 };
@@ -334,8 +336,10 @@ function route() {
 }
 // 每一頁載入失敗（連線斷了等）都給一個重試鈕，不要停在「載入中」
 function guard(f) {
+  const my = S.rt;   // 2026-11-20：已經換頁了，舊那一頁晚到的錯誤只記下來、不蓋掉新的一頁（寫稿頁還在載入就切到「撰寫NOPQ」會撞到：S.doc 已清空）
   return Promise.resolve().then(f).catch((e) => {
     if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return;   // 已經回到登入頁
+    if (my !== S.rt) { console.warn('view（已換頁，略過）', e && e.message); return; }
     $('view').innerHTML = failCard(lastFailMsg || '請檢查網路，再按「重新載入」。');
     console.warn('view', e && e.message);
   });
@@ -355,7 +359,9 @@ const SUBJECTS = ['chi', 'eng', 'math_a', 'math_b', 'soc', 'sci'];
 const SUBJ_NAME = { chi: '國文', eng: '英文', math_a: '數學A', math_b: '數學B', soc: '社會', sci: '自然' };
 const SUBJ_ABBR = { chi: '國', eng: '英', math_a: '數A', math_b: '數B', soc: '社', sci: '自' };
 const LV_NAME = ['底標', '後標', '均標', '前標', '頂標'];
-const docTitle = (d) => (TYPE_NAME[d.nopqType] || d.nopqType) + (d.deptName ? '｜' + d.deptName : '');
+// 2026-11-20 審查資料第二步（28t）：各系自訂的寫作（自傳、小論文…）＝X_extraWriting，名稱用「代碼＋建立當下的官方名稱」（例：S 小論文）
+const typeName = (d) => (d && d.nopqType === 'X_extraWriting' ? ((d.itemCode || '') + ' ' + (d.itemLabel || '這一系要寫的')).trim() : (TYPE_NAME[d.nopqType] || d.nopqType));
+const docTitle = (d) => typeName(d) + (d.deptName ? '｜' + d.deptName : '');
 const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const mdOf = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()}`; };
 const codeOf = (id) => { const p = String(id).split('-'); return p.length > 1 ? p[1] : String(id).slice(-6); };   // 校系 id 後六碼＝志願代碼
