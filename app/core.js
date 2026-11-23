@@ -43,7 +43,7 @@ function toast(msg, bad) {
 // 每一次跟資料庫要資料都有等待上限；「載入中」說得出在等什麼，久了加一句「還在讀」；失敗時把「載入中」換成一句話＋重新載入鈕（不再一直轉）。
 // 首頁資料 me_home 換分頁不重撈：讀過 60 秒內直接用；只要叫了會寫資料的 RPC（存檔、交出…）就作廢，回首頁會重讀；首頁有「更新」鈕。
 const RPC_LIMIT = 25000, HOME_TTL = 60000;
-const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|luodian_ai_status|ai_switch_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢
+const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|luodian_ai_status|ai_switch_status|ai_job_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢（ai_job_status：2026-11-22 排隊進度，輪詢用）
 let homeCache = null, homeAt = 0, lastFailMsg = '';
 const WAIT_MSG = { me_home: '正在讀你的資料…', get_doc_state: '正在打開這一篇…', open_doc: '正在打開這一篇…', my_inventory: '正在讀你的東西…', my_wishlist: '正在讀你的志願…',
   my_files: '正在讀你的檔案…', my_materials: '正在讀整理出的事…', list_terms: '正在讀能力標籤…', list_luodian_versions: '正在讀你存過的落點版本…' };
@@ -328,6 +328,8 @@ function route() {
   const h = hashParts().path; const m = h.match(/^#\/doc\/([\w-]+)$/);
   if (m) return guard(() => viewDoc(m[1]));   // 2026-11-12：開一篇也經過 guard（原本失敗會停在「載入中」）
   S.docId = null; S.doc = null;
+  const md = h.match(/^#\/dept\/([0-9A-Z]{6})$/);   // 2026-11-21 第三步：這一系要交的（dept.js 畫面③④⑤）
+  if (md && typeof viewDept === 'function') return guard(() => viewDept(md[1]));
   // 2026-11-09 落點分析改版 L0：三個子分頁共用「落點分析」那一格（setTab('score')）
   const f = { '#/score': viewScore, '#/score/history': viewScoreHistory, '#/score/assess': viewScoreAssess, '#/wish': viewWish, '#/need': viewNeed, '#/mine': viewMine, '#/write': viewWrite, '#/import': viewImport,
     '#/deliver': viewDeliver,   // 2026-11-12 階段 1：我要交的（write.js）

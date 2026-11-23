@@ -203,14 +203,14 @@ async function runParse() {
     try {
       const r = await call('parse_material', { p_file_asset_id: f.id }, { quiet: true });
       if (!r.ok) { fail = r.error === 'AI_OFF' ? '這一步由老師來做：老師會直接看你的檔案，你可以先往下寫。' : r.error === 'AI_CONSENT_MISSING' || r.error === 'QUOTA_EXCEEDED' ? errText(r) + '你可以直接往下，老師會看你的檔案。' : errText(r); if (r.error === 'AI_OFF') { S.aiOn = false; break; } continue; }
-      try { await sb.functions.invoke('nopq-ai', { body: { jobId: r.jobId } }); } catch (e) { /* 結果看 my_materials */ }
+      // 2026-11-22 AI 改排隊：不再叫 nopq-ai、不再一個檔等一個檔；全部送出後一起等，工作由資料庫派給背景工作者，結果看 my_materials
     } catch (e) { fail = '連線失敗，稍後再試。'; }
   }
   let items = [];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 20; i++) {   // 每 3 秒看一次，最多約 60 秒
     try { const x = await call('my_materials', {}, { quiet: true }); if (x.ok) { items = x.items || []; if (items.length) break; } } catch (e) { break; }
     if (fail) break;
-    await sleep(2000);
+    await sleep(3000);
   }
   m.busy = ''; m.items = items; m.parseMsg = items.length ? '' : (fail || '還沒整理出東西，等一下再回來看，或直接往下寫，會先從問答開始。');
   renderMine();
@@ -233,7 +233,8 @@ function invNorm(r) {   // 後端回傳可能是 items 陣列（每筆帶 kind�
     const rv = it.review || it.lastReview || null;
     return { id: it.id || it.fileAssetId, name: it.title || it.fileName || '（沒有標題）', fileName: it.fileName || '', kind: it.kind || it.inventoryKind || null, self: !!(it.selfWritten),
       preview: it.preview || it.textPreview || it.text || '', type: it.nopqType || '', at: it.createdAt || '', canSubmit: it.canSubmit,
-      canEdit: it.canEdit, canHide: it.canHide, canWithdraw: it.canWithdraw, submittedDocId: it.submittedDocId || null, replaces: it.replaces || null,   // 28m（沒有＝undefined，新按鈕不出現）
+      canEdit: it.canEdit, canHide: it.canHide, canWithdraw: it.canWithdraw, submittedDocId: it.submittedDocId || null, replaces: it.replaces || null,
+      code: it.itemCode || null, codeBy: it.itemCodeBy || null,   // 11-21 第三步（28v）：代碼（空＝還沒標代碼）、誰標的   // 28m（沒有＝undefined，新按鈕不出現）
       edited: it.editedAfterSubmit,   // 28o（11-13 第 34 條）：交給老師後又改過；沒有 28o＝undefined，等老師看時照舊只能收回
       rv: rv ? { status: rv.status, note: rv.teacherNote || rv.note || '', round: rv.round } : it.reviewStatus ? { status: it.reviewStatus, note: it.teacherNote || '', round: it.reviewRound } : null };
   };
@@ -245,7 +246,13 @@ function invNorm(r) {   // 後端回傳可能是 items 陣列（每筆帶 kind�
   return out;
 }
 async function invLoad() {
-  try { const r = await call('my_inventory', {}, { quiet: true }); if (!r || !r.ok) { S.mine.inv = null; return false; } S.mine.inv = invNorm(r); S.mine.invHidden = Array.isArray(r.hidden) ? r.hidden : null; return true; }
+  try {
+    const r = await call('my_inventory', {}, { quiet: true }); if (!r || !r.ok) { S.mine.inv = null; return false; } S.mine.inv = invNorm(r); S.mine.invHidden = Array.isArray(r.hidden) ? r.hidden : null;
+    // 11-21 第三步（28v）：有官方項目表才換成畫面①的兩塊；沒有（後端還沒套 28v）照舊畫原本的版面
+    S.mine.official = r.official || null; S.mine.hasTeacher = !!r.hasTeacher; S.mine.teacherName = r.teacherName || '';
+    if (S.mine.official) { const w = await call('my_wishlist', {}, { quiet: true }).catch(() => null); S.mine.wish = w && w.ok ? w : null; } else S.mine.wish = null;
+    return true;
+  }
   catch (e) { if (e && e.message === 'NET') throw e; S.mine.inv = null; return false; }   // 2026-11-12：連線失敗／等太久不退回舊的兩題問答，交給 guard 出重新載入鈕
 }
 // 2026-11-20（28t）：各系自訂的寫作（X）不收上傳的現成稿（後端 submit_uploaded_draft 刻意不收），所以不列進「交給老師改」的選單
@@ -322,7 +329,8 @@ function invSumHtml() {
     <p class="muted small" style="margin:8px 0 0">高一、高二的作品、紀錄、寫過的稿都可以放進來。放進來的每一份都可以按「改」，交給老師之後也能改。課程學習成果和多元表現寫好後，可以交給老師看。N、O、P、Q 的稿在最下面交給老師改。</p></div>`;
 }
 ACT.invJump = (el) => { const c = $('inv-' + el.dataset.k); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-function invHtml() {
+function invHtml() { return S.mine.official ? invHtml3() : invHtmlOld(); }   // 11-21 第三步：後端有 28v 才換新版面
+function invHtmlOld() {
   const m = S.mine, inv = m.inv, none = inv._none || [];
   const nMat = (inv.courseResult || []).length + (inv.diverse || []).length, nSt = (inv.statement || []).length;
   // 11-13 第 35 條（USER 原話「NOPQ集中到最後面」）：N、O、P、Q 自述那一區排到這一頁最後面（後面只剩收起來的與「盤點好了」）
@@ -423,6 +431,10 @@ ACT.invHide = async (el) => {
   if (!window.confirm('收起來之後，這一份在清單上看不到；資料和老師的紀錄都還在，可以在最下面「收起來的」拿回來。要收起來嗎？')) return;
   el.disabled = true; const r = await call('inventory_hide', { p_file_asset_id: el.dataset.id, p_hide: true });
   if (!r.ok) { el.disabled = false; return; } const m = invMine(); if (m.invEdit && m.invEdit.id === el.dataset.id) m.invEdit = null;
+  if (Array.isArray(r.removedDepts) && r.removedDepts.length) {   // 11-22 A4（規格 4.4）：從哪幾系的勾選清單拿掉了；那幾系的頁面下次打開寫一次（dept.js 讀）
+    const it = Object.values(m.inv || {}).flat().find((x) => x && x.id === el.dataset.id);
+    dpHidNoteAdd(it ? it.name : '', r.removedDepts);
+  }
   toast('收起來了，在最下面「收起來的」可以拿回來。'); await invLoad(); renderMine();
 };
 ACT.invUnhide = async (el) => { el.disabled = true; const r = await call('inventory_hide', { p_file_asset_id: el.dataset.id, p_hide: false }); if (!r.ok) { el.disabled = false; return; } toast('拿回來了。'); await invLoad(); renderMine(); };
@@ -460,7 +472,11 @@ ACT.invSaveText = async (el) => {
     r = await call('upload_register', { p_kind: k === 'statement' ? 'draft' : 'portfolio', p_nopq_type: k === 'statement' ? m.invType : null, p_file_name: 'pasted.txt', p_mime: 'text/plain',
       p_size: new Blob([text]).size, p_storage_key: `${S.uid}/pasted/${Date.now()}.txt`, p_text: text });
   } catch (e) { r = { ok: false }; }
-  if (r.ok) { await invTag(r.fileAssetId, k, title || text.slice(0, 20), !!(INV_KINDS.find((x) => x.k === k) || {}).write); m.invText[k] = ''; m.invTitle[k] = ''; m.invWrite = null; keepClear('mine:inv:' + k); toast('存好了。'); }
+  if (r.ok) {
+    await invTag(r.fileAssetId, k, title || text.slice(0, 20), !!(INV_KINDS.find((x) => x.k === k) || {}).write); m.invText[k] = ''; m.invTitle[k] = ''; m.invWrite = null; keepClear('mine:inv:' + k); toast('存好了。');
+    if (m.official && k === 'courseRecord') await call('set_inventory_code', { p_file_asset_id: r.fileAssetId, p_kind: 'courseRecord', p_code: null }, { quiet: true }).catch(() => null);   // 11-21：修課紀錄只有 A
+    else if (m.official && (k === 'courseResult' || k === 'diverse')) m.tag = { id: r.fileAssetId, kind: k, step: 2 };   // 11-21 畫面②：放進來接著問代碼（不確定可以先這樣）
+  }
   m.busy = ''; m.msg = ''; await invLoad(); renderMine();
 };
 IN.invKind = async (el) => { if (!el.value) return; await invTag(el.dataset.id, el.value, null, false); await invLoad(); renderMine(); };
@@ -486,3 +502,140 @@ ACT.invDone = async (el) => {   // 沿用舊的起點掃描（start_scan），�
   const h = await call('me_home', {}, { quiet: true }); if (h.ok) S.home = h;
   location.hash = '#/write';
 };
+
+// ══ 2026-11-21 審查資料項目模型第三步：畫面①「我的學習歷程」改成兩塊、畫面②標代碼（規格 04_項目模型第三步_畫面規格_v0.1.md 第 2、3 節）══
+// 後端 28v（my_inventory 回 official 時）才用這個版面；每一件既有的動作（改、換一份、收起、交給老師看、收回、交給老師改）原樣收進「更多」（規格第 12 節第 11 條）。
+const W3 = () => NG.WORDS;
+const f3 = (k, o) => NG.fill(NG.WORDS[k], o);
+const INV3_GROUP = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現' };
+const tName3 = () => { const n = (S.mine && S.mine.teacherName) || ''; return n ? (/老師/.test(n) ? n : n + '老師') : '老師'; };
+function invRow3(it, kd) {
+  const m = invMine(), off = m.official, open = m.tag && m.tag.id === it.id;
+  const codeName = it.code ? NG.offName(off, it.code) : '';
+  return `<div class="pk invrow" id="inv-row-${esc(it.id)}">${dpSq(it.code)}<span class="pt"><b>${esc(it.name)}</b>
+      ${it.code ? `<div class="muted small">${esc(codeName)}</div>` : ` <span class="pill warn">${esc(W3().noCode)}</span>`}
+      ${it.code && it.codeBy === 'teacher' ? ` <span class="pill">${esc(f3('miByTeacher', { t: tName3() }))}</span>` : ''}</span>
+    <span class="pbtns">${kd.k !== 'courseRecord' ? `<button type="button" class="btn sm ghost" data-act="invTagOpen" data-id="${esc(it.id)}">${esc(W3().miTagBtn)}</button>` : ''}</span>
+    ${open ? invTagHtml(it) : ''}
+    <details class="more"><summary>${esc(W3().miMore)}</summary>${invItem(it, kd)}</details></div>`;
+}
+// 畫面②：先選大類（三顆），再選代碼（那一大類的幾顆＋「我不確定，先這樣」）；修課紀錄直接是 A
+function invTagHtml(it) {
+  const m = invMine(), t = m.tag, off = m.official, W = W3();
+  if (t.confirm) return `<div class="tagbox"><p>${esc(f3('tgTeacherSet', { t: tName3(), code: it.code }))}</p>
+    <div class="row"><button type="button" class="btn sm" data-act="invTagYes">${esc(W.tgYes)}</button><button type="button" class="btn sm ghost" data-act="invTagClose">${esc(W.tgNo)}</button></div></div>`;
+  const kinds = ['courseRecord', 'courseResult', 'diverse'];
+  let h = `<div class="tagbox"><p><b>${esc(W.tgQ1)}</b></p><div class="row">${kinds.map((k) => `<button type="button" class="btn sm ${t.kind === k ? '' : 'ghost'}" data-act="invTagKind" data-k="${k}">${esc(INV3_GROUP[k])}</button>`).join('')}</div>
+    <p class="muted small">${esc(W.tgQ1Hint)}</p>`;
+  if (t.kind === 'courseRecord') h += `<p class="muted small">${esc(W.tgAOnly)}</p>`;
+  else if (t.kind && t.step === 2) {
+    const g = INV3_GROUP[t.kind], codes = ((off && off.items) || []).filter((x) => x.groupName === g);
+    h += `<p><b>${esc(W.tgQ2)}</b></p><p class="muted small">${esc(W.tgQ2Hint)}</p><div class="codes">${codes.map((x) => `<button type="button" class="btn sm ${it.code === x.code ? '' : 'ghost'}" data-act="invTagCode" data-code="${esc(x.code)}">${esc(NG.offName(off, x.code))}</button>`).join('')}
+      <button type="button" class="btn sm ghost" data-act="invTagCode" data-code="">${esc(W.tgUnsure)}</button></div>`;
+  }
+  return h + `<div style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="invTagClose">${esc(W.dpNotNow)}</button></div></div>`;
+}
+function invGroup3(kd, title, limitG) {
+  const m = S.mine, list = m.inv[kd.k] || [], off = m.official, W = W3();
+  const lim = limitG ? NG.offLimit(off, limitG) : undefined;
+  const head = limitG ? `<h3 style="margin:12px 0 2px">${esc(title)}</h3><div class="muted small">${lim === undefined ? '' : lim === null ? '' : esc(f3(limitG === '課程學習成果' ? 'pickLimitCourse' : 'pickLimitMulti', { limit: lim })) + ' '}${esc(f3('miCount', { n: list.length }))}</div>`
+    : `<div class="drow"><span><b>${esc(NG.offName(off, 'A'))}</b><div class="muted small">${esc(W.pickA)}</div><div class="muted small">${esc(W.miARef)}</div></span></div>`;
+  const open = m.invWrite === kd.k;
+  return head + list.map((it) => invRow3(it, kd)).join('')
+    + `<div class="row" style="margin-top:6px"><button type="button" class="btn ghost sm" data-act="invWriteToggle" data-k="${kd.k}">${esc(open ? '收起' : W.miPut)}</button></div>`
+    + (open ? `<label class="f" for="inv-title-${kd.k}">一句話標題</label><input type="text" id="inv-title-${kd.k}" data-in="invTitle" data-k="${kd.k}" maxlength="60" value="${esc(m.invTitle[kd.k] || '')}" placeholder="${kd.k === 'courseRecord' ? '例：高一到高二上修課紀錄' : '例：高二上 物理專題：水火箭'}">
+      <label class="f" for="inv-text-${kd.k}">內容</label><textarea id="inv-text-${kd.k}" class="big" data-in="invText" data-k="${kd.k}" maxlength="20000" placeholder="把學校系統裡那一件的內容貼上來，或按下面「用檔案帶入」">${esc(m.invText[kd.k] || '')}</textarea>
+      <div style="margin-top:6px"><button type="button" class="btn" data-act="invSaveText" data-k="${kd.k}">存下來</button></div>` : '')
+    + (m.busy === 'inv:' + kd.k ? `<div class="hint"><span class="spin"></span>${esc(m.msg || '處理中…')}</div>` : '');
+}
+function invBottom3() {
+  const m = S.mine, W = W3(), off = m.official, docs = (S.home || {}).docs || [], w = m.wish, st = m.inv.statement || [];
+  const stateOf = (d) => (d ? `<span class="pill">${esc(d.stateLabel || '')}</span>` : `<span class="pill">${esc(W.miNotStarted)}</span>`);
+  const olds = (type) => { const xs = st.filter((x) => x.type === type); return xs.length ? `<details class="more"><summary>${esc(f3('miOldDrafts', { n: xs.length }))}</summary>${xs.map((x) => invItem(x, INV_KINDS.find((k) => k.k === 'statement'))).join('')}</details>` : ''; };
+  const row = (label, d, href, extra) => `<div class="drow"><span><b>${esc(label)}</b>${extra || ''}</span>${stateOf(d)}<a class="btn sm ghost" href="${esc(href)}">${esc(d ? W.contWrite : W.startWrite)}</a></div>`;
+  const dN = docs.find((d) => d.nopqType === 'N_diverseSummary'), dO = docs.find((d) => d.nopqType === 'O_reflection');
+  let h = `<div class="card" id="inv-bottom"><h2>${esc(W.miBottom)}</h2><p class="muted small" style="margin:0 0 6px">${esc(W.miBottomIntro)}</p>
+    ${row(NG.offName(off, 'N'), dN, dN ? '#/doc/' + dN.caseDocId : '#/write', ` <span class="muted small">${esc(W.miShared)}</span>`)}${olds('N')}
+    ${row(NG.offName(off, 'O'), dO, dO ? '#/doc/' + dO.caseDocId : '#/write', ` <span class="muted small">${esc(W.miShared)}</span>`)}${olds('O')}`;
+  const items = w && Array.isArray(w.items) ? w.items.slice().sort((a, b) => a.rank - b.rank) : [];
+  if (!items.length) return h + `<p>${esc(W.miNoWish)}</p><a class="btn" href="#/wish">${esc(W.miGoWish)}</a></div>`;
+  items.forEach((it) => {
+    const dc = String(it.deptCode), gi = it.guideItems && Array.isArray(it.guideItems.items) ? it.guideItems.items : [];
+    const dP = docs.find((d) => d.nopqType === 'P_motivation' && d.deptCode === dc), dQ = docs.find((d) => d.nopqType === 'Q_futurePlan' && d.deptCode === dc);
+    h += `<h4 style="margin:12px 0 2px">${esc(it.rank + '. ' + (it.schoolName || '') + ' ' + (it.name || ''))}</h4>`;
+    if (!gi.length || gi.some((x) => x.code === 'P')) h += row(NG.offName(off, 'P'), dP, dP ? '#/doc/' + dP.caseDocId : '#/write');
+    if (!gi.length || gi.some((x) => x.code === 'Q')) h += row(NG.offName(off, 'Q'), dQ, dQ ? '#/doc/' + dQ.caseDocId : '#/write');
+    gi.filter((x) => x.code > 'Q' && x.form === 'write').forEach((x) => {
+      const dX = docs.find((d) => d.nopqType === 'X_extraWriting' && d.deptCode === dc && d.itemCode === x.code);
+      h += dX ? row(x.code + ' ' + (x.officialName || ''), dX, '#/doc/' + dX.caseDocId)
+        : `<div class="drow"><span><b>${esc(x.code + ' ' + (x.officialName || ''))}</b></span>${stateOf(null)}<button type="button" class="btn sm" data-act="openExtra" data-dept="${esc(dc)}" data-code="${esc(x.code)}">${esc(W.startWrite)}</button></div>`;
+    });
+  });
+  h += olds('P') + olds('Q');
+  return h + '</div>';
+}
+function invPicks3() {
+  const m = S.mine, W = W3(), off = m.official, w = m.wish;
+  const items = w && Array.isArray(w.items) ? w.items.slice().sort((a, b) => a.rank - b.rank) : [];
+  if (!items.length) return '';
+  const rows = items.map((it) => {
+    const gi = it.guideItems && Array.isArray(it.guideItems.items) ? it.guideItems.items : [], pc = it.pickCounts || {};
+    const listed = (g, lo, hi) => gi.some((x) => x.form === 'portfolio' && x.code >= lo && x.code <= hi);
+    const parts = [];
+    [['課程學習成果', 'B', 'E'], ['多元表現', 'F', 'M']].forEach(([g, lo, hi]) => {
+      if (!listed(g, lo, hi)) return;
+      const lim = NG.offLimit(off, g);
+      parts.push(g + ' ' + (pc[g] || 0) + (lim === undefined || lim === null ? '' : '／' + lim));
+    });
+    const any = Object.values(pc).some((n) => n > 0);
+    return `<div class="drow"><span><b>${esc(it.rank + '. ' + (it.schoolName || '') + ' ' + (it.name || ''))}</b><div class="muted small">${esc(parts.length ? parts.join('、') : W.dpNoPortfolio)}</div></span>
+      ${parts.length ? `<a class="btn sm ${any ? 'ghost' : ''}" href="#/dept/${esc(String(it.deptCode))}">${esc(any ? W.miSeePick : W.miGoPick)}</a>` : ''}</div>`;
+  });
+  return `<div class="card" id="inv-picks"><h2>${esc(W.miPicksTitle)}</h2><p class="muted small" style="margin:0 0 6px">${esc(W.miPicksIntro)}</p>${rows.join('')}</div>`;
+}
+function invHtml3() {
+  const m = S.mine, inv = m.inv, none = inv._none || [], W = W3();
+  const KD = (k) => INV_KINDS.find((x) => x.k === k), total = ['courseRecord', 'courseResult', 'diverse'].reduce((a, k) => a + (inv[k] || []).length, 0);
+  let top = `<div class="card" id="inv-top"><h2>${esc(W.miTop)}</h2><p class="muted small" style="margin:0 0 6px">${esc(W.miTopIntro)}</p>${m.hasTeacher ? `<p class="small" style="margin:0 0 6px">${esc(W.miTeacherSees)}</p>` : ''}`;
+  if (!total && !none.length) top += `<p>${esc(W.miEmpty)}</p>`;
+  top += invGroup3(KD('courseRecord'), '', null) + invGroup3(KD('courseResult'), '課程學習成果（B–E）', '課程學習成果') + invGroup3(KD('diverse'), '多元表現（F–M）', '多元表現');
+  if (none.length) top += `<h3 style="margin:12px 0 2px">${esc(f3('miUnclassified', { n: none.length }))}</h3><p class="muted small">${esc(W.miUnclassHint)}</p>
+    ${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">${esc(W.miPickKind)}</option>${INV_KINDS.filter((x) => x.k !== 'statement').map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}`;
+  top += '</div>';
+  const nMat = (inv.courseResult || []).length + (inv.diverse || []).length;
+  return `<div class="card active"><h2>${esc(W.miTitle)}</h2><p style="margin:0">${esc(W.miIntro)}</p></div>`
+    + `<div class="inv2">${top}${invBottom3()}</div>`
+    + invPicks3()
+    + (m.items && m.items.length ? `<div class="card"><h2>從你的檔案整理出 ${m.items.length} 件事</h2><p class="muted small" style="margin:0 0 6px">系統整理的，老師還沒逐字看過。</p>${m.items.map(matRow).join('')}</div>` : '')
+    + lessonsCard() + invHiddenHtml()
+    + `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就可以往下寫，之後隨時回來補。</p><div class="row">
+      ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>讀我的檔案，整理出我做過的事</button>` : ''}
+      <button type="button" class="btn" data-act="invDone" ${m.busy ? 'disabled' : ''}>盤點好了，往下寫</button></div>
+      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>正在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
+}
+// 畫面②的動作
+const invFind3 = (id) => { const inv = (S.mine && S.mine.inv) || {}; for (const k of Object.keys(inv)) { const x = (inv[k] || []).find((y) => String(y.id) === String(id)); if (x) return x; } return null; };
+ACT.invTagOpen = (el) => {
+  const m = invMine(), it = invFind3(el.dataset.id); if (!it) return;
+  if (m.tag && m.tag.id === it.id) { m.tag = null; renderMine(); return; }
+  m.tag = { id: it.id, kind: it.kind && it.kind !== 'statement' ? it.kind : null, step: it.kind && it.kind !== 'statement' ? 2 : 1, confirm: it.codeBy === 'teacher' };
+  renderMine();
+};
+ACT.invTagClose = () => { const m = invMine(); m.tag = null; renderMine(); };
+ACT.invTagYes = () => { const m = invMine(); if (m.tag) m.tag.confirm = false; renderMine(); };
+async function invTagSave(kind, code) {
+  const m = invMine(), t = m.tag; if (!t) return;
+  const res = await call('set_inventory_code', { p_file_asset_id: t.id, p_kind: kind, p_code: code || null }, { quiet: true }).catch(() => null);
+  if (!res || !res.ok) { toast(W3().st3SaveFail, true); return; }
+  const it = invFind3(t.id), oldG = it && INV3_GROUP[it.kind];
+  m.tag = null;
+  if (res.removedPicks > 0 && oldG) toast(f3('tgMoved', { g: INV3_GROUP[kind], n: res.removedPicks, old: oldG }));
+  else toast(res.item && res.item.itemCode ? f3('tgDone', { code: NG.offName(m.official, res.item.itemCode) }) : W3().tgDoneUnsure);
+  await invLoad(); renderMine();
+}
+ACT.invTagKind = (el) => {
+  const m = invMine(); if (!m.tag) return; const k = el.dataset.k;
+  if (k === 'courseRecord') { invTagSave('courseRecord', 'A'); return; }   // 這一類只有 A，不問第二步
+  m.tag.kind = k; m.tag.step = 2; renderMine();
+};
+ACT.invTagCode = (el) => { const m = invMine(); if (!m.tag || !m.tag.kind) return; invTagSave(m.tag.kind, el.dataset.code || null); };

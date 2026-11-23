@@ -17,12 +17,23 @@ async function viewNeed() {
   const items = (w.items || []).slice().sort((a, b) => a.rank - b.rank), docs = ((S.home || {}).docs || []);
   if (!items.length) { view('<div class="card"><h2>審查資料準備指引說明</h2><p>還沒存志願，所以還看不到每一系要你交什麼。</p><a class="btn" href="#/score">去挑科系</a> <a class="btn ghost" href="#/import">匯入落點通的志願</a></div>'); return; }
   const starP = fetchStars(items);
+  // 11-22 A4（規格 14.1）：學生一件都還沒放 → 卡片按鈕維持「去看你放了哪幾件」連到我的學習歷程（guide_pure 看 invN===0）。
+  //   件數用前端已有的（這次讀過「我的學習歷程」就用 S.mine.inv）；沒有就背景叫現成的 my_inventory（加總 counts），先畫頁面、0 件才重畫，不讓整頁多等
+  const invHad = S.mine && S.mine.inv ? Object.values(S.mine.inv).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0) : undefined;
+  let invN = invHad, starsNow = {};
   const render = (stars) => view(`<div class="card active"><h2>審查資料準備指引說明</h2><p class="muted small" style="margin:0 0 6px">這幾系要你交什麼、題目是什麼。</p><p style="margin:0 0 6px">${esc(NG.guideSummary(items))}</p><p class="muted" style="margin:0">${esc(NG.WORDS.needIntro)}</p></div>
-    ${items.map((it) => NG.renderGuideCard(it, stars[String(it.deptCode)], { docs })).join('')}
+    ${items.map((it) => NG.renderGuideCard(it, stars[String(it.deptCode)], { docs, official: w.official, invN })).join('')}
     <div class="card"><button class="btn" data-act="needDone">看過了，往下</button></div>`);
   render({}); markReqSeen();
+  if (invHad === undefined && w.official) {   // 背景補件數；0 件才需要重畫（按鈕換回「去看你放了哪幾件」）
+    call('my_inventory', {}, { quiet: true }).then((r) => {
+      if (!r || !r.ok || my !== S.rt) return;
+      invN = Object.entries(r.counts || {}).reduce((s, [k, n]) => s + (k === 'hidden' ? 0 : Number(n) || 0), 0);   // 收起來的不算「放進來」
+      if (invN === 0) { const y = window.scrollY; render(starsNow); window.scrollTo(0, y); }
+    }).catch(() => null);
+  }
   const stars = await starP; if (my !== S.rt || !Object.keys(stars).length) return;
-  const y = window.scrollY; render(stars); window.scrollTo(0, y);
+  starsNow = stars; const y = window.scrollY; render(stars); window.scrollTo(0, y);
 }
 ACT.needDone = async (el) => { el.disabled = true; try { await markReqSeen(); } finally { el.disabled = false; } location.hash = '#/mine'; };
 // ── 匯入志願：貼落點通的志願代碼（或網址帶 ?ld1=）──

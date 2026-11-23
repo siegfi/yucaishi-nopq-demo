@@ -53,6 +53,19 @@
   .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
   @media (max-width:760px) { .two { grid-template-columns:1fr; } .srow { grid-template-columns:1fr; } }
   .lvbox { margin-top:6px; } .lvpanel { background:var(--soft); border-radius:6px; padding:6px 10px 10px; } .lvpanel h3 { font-size:14px; margin:10px 0 4px; }   /* 2026-11-09 落點分析版本 */
+  /* 2026-11-21 審查資料項目模型第三步：老師頁畫面⑥⑦ */
+  .csq { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:#F4F5F7; border:1px solid var(--main); font-weight:700; flex:none; }
+  .csq.q { border-style:dashed; border-color:var(--warn); color:var(--warn); }
+  .drow2 { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
+  .drow2 .grow { flex:1 1 220px; min-width:0; }
+  .pk { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line); }
+  .pk .pt { flex:1 1 220px; min-width:0; overflow-wrap:anywhere; }
+  .advs { display:flex; gap:6px; flex-wrap:wrap; flex-basis:100%; }
+  .advs label { display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 8px; border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+  .pk input[type=text] { flex-basis:100%; min-height:40px; }
+  .redbox { border:2px solid var(--bad); border-radius:6px; padding:6px 10px; color:var(--bad); background:#FFF3F3; font-size:14px; margin-top:6px; }
+  .pickgrid { display:block; } .pickside { margin-top:12px; }
+  @media (min-width:900px) { .pickgrid { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1fr); gap:12px; align-items:start; } .pickside { margin-top:0; position:sticky; top:8px; } }
 </style>
 </head>
 <body>
@@ -188,6 +201,8 @@ function route() {
   });
   if (m) return go(() => viewDoc(m[1]));
   S.docId = null; S.doc = null;
+  const mp = h.match(/^#\/pick\/([\w-]+)\/([0-9A-Z]{6})$/);   // 2026-11-21 第三步：幫一系挑（畫面⑦）
+  if (mp) return go(() => viewPick(mp[1], mp[2]));
   if (h === '#/students') return go(viewStudents); if (h === '#/materials') return go(viewMaterials); if (h === '#/lessons') return go(viewLessons); if (h === '#/terms') return go(viewTerms);
   return go(viewHome);
 }
@@ -203,13 +218,19 @@ const TILES = [['pendingPoints', '學生剛回答，等你看', ['interviewing',
 async function viewHome() {
   view(loading); const my = RT, h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
   if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把首頁畫回去蓋掉別頁（2026-11-14，同排課區塊的做法）
-  view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}</div>
+  view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}${h.pendingPickReviews != null ? `<a class="tile ${h.pendingPickReviews > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f=""><b>${h.pendingPickReviews}<small> 系</small></b>請你看勾選清單</a>` : ''}</div>
   <div class="card"><h2>我帶的學生（${(h.students || []).length} 位）</h2>${(h.students || []).map((s) => `<span class="pill">${esc(s.nickname)}</span>`).join('') || '<span class="muted">目前沒有指派給你的學生。</span>'}</div>`);
 }
 ACT.tile = (el) => { S.filter = el.dataset.f; };
 ACT.clearFilter = () => { S.filter = ''; viewStudents(); };
 // ── 我的學生 ──
 async function viewStudents() {
+  // 2026-11-21 第三步（畫面⑥）：後端有 teacher_dept_rows（28v）而且沒有從磚塊篩選時，換成「要我回的／只是資料」兩區；否則照舊
+  if (!S.filter) { view(`<div class="center muted" data-loading="1"><span class="spin"></span>${esc(TW.loading)}</div>`); const my = RT;
+    const [dr, ts] = await Promise.all([call('teacher_dept_rows', {}, { quiet: true }).catch(() => null), call('teacher_students', {}, { quiet: true }).catch(() => null)]);
+    if (my !== RT) return;
+    if (dr && dr.ok && ts && ts.ok) { viewStudents3(dr, ts); return; }
+    if (!ts) { view(failCard(TW.loadFail)); return; } }
   view(loading); const r = await call('teacher_students'); if (!r.ok) return; const f = TILES.find((t) => t[0] === S.filter), states = f ? f[2] : null;
   const live = (d) => d.state !== 'warmup' && d.state !== 'finalized', stuck = (s) => Math.max(0, ...s.docs.filter(live).map((d) => d.stuckDays || 0));
   let list = r.students.slice().sort((a, b) => stuck(b) - stuck(a) || a.nickname.localeCompare(b.nickname));
@@ -276,6 +297,165 @@ function stuDocsHtml(s, states, live) {
   const rest = pq.length - busy.length;
   return no.concat(busy).map((d) => stuDocRow(d, states, live)).join('') + (rest > 0 ? `<div class="muted small" style="padding:3px 0">另有每系各寫的稿（P、Q、自傳、小論文等）${rest} 篇學生還在寫（還沒交來）</div>` : '');
 }
+// ══ 2026-11-21 審查資料項目模型第三步：老師頁畫面⑥（我的學生：每位學生、每一系一列）、⑦（幫一系挑）══
+// 規格 OUTPUTS/uiux_plan_20261119/04_項目模型第三步_畫面規格_v0.1.md 第 7、8 節；owner 11-21「都照推薦」：老師看得到學生放進來的全部（含全文）、請老師看先不扣額度、
+// 老師一件一件標建議勾／換掉、每件一句話、最後整體的話，學生按「照老師的建議改」才套用（老師不能改學生的清單）。後端 28v：teacher_dept_rows、teacher_dept_picks、
+// teacher_inventory_item、teacher_set_pick_advice、teacher_set_item_code。上限的數字一律從後端給的官方項目表讀。
+const TW = {
+  loading: '正在讀你的學生名單，第一次大約 15 秒。', loadFail: '名單沒讀到。請檢查網路，再按一次。', retry: '再讀一次',
+  replyTitle: '要我回的（{n}）', replyIntro: '學生在等你。回了就會從這裡消失。', replyNone: '今天沒有學生在等你。',
+  sentRow: '建議已經送給{nick}。學生改完再請你看，會回到這裡。',   // 11-22 A4（規格 7.4）：回完一件，那一列從上區消失，換成這一行
+  rowPick: '挑好了，請你看：{school} {name}', rowDoc: '交了 {doc}（{dept}），等你看稿', rowMat: '交了一件請你看：{title}', waited: '等了 {d} 天',
+  btnPick: '幫忙挑', btnDoc: '看稿', btnMat: '回覆', dataTitle: '只是資料', dataIntro: '這裡的東西不用回。想看就點進去。',
+  inv: '放進來 {n} 件，{m} 件還沒標代碼。', invTag: '幫忙標', rec: '修課紀錄：放了 {k} 份（只看，不用回）',
+  write: '要寫 {w}、定稿 {f}', pickNone: '要勾的還沒挑', pickSome: '要勾的：{list}', pickNo: '不用勾', school: '表格證明 {c}／{t}', schoolNo: '沒有表格證明',
+  notReady: '這一系今年要交什麼還沒整理好', noWish: '還沒選志願。', waiting: '在等你', seeDept: '看這一系', noStudent: '你還沒有被指派學生。有問題請找育才仕。',
+  pTitle: '幫{nick}挑：{school} {name}', pAsked: '{nick} {d} 請你看。留言：「{note}」', pAskedNoNote: '{nick} {d} 請你看。', pNotAsked: '{nick}還沒請你看這一系。你可以先給建議，學生打開就看得到。',
+  pChanged: '{nick}在你回了之後又改過清單。', pListed: '這一系的簡章列了：{list}', pLeft: '{nick}放進來的', pRank: '學生排第 {n}', pNot: '學生沒勾',
+  advNone: '沒意見', advPick: '建議勾', advSwap: '建議換掉', advNotePh: '跟學生說為什麼（可以不寫）', noCode: '還沒標代碼', tagPick: '幫忙標',
+  tagged: '標好了。{nick}那邊會寫「{t}幫你標的」。', notListed: '這一系的簡章沒列 {code}。', full: '看全文', right: '照你的建議，會變成',
+  over: '{group}每系最多勾 {limit} 件，照你的建議會變成 {n} 件。請再標一件「建議換掉」，或少建議一件。', toStu: '給{nick}的話', toStuPh: '整體怎麼挑、為什麼',
+  same: '同樣的建議也給同學群的 {n} 系', sameHint: '只會套到學生在那一系也放得進去的件；那一系沒列的類別不套。', send: '送出建議',
+  sent: '建議已經送給{nick}。學生改完再請你看，會回到「要我回的」。', empty: '還沒寫任何建議。至少標一件，或寫一句話。',
+  noFiles: '{nick}還沒放任何一件進來，現在沒有東西可以挑。', back: '回我的學生', notMine: '這位學生不是指派給你的。',
+  dataLow: '只是資料', lowWrite: '要寫的：{list}', lowSchool: '表格證明：{list}', lowRec: '修課紀錄：放了 {k} 份', ready: '準備好了', notYet: '還沒', skip: '不交', notStarted: '還沒開始',
+};
+const tf = (k, o) => String(TW[k]).replace(/\{(\w+)\}/g, (_, x) => (o && o[x] != null ? o[x] : ''));
+const tSq = (c) => `<span class="csq${c ? '' : ' q'}">${esc(c || '？')}</span>`;
+const tDate = (t) => { if (!t) return ''; const d = new Date(t); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate(); };
+const tSelf = () => { const n = (S.home && S.home.teacherName) || ''; return n || '老師'; };
+const tOffName = (off, code) => { const it = off && (off.items || []).find((x) => x.code === code); return it ? (it.status === 'pending' ? code : code + ' ' + it.shortName) : code; };
+function tPickText(d) {
+  const ls = (d.pick || []).filter((p) => p.listed);
+  if (!ls.length) return TW.pickNo;
+  if (ls.every((p) => !p.picked)) return TW.pickNone;
+  return tf('pickSome', { list: ls.map((p) => p.group + ' ' + p.picked + (p.limit == null ? '' : '／' + p.limit)).join('、') });
+}
+function tDeptRow(s, d, waiting) {
+  const head = `${d.rank}. ${d.schoolName || ''} ${d.name || ''}`;
+  if (!d.ready) return `<div class="drow2"><span class="grow"><b>${esc(head)}</b>｜${esc(TW.notReady)}</span></div>`;
+  return `<div class="drow2"><span class="grow">${waiting ? `<span class="pill warn">${esc(TW.waiting)}</span> ` : ''}<b>${esc(head)}</b>｜${esc(tf('write', { w: d.write.total, f: d.write.finalized }))}｜${esc(tPickText(d))}｜${esc(d.school.total || d.school.ready ? tf('school', { c: d.school.ready, t: d.school.total }) : TW.schoolNo)}</span>
+    <a class="btn sm ghost" href="#/pick/${esc(s.studentId)}/${esc(d.deptCode)}">${esc(TW.seeDept)}</a></div>`;
+}
+function viewStudents3(dr, ts) {
+  const studs = dr.students || [], asks = dr.asks || [], tsById = Object.fromEntries((ts.students || []).map((x) => [x.studentId, x]));
+  if (!studs.length) { view(`<div class="card"><h2>我的學生</h2><p>${esc(TW.noStudent)}</p></div>`); return; }
+  // 上區：要我回的（勾選清單＋交了稿＋素材待回），等最久的在前面
+  const sent = S.pickSent || []; S.pickSent = [];   // 11-22 A4（規格 7.4）：剛回完的那幾件，那一列已經從上區消失，換成一行 TW.sentRow（只出現這一次、不算進件數）
+  const rows = [];
+  asks.forEach((a) => rows.push({ d: a.days || 0, html: `<b>${esc(a.nickname)}</b>　<span class="pill warn">${esc(tf('waited', { d: a.days || 0 }))}</span>　${esc(tf('rowPick', { school: a.schoolName || '', name: a.name || '' }))}`, btn: `<a class="btn sm" href="#/pick/${esc(a.studentId)}/${esc(a.deptCode)}">${esc(TW.btnPick)}</a>` }));
+  (ts.students || []).forEach((s) => (s.docs || []).filter((d) => d.state === 'review_pending').forEach((d) => rows.push({ d: d.stuckDays || 0,
+    html: `<b>${esc(s.nickname)}</b>　<span class="pill warn">${esc(tf('waited', { d: d.stuckDays || 0 }))}</span>　${esc(tf('rowDoc', { doc: docTypeName(d), dept: d.deptName || '' }))}`, btn: `<a class="btn sm" href="#/doc/${esc(d.caseDocId)}">${esc(TW.btnDoc)}</a>` })));
+  const pm = (S.home && S.home.pendingMaterialReviews) || 0;
+  if (pm > 0) rows.push({ d: 0, html: `<b>素材待回</b>　${esc(pm + ' 件')}`, btn: `<a class="btn sm" href="#/materials">${esc(TW.btnMat)}</a>` });
+  rows.sort((a, b) => b.d - a.d);
+  const waitingSet = new Set(asks.map((a) => a.studentId + '|' + a.deptCode));
+  const card = (s) => {
+    const t = tsById[s.studentId] || {}, inv = s.inv || {};
+    const first = (s.depts || []).find((d) => d.ready) || (s.depts || [])[0];
+    return `<div class="srow" style="display:block"><div><b>${esc(s.nickname)}</b> <span class="muted small">${esc(s.cohortName || '')}</span></div>
+      <div class="small">${esc(tf('inv', { n: inv.n || 0, m: inv.uncoded || 0 }))}${inv.uncoded && first ? ` <a class="btn sm ghost" href="#/pick/${esc(s.studentId)}/${esc(first.deptCode)}">${esc(TW.invTag)}</a>` : ''}${inv.courseRecord ? '　' + esc(tf('rec', { k: inv.courseRecord })) : ''}</div>
+      <div class="small">N ${esc((s.n && s.n.stateLabel) || TW.notStarted)}　O ${esc((s.o && s.o.stateLabel) || TW.notStarted)}</div>
+      ${(s.depts || []).length ? s.depts.map((d) => tDeptRow(s, d, waitingSet.has(s.studentId + '|' + d.deptCode))).join('') : `<div class="muted small">${esc(TW.noWish)}</div>`}
+      <div class="lvbox" id="lv_${esc(s.studentId)}"><button type="button" class="btn sm ghost" data-act="lvShow" data-id="${esc(s.studentId)}">落點分析版本</button></div></div>`;
+  };
+  const ordered = studs.slice().sort((a, b) => String(b.lastActivity || '').localeCompare(String(a.lastActivity || '')));
+  const sum = (s) => { const w = (s.depts || []).reduce((a, d) => a + ((d.write && d.write.total) || 0), 0), f = (s.depts || []).reduce((a, d) => a + ((d.write && d.write.finalized) || 0), 0); return `${s.nickname}｜${(s.depts || []).length} 系｜要寫 ${w}、定稿 ${f}`; };
+  view(promptFlagCard(ts.students) + `<div class="card"><h2 style="margin:0">我的學生</h2></div><div class="card"><h2>${esc(tf('replyTitle', { n: rows.length }))}</h2><p class="muted small" style="margin:0 0 6px">${esc(TW.replyIntro)}</p>
+      ${sent.map((x) => `<div class="drow2"><span class="grow muted">${esc(tf('sentRow', { nick: x.nick }))}</span></div>`).join('')}
+      ${rows.length ? rows.map((r) => `<div class="drow2"><span class="grow">${r.html}</span>${r.btn}</div>`).join('') : `<p class="muted">${esc(TW.replyNone)}</p>`}</div>
+    <div class="card"><h2 style="color:var(--sub)">${esc(TW.dataTitle)}</h2><p class="muted small" style="margin:0 0 6px">${esc(TW.dataIntro)}</p>
+      ${ordered.slice(0, 3).map(card).join('')}${ordered.slice(3).map((s) => `<details class="srow" style="display:block"><summary>${esc(sum(s))}</summary>${card(s)}</details>`).join('')}</div>`);
+}
+// ── 畫面⑦：幫一系挑 ──
+const TP = { sid: null, dept: null, r: null, adv: {}, note: {}, all: '', also: null, full: {} };
+async function viewPick(sid, dept) {
+  view(loading); const my = RT;
+  const r = await call('teacher_dept_picks', { p_student_id: sid, p_dept_code: dept }, { quiet: true }).catch(() => null);
+  if (my !== RT) return;
+  if (!r || !r.ok) { view(`<div class="card"><p>${esc(r && r.error === 'NOT_ASSIGNED' ? TW.notMine : TW.loadFail)}</p><div class="row"><button type="button" class="btn" data-act="reloadView">${esc(TW.retry)}</button><a class="btn ghost" href="#/students">${esc(TW.back)}</a></div></div>`); return; }
+  Object.assign(TP, { sid, dept, r, adv: {}, note: {}, all: '', also: null, full: {} });
+  (r.files || []).forEach((f) => { if (f.advice) TP.adv[f.id] = f.advice; if (f.adviceNote) TP.note[f.id] = f.adviceNote; });
+  TP.all = (r.dept.ask && r.dept.ask.status === 'replied' && r.dept.ask.teacherNote) || '';
+  drawPick();
+}
+function pickResult() {   // 照建議之後每一類會是哪幾件（即時算）
+  const r = TP.r, out = {};
+  (r.dept.pick || []).forEach((g) => {
+    const fs = (r.files || []).filter((f) => f.group === g.group);
+    const keep = fs.filter((f) => f.picked && TP.adv[f.id] !== 'swap').sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+    const add = fs.filter((f) => !f.picked && TP.adv[f.id] === 'pick');
+    out[g.group] = { list: keep.concat(add), limit: g.limit, listed: g.listed };
+  });
+  return out;
+}
+function drawPick() {
+  const y = window.scrollY, r = TP.r, d = r.dept, nick = (r.student && r.student.nickname) || '', off = r.official, files = r.files || [], ask = d.ask;
+  const res = pickResult(), overG = Object.keys(res).find((g) => res[g].limit != null && res[g].list.length > res[g].limit);
+  const listed = (d.pick || []).filter((g) => g.listed).map((g) => `${g.group} ${(g.codes || []).join('、')}（每系最多勾 ${g.limit == null ? '—' : g.limit} 件）`).join('；');
+  const head = `<div class="card"><a class="small" href="#/students">← ${esc(TW.back)}</a><h2 style="margin:6px 0 4px">${esc(tf('pTitle', { nick, school: d.schoolName || '', name: d.name || '' }))}</h2>
+    <p class="small" style="margin:0">${esc(ask && ask.status === 'asked' ? (ask.studentNote ? tf('pAsked', { nick, d: tDate(ask.askedAt), note: ask.studentNote }) : tf('pAskedNoNote', { nick, d: tDate(ask.askedAt) })) : tf('pNotAsked', { nick }))}</p>
+    ${ask && ask.changedAfterReply ? `<p class="small" style="color:var(--warn);margin:4px 0 0">${esc(tf('pChanged', { nick }))}</p>` : ''}
+    ${listed ? `<p class="muted small" style="margin:4px 0 0">${esc(tf('pListed', { list: listed }))}</p>` : ''}</div>`;
+  if (!files.length) { view(head + `<div class="card"><p>${esc(tf('noFiles', { nick }))}</p><a class="btn ghost" href="#/students">${esc(TW.back)}</a></div>` + lowHtml(r)); window.scrollTo(0, y); return; }
+  const item = (f) => {
+    const g = (d.pick || []).find((p) => p.group === f.group) || {};
+    const codes = ((off && off.items) || []).filter((x) => x.groupName === f.group);
+    return `<div class="pk" data-id="${esc(f.id)}">${tSq(f.itemCode)}<span class="pt"><b>${esc(f.title || f.fileName || '')}</b> <span class="pill ${f.picked ? 'main' : ''}">${esc(f.picked ? tf('pRank', { n: f.sortOrder }) : TW.pNot)}</span>
+        ${f.itemCode ? (g.listed && !(g.codes || []).includes(f.itemCode) ? `<div class="muted small">${esc(tf('notListed', { code: f.itemCode }))}</div>` : '') : ` <span class="pill warn">${esc(TW.noCode)}</span>
+          <select data-in="tpTag" data-id="${esc(f.id)}" aria-label="幫忙標代碼"><option value="">${esc(TW.tagPick)}</option>${codes.map((x) => `<option value="${esc(x.code)}">${esc(tOffName(off, x.code))}</option>`).join('')}</select>`}
+        <div class="muted small">${esc((f.preview || '').replace(/\s+/g, ' ').slice(0, 200))}</div>
+        ${TP.full[f.id] ? `<div class="small" style="white-space:pre-wrap;border-left:3px solid var(--line);padding-left:8px;margin-top:4px">${esc(TP.full[f.id])}</div>` : `<button type="button" class="btn sm ghost" data-act="tpFull" data-id="${esc(f.id)}">${esc(TW.full)}</button>`}</span>
+      <div class="advs">${[['', TW.advNone], ['pick', TW.advPick], ['swap', TW.advSwap]].map(([v, t]) => `<label><input type="radio" name="adv_${esc(f.id)}" data-in="tpAdv" data-id="${esc(f.id)}" value="${v}"${(TP.adv[f.id] || '') === v ? ' checked' : ''}> ${esc(t)}</label>`).join('')}</div>
+      <input type="text" data-in="tpNote" data-id="${esc(f.id)}" maxlength="300" placeholder="${esc(TW.advNotePh)}" value="${esc(TP.note[f.id] || '')}"></div>`;
+  };
+  const groups = (d.pick || []).map((g) => g.group);
+  const left = `<div class="card"><h3>${esc(tf('pLeft', { nick }))}</h3>${groups.map((g) => { const fs = files.filter((f) => f.group === g); return fs.length ? `<h4 style="margin:10px 0 0">${esc(g)}</h4>${fs.map(item).join('')}` : ''; }).join('')}</div>`;
+  const others = (r.otherDepts || []).filter((x) => d.group && x.group === d.group && (x.pick || []).some((p) => p.listed));
+  if (TP.also === null) TP.also = new Set();
+  const right = `<div class="card pickside"><h3>${esc(TW.right)}</h3>${groups.filter((g) => res[g].listed || res[g].list.length).map((g) => { const x = res[g], bad = x.limit != null && x.list.length > x.limit;
+      return `<div style="margin:6px 0"><b style="${bad ? 'color:var(--bad)' : ''}">${esc(g)} ${x.list.length}${x.limit == null ? '' : '／' + x.limit}</b><div class="small">${esc(x.list.map((f) => f.title || f.fileName || '').join('、') || '—')}</div>
+        ${bad ? `<div class="redbox">${esc(tf('over', { group: g, limit: x.limit, n: x.list.length }))}</div>` : ''}</div>`; }).join('')}
+    <label class="f" for="tp-all">${esc(tf('toStu', { nick }))}</label><textarea id="tp-all" data-in="tpAll" maxlength="1000" placeholder="${esc(TW.toStuPh)}" style="width:100%;min-height:90px">${esc(TP.all)}</textarea>
+    ${others.length ? `<details style="margin-top:8px"><summary><label><input type="checkbox" data-in="tpAlsoAll"${TP.also.size === others.length ? ' checked' : ''}> ${esc(tf('same', { n: others.length }))}</label></summary>
+      <p class="muted small">${esc(TW.sameHint)}</p>${others.map((x) => `<label style="display:flex;gap:6px;min-height:44px;align-items:center"><input type="checkbox" data-in="tpAlso" value="${esc(x.deptCode)}"${TP.also.has(x.deptCode) ? ' checked' : ''}> ${esc(x.rank + '. ' + (x.schoolName || '') + ' ' + (x.name || ''))}</label>`).join('')}</details>` : ''}
+    <div style="margin-top:10px"><button type="button" class="btn" data-act="tpSend"${overG ? ' disabled' : ''}>${esc(TW.send)}</button></div></div>`;
+  view(head + `<div class="pickgrid"><div>${left}</div>${right}</div>` + lowHtml(r));
+  window.scrollTo(0, y);
+}
+function lowHtml(r) {   // 最下面「只是資料」：這一系要寫的稿各到哪裡、表格證明打了哪幾個勾、修課紀錄（只看）
+  const d = r.dept, off = r.official;
+  const w = ((d.write && d.write.items) || []).map((x) => (x.code > 'Q' ? x.code + ' ' + (x.name || '') : tOffName(off, x.code)) + ' ' + (x.stateLabel || TW.notStarted)).join('、');
+  const sc = ((d.school && d.school.items) || []).map((x) => (x.code > 'Q' ? x.code + ' ' + (x.name || '') : x.code) + ' ' + (x.state === 'ready' ? TW.ready : x.state === 'skip' ? TW.skip : TW.notYet)).join('；');
+  return `<div class="card"><h3 style="color:var(--sub)">${esc(TW.dataLow)}</h3>${w ? `<div class="small">${esc(tf('lowWrite', { list: w }))}</div>` : ''}${sc ? `<div class="small">${esc(tf('lowSchool', { list: sc }))}</div>` : ''}
+    <div class="small">${esc(tf('lowRec', { k: (r.courseRecord || []).length }))}</div></div>`;
+}
+IN.tpAdv = (el) => { if (el.checked) { TP.adv[el.dataset.id] = el.value || null; drawPick(); } };
+IN.tpNote = (el) => { TP.note[el.dataset.id] = el.value; };
+IN.tpAll = (el) => { TP.all = el.value; };
+IN.tpAlso = (el) => { if (el.checked) TP.also.add(el.value); else TP.also.delete(el.value); };
+IN.tpAlsoAll = (el) => { const others = (TP.r.otherDepts || []).filter((x) => TP.r.dept.group && x.group === TP.r.dept.group && (x.pick || []).some((p) => p.listed)); TP.also = new Set(el.checked ? others.map((x) => x.deptCode) : []); drawPick(); };
+ACT.tpFull = async (el) => {
+  el.disabled = true; const r = await call('teacher_inventory_item', { p_file_asset_id: el.dataset.id }, { quiet: true }).catch(() => null);
+  if (r && r.ok) { TP.full[el.dataset.id] = (r.item && r.item.text) || '（沒有讀到文字）'; drawPick(); } else { el.disabled = false; toast(TW.loadFail, true); }
+};
+IN.tpTag = async (el) => {
+  if (!el.value) return;
+  const r = await call('teacher_set_item_code', { p_file_asset_id: el.dataset.id, p_code: el.value }, { quiet: true }).catch(() => null);
+  if (!r || !r.ok) { toast(TW.loadFail, true); el.value = ''; return; }
+  toast(tf('tagged', { nick: (TP.r.student && TP.r.student.nickname) || '', t: tSelf() }));
+  const f = (TP.r.files || []).find((x) => x.id === el.dataset.id); if (f) { f.itemCode = el.value; f.itemCodeBy = 'teacher'; } drawPick();
+};
+ACT.tpSend = async (el) => {
+  const items = (TP.r.files || []).map((f) => ({ fileAssetId: f.id, advice: TP.adv[f.id] || null, note: (TP.note[f.id] || '').trim() || null })).filter((x) => x.advice || x.note);
+  const all = (TP.all || '').trim();
+  if (!items.length && !all) { toast(TW.empty, true); return; }
+  el.disabled = true;
+  const r = await call('teacher_set_pick_advice', { p_student_id: TP.sid, p_dept_code: TP.dept, p_items: items, p_note: all || null, p_also_depts: [...(TP.also || [])] }, { quiet: true }).catch(() => null);
+  if (!r || !r.ok) { el.disabled = false; toast(r && r.error === 'OVER_LIMIT' ? tf('over', { group: r.group, limit: r.limit, n: r.count }) : TW.loadFail, true); return; }
+  // 11-22 A4（規格 7.4）：不再出提示框；回到「我的學生」時，上區那一列換成一行「建議已經送給…」
+  S.pickSent = (S.pickSent || []).concat([{ nick: (TP.r.student && TP.r.student.nickname) || '', sid: TP.sid, dept: TP.dept }]); location.hash = '#/students';
+};
 // ── 素材待回（W5）：學生把課程學習成果、多元表現交來看；老師回一段意見，或請學生補一下 ──
 const KIND_NAME = { courseRecord: '修課紀錄', courseResult: '課程學習成果', diverse: '多元表現', statement: '學習歷程自述' }, MAT_STATUS = { pending: '待回', replied: '已回', needMore: '請學生補', withdrawn: '學生收回' };   // withdrawn：28m 學生在老師回之前收回
 async function viewMaterials() {
@@ -333,6 +513,14 @@ const FREE_CELL = { section: '_free', secLabel: '整段稿', key: '_free', child
 const hasFree = () => { const v = S.doc && S.doc.draft && S.doc.draft.currentVersion; const t = (v && v.textBySection) || {}; return typeof t._free === 'string' && t._free.trim() !== ''; };
 // ── 一篇的載入 ──
 const JOB_NAME = { interview: '追問', ability: '挑能力標籤', assignment_suggest: '出題建議', grid_check: '送出前檢查', material_parse: '整理素材' };
+// 2026-11-22 AI 改排隊（設計 4.5 老師畫面）：依 teacher_doc 的 pendingJob.phase 說系統做到哪；老師頁不輪詢，按「重新整理」才更新。後端還沒有 pendingJob 就照舊那一句
+function pendingJobText(p) {
+  const tail = '，等一下按「重新整理」。';
+  if (!p) return '系統正在處理這一篇（通常一分鐘內會好）' + tail;
+  if (p.phase === 'retrying') return `系統這次比較慢，正在重試（第 ${(p.attempt || 1) + 1} 次）` + tail;
+  if (p.phase === 'running') return '系統處理中' + tail;
+  return `系統排隊中${p.ahead ? `（前面還有 ${p.ahead} 件）` : ''}` + tail;
+}
 const STATES = ['warmup', 'interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published', 'draft_open', 'self_check_pending', 'review_pending', 'finalized'];
 const NEXT_HINT = { warmup: '學生還沒開始這一篇。', interviewing: '學生在回答問題。你可以看重點、對某個重點追問。', assignment_pending: '輪到你出作業（有系統建議會列在下面）。', submission_pending: '作業已出，等學生繳交。',
   feedback_pending: '學生交了作業，輪到你回饋，並決定再問一輪，或讓學生開始寫。', feedback_published: '回饋已發。輪到你決定是不是「可以開始寫了」（條件滿足才能按）。', draft_open: '學生在寫稿。你可以直接改字，也可以等學生交來批改。',
@@ -377,8 +565,8 @@ function headCard() {
     <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(docTypeName(d))}${d.nopqType === 'X_extraWriting' && d.deptName ? '｜' + esc((d.schoolName || '') + ' ' + d.deptName) : ''}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
       ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? '沒開 AI，題目和能力標籤要你自己來' : '學生還沒同意使用 AI，題目要你自己出'}</span></div>
-    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${promptCheckHtml(d)}${d.pendingJobId ? '<div class="hint"><span class="spin"></span>系統正在處理這一篇（通常一分鐘內會好），等一下按「重新整理」。</div>' : ''}
-    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你來做（現在沒開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）沒有成功：學生的內容都在，可以由你來做。</div>`) : ''}
+    <div class="hint">${esc(NEXT_HINT[d.state] || '')}</div>${promptCheckHtml(d)}${d.pendingJobId ? `<div class="hint"><span class="spin"></span>${esc(pendingJobText(d.pendingJob))}</div>` : ''}
+    ${lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected') ? (lj.error === 'AI_OFF' ? '<div class="hint">這一步由你來做（現在沒開 AI）：學生的內容都在。</div>' : `<div class="issue">最近一次系統幫忙（${esc(JOB_NAME[lj.purpose] || lj.purpose)}）${lj.error === 'TIMEOUT' ? '10 分鐘內沒做完' : '沒有成功'}：學生的內容都在，可以由你來做。</div>`) : ''}
     <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="reload">重新整理</button></div></div>`;
 }
 ACT.reload = async () => { await refreshDoc(); toast('已更新'); };

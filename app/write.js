@@ -78,23 +78,34 @@ async function viewDoc(id) {
   if (d.pendingJobId) runAi(d.pendingJobId, '還在整理上一步，稍等一下…', true);
 }
 async function refreshDoc() { if (!S.docId) return null; const d = await GET(); if (d.ok && d.caseDocId === S.docId) { S.doc = d; if (termsStale()) await loadTerms(); syncUi(); renderDoc(); } return d; }
+// 2026-11-22 AI 改排隊（設計 OUTPUTS/nopq_ai_queue_design_v0.1.md 第 4.5 節）：前端不再叫 nopq-ai，工作由資料庫派給背景工作者。
+//   只輪詢 ai_job_status：前 60 秒每 3 秒、之後每 10 秒；分頁在背景就暫停；工作結束才重讀整頁；資料庫接著建的下一件（例如出下一題）也接著等。
+//   在重試、或等超過 slowSec（正式 60 秒）→ 換成 AI_SLOW；逾時 → 「等太久沒有完成」＋老師接手那一句。最多等 12 分鐘（總期限 10 分鐘＋餘裕）。
+//   後端還沒有 ai_job_status（雲端還沒套 28w）：退回每 2 秒讀整頁、最多 60 秒（舊的等法，但不再叫函式）。學生畫面不出現 AI 字樣（改判乙）。
+const AI_SLOW = '比平常久一點，還在整理。你可以先離開，回來再看。';
 async function runAi(jobId, label, silent) {
   if (!jobId) return;
-  const my = ++S.poll, fired = new Set(); S.ui.waiting = label || '正在整理，通常幾秒鐘…'; renderDoc();
-  let dead = false;   // 2026-11-12 楊老師回饋階段 0①：AI 那一支叫不起來（雲端沒部署、連不上）就不再空等 60 秒，直接說由老師接手
-  const fire = async (id) => {
-    fired.add(id);
-    try { const { error } = await sb.functions.invoke('nopq-ai', { body: { jobId: id } }); if (error) dead = true; }
-    catch (e) { dead = true; }
-  };
-  await fire(jobId);
-  for (let i = 0; i < 30 && S.poll === my && !dead; i++) {   // 每 2 秒查一次，最多 60 秒，直到沒有進行中的任務
-    const d = await GET().catch(() => ({ ok: false })); if (!d.ok) break; S.doc = d;
-    if (!d.pendingJobId) break;
-    if (!fired.has(d.pendingJobId)) { await fire(d.pendingJobId); continue; }   // 資料庫接著建的下一個任務也要叫起來
-    await sleep(2000);
+  const my = ++S.poll, t0 = Date.now(), base = label || '正在整理，通常幾秒鐘…'; S.ui.waiting = base; renderDoc();
+  let id = jobId, st = null, legacy = false;
+  for (let i = 0; S.poll === my && Date.now() - t0 < 12 * 60000; i++) {
+    if (document.hidden) { await sleep(1000); continue; }   // 分頁在背景：先不問，回來再接著問
+    st = legacy ? null : await call('ai_job_status', { p_job_id: id }, { quiet: true, noRefresh: true }).catch(() => null);
+    if (!st || !st.ok) {   // 查不到進度：改讀整頁
+      legacy = true;
+      const d = await GET().catch(() => ({ ok: false })); if (!d.ok) break; S.doc = d;
+      if (!d.pendingJobId || i >= 30) break;
+      id = d.pendingJobId; await sleep(2000); continue;
+    }
+    if (['done', 'failed', 'timeout', 'rejected'].includes(st.phase)) {
+      const d = await GET().catch(() => ({ ok: false })); if (d.ok) S.doc = d;
+      if (d.ok && d.pendingJobId && d.pendingJobId !== id) { id = d.pendingJobId; continue; }   // 資料庫接著建的下一件，接著等
+      break;
+    }
+    const w = st.phase === 'retrying' || (st.ageSec || 0) >= (st.slowSec || 60) ? AI_SLOW : base;
+    if (S.ui.waiting !== w) { S.ui.waiting = w; renderDoc(); }
+    await sleep(Date.now() - t0 < 60000 ? 3000 : 10000);
   }
-  if (dead && S.poll === my) { await GET().then((d) => { if (d.ok) S.doc = d; }).catch(() => null); if (!silent) toast('這一步由老師來做，你寫的內容都已保留。'); }
+  if (S.poll === my && st && st.phase === 'timeout' && !silent) toast('等太久沒有完成。這一步由老師來做，你寫的內容都已保留。');
   if (S.poll === my) { S.ui.waiting = null; if (S.doc && termsStale()) await loadTerms(); syncUi(); renderDoc(); }
 }
 // 畫面輸入的暫存：伺服器端版本或題目變了才重設，其餘重畫時保留使用者打到一半的字
@@ -126,7 +137,7 @@ const PQ_HINTS = {
   review_pending: '已交給老師改，稿件鎖定，等老師的話。',
   finalized: '這篇定稿了。稿件已鎖定。',
 };
-const JOB_ERR = { CONSENT: '這一步由老師來做', QUOTA: '今天的次數用完了', STALE: '等太久沒有回應' };
+const JOB_ERR = { CONSENT: '這一步由老師來做', QUOTA: '今天的次數用完了', STALE: '等太久沒有回應', TIMEOUT: '等太久沒有完成' };   // TIMEOUT：28w 排隊的總期限到了（設計 4.5）
 function headCard() {
   const d = S.doc, home = ((S.home || {}).docs || []).find((x) => x.caseDocId === d.caseDocId), lj = d.lastJob, jobFail = lj && !d.pendingJobId && (lj.status === 'failed' || lj.status === 'rejected');
   const aiOff = d.aiSwitch === false || (lj && lj.error === 'AI_OFF');   // 28l：AI 總開關關著（或上一次因為沒開而停掉）
@@ -685,7 +696,8 @@ async function viewDeliver() {
     const gi = NG.gi116 ? NG.gi116(it) : null, more = gi ? NG.renderZones116(gi, { skipNQ: true, desc: false, title: NG.WORDS.z116More, deptCode: it.deptCode, docs }) : '';
     return `<div class="card"><h2 style="margin-top:0">第 ${esc(it.rank)} 志願｜${esc(it.schoolName || '')} ${esc(it.name || '')}</h2>
       <p style="margin:0 0 6px">${esc(NG.fill(NG.WORDS.dlvCount, { n: list.length, f: fin.length }))}${fin.length >= list.length && list.length ? `　<span class="pill ok">${esc(NG.WORDS.dlvAllDone)}</span>` : ''}${has ? '' : `<span class="muted small">${esc(NG.WORDS.nodata)}</span>`}</p>
-      ${list.map((x) => row(x.L, x.d, x.req)).join('')}${more}</div>`;
+      ${list.map((x) => row(x.L, x.d, x.req)).join('')}${more}
+      ${w.official ? `<div style="margin-top:6px"><a class="btn sm ghost" href="#/dept/${esc(it.deptCode)}">${esc(NG.WORDS.dlvDeptAll)}</a></div>` : ''}</div>`;   // 11-22 A4（規格 14.1）：多一行連到這一系那一頁；後端有第三步（官方項目表）才出現
   });
   view(`<div class="card active"><h2>我要交的</h2><p style="margin:0">照你的志願，一系一張：每一系要交哪幾篇、哪幾篇定稿了。N、O 每一系用同一份；P、Q 每系各寫一篇。定稿的可以直接「複製全文」。</p>
     <p class="muted small" style="margin:6px 0 0">${esc(COPY_NOTE)} 排版（PPT、Canva）之後才做。</p></div>

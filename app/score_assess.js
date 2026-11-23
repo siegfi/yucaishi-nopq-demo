@@ -134,18 +134,17 @@ ACT.asAi = async (el) => {
     const r = await call('luodian_assess_start', { p_version_ids: A.ids, p_rule_result: asRuleResult() });
     if (!r.ok) return;
     A.job = { id: r.jobId, status: 'running', versionIds: A.ids.slice() }; asRender();
-    try { await sb.functions.invoke('nopq-ai', { body: { jobId: r.jobId } }); } catch (e) { /* 結果看 my_luodian_assess */ }
-    await asPoll(r.jobId, my);
+    await asPoll(r.jobId, my);   // 2026-11-22 AI 改排隊：不再叫 nopq-ai，工作由資料庫派給背景工作者；這裡只看結果
   } finally { el.disabled = false; }
 };
-// 讀 AI 解讀的結果；還在跑就每 1.5 秒再看一次，最多 8 次，之後給「看結果出來了沒」讓學生自己再按（Codex 審查 P0-1）
+// 讀 AI 解讀的結果；還在跑就每 3 秒再看一次，最多 20 次（約 60 秒，設計 4.5 的 slowSec），之後給「看結果出來了沒」讓學生自己再按（Codex 審查 P0-1）
 async function asPoll(jobId, my) {
-  for (let k = 0; k < 8; k++) {
+  for (let k = 0; k < 20; k++) {
     let j = null; try { j = await call('my_luodian_assess', { p_job_id: jobId }, { quiet: true }); } catch (e) { j = null; }
     if (my !== S.rt) return;
     if (j && j.ok && j.job && j.job.status !== 'running' && j.job.status !== 'queued') { S.as.job = j.job; asRender(); return; }
     if (j && j.ok && j.job) S.as.job = j.job;
-    await sleep(1500); if (my !== S.rt) return;
+    await sleep(3000); if (my !== S.rt) return;
   }
   S.as.job = Object.assign({}, S.as.job || { id: jobId, status: 'running' }, { slow: true }); asRender();
 }
