@@ -29,7 +29,7 @@ const shopDay = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${d.
 (function shopCss() {
   if (document.getElementById('shop-css')) return;
   const st = document.createElement('style'); st.id = 'shop-css';
-  st.textContent = '.shop-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 4px}.shop-tile{border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;color:var(--muted);background:#fff}'
+  st.textContent = '.shop-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 4px}.shop-tile{border:1px solid var(--line);border-radius:6px;padding:8px;font-size:var(--fs-sm);color:var(--muted);background:var(--white)}'
     + '.shop-tile b{display:block;font-size:24px;line-height:1.15;color:var(--main)}.shop-price{color:var(--main);font-size:18px;white-space:nowrap}';
   document.head.appendChild(st);
 })();

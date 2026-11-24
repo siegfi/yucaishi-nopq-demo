@@ -334,17 +334,14 @@ function invHtmlOld() {
   const m = S.mine, inv = m.inv, none = inv._none || [];
   const nMat = (inv.courseResult || []).length + (inv.diverse || []).length, nSt = (inv.statement || []).length;
   // 11-13 第 35 條（USER 原話「NOPQ集中到最後面」）：N、O、P、Q 自述那一區排到這一頁最後面（後面只剩收起來的與「盤點好了」）
-  return invSumHtml()
+  return scanResultCard12() + invSumHtml()
     + INV_KINDS.filter((kd) => kd.k !== 'statement').map(invKindCard).join('')
     + (none.length ? `<div class="card"><h2>還沒分類的（${none.length}）</h2><p class="muted small" style="margin:0 0 6px">之前上傳的檔，選一下是哪一類。</p>${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">選類別</option>${INV_KINDS.map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}</div>` : '')
     + (m.items && m.items.length ? `<div class="card"><h2>從你的檔案整理出 ${m.items.length} 件事</h2><p class="muted small" style="margin:0 0 6px">系統整理的，老師還沒逐字看過。</p>${m.items.map(matRow).join('')}</div>` : '')
     + lessonsCard()
     + INV_KINDS.filter((kd) => kd.k === 'statement').map(invKindCard).join('')
     + invHiddenHtml()
-    + `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就可以往下寫，之後隨時回來補。</p><div class="row">
-      ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>讀我的檔案，整理出我做過的事</button>` : ''}
-      <button type="button" class="btn" data-act="invDone" ${m.busy ? 'disabled' : ''}>盤點好了，往下寫</button></div>
-      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>正在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
+    + invFoot12();   // 2026-11-24 A13 W12-15：〔讀我的檔案〕併進〔盤點好了〕，見 invFoot12
 }
 const invMine = () => { const m = S.mine; m.invTitle = m.invTitle || {}; m.invText = m.invText || {}; m.invPick = m.invPick || {}; m.invType = m.invType || 'N'; return m; };
 // ── 2026-11-12 階段 1①：改、換一份、收起來、收回、拿回來（28m）──
@@ -494,13 +491,47 @@ ACT.invSubmitDraft = async (el) => {
   toast('稿交給老師了。'); location.hash = '#/doc/' + docId;
 };
 ACT.invParse = () => { const m = invMine(); m.mats = (m.inv.courseResult || []).concat(m.inv.diverse || []).filter((x) => x.preview).map((x) => ({ id: x.id, name: x.name, len: 1 })); runParse(); };
-ACT.invDone = async (el) => {   // 沿用舊的起點掃描（start_scan），旅程進度與首頁才接得上
+// ══ 2026-11-24 A13 W12（NOPQ 寫作改造前端包一）：〔盤點好了〕停在本頁出結果卡；〔讀我的檔案〕併進去；頁首「去哪裡拿」三行 ══
+// 結果卡的資料＝start_scan 新回的 summary（後端 28y W05；沒有就叫 my_inventory_summary），不對照任何科系；字見文案對照表第 10 節 W12-13～W12-15。
+const W12 = {
+  whereTitle: '檔案去哪裡拿', where1: '到你學校的學習歷程系統登入。每間學校的平台不一樣，不知道在哪裡，就問學校的輔導室或註冊組。',
+  where2: '把課程學習成果、多元表現的檔案，一件一件下載或截圖，照原樣就好，不用改。', where3: '回到這裡，一件放一次，標好是哪一類。不確定的先放，之後再標。',
+  resTitle: '盤點結果', resNone: '你還沒放任何一件。沒關係，之後想到再回來放；現在也可以先開始寫 N、O。', resHave: '你放了 {n} 件：{g}。', resUncls: '另有 {n} 件還沒分類。',
+  resEmpty: '還空著的：{c}。', resParse: '正在整理你放的 {n} 份檔案，不用等，可以先往下。', resWrite: '開始寫 N、O', resMore: '再放幾件',
+};
+const sumText12 = (sm) => {
+  const g = (sm.groups || []).filter((x) => x.count > 0).map((x) => x.groupName + ' ' + x.count + ' 件').join('、');
+  const emp = []; (sm.emptyCodes || []).forEach((x) => { if (x.shortName && !emp.includes(x.shortName)) emp.push(x.shortName); });
+  return { have: sm.total ? NG.fill(W12.resHave, { n: sm.total, g }) + (sm.unclassified ? NG.fill(W12.resUncls, { n: sm.unclassified }) : '') : W12.resNone,
+    empty: sm.total && emp.length ? NG.fill(W12.resEmpty, { c: emp.join('、') }) : '' };
+};
+function whereToGet12() {
+  return `<h3 style="margin:12px 0 4px">${esc(W12.whereTitle)}</h3><ol style="margin:0;padding-left:22px"><li>${esc(W12.where1)}</li><li>${esc(W12.where2)}</li><li>${esc(W12.where3)}</li></ol>`;
+}
+function scanResultCard12() {
+  const r = S.mine && S.mine.scanResult; if (!r || !r.summary) return '';
+  const t = sumText12(r.summary);
+  return `<div class="card active" id="scan-result" tabindex="-1" role="status"><h2>${esc(W12.resTitle)}</h2><p style="margin:0 0 6px">${esc(t.have)}</p>${t.empty ? `<p style="margin:0 0 6px">${esc(t.empty)}</p>` : ''}
+    ${r.parseJobs > 0 ? `<p class="muted small" style="margin:0 0 6px"><span class="spin"></span>${esc(NG.fill(W12.resParse, { n: r.parseJobs }))}</p>` : ''}
+    <div class="row" style="margin-top:8px"><a class="btn" href="#/write">${esc(W12.resWrite)}</a><button type="button" class="btn ghost" data-act="scanMore">${esc(W12.resMore)}</button></div></div>`;
+}
+function invFoot12() {
+  const m = S.mine;
+  return `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就按「盤點好了」，會看到你放了什麼、還空著什麼，之後隨時回來補。</p><div class="row">
+      <button type="button" class="btn" data-act="invDone" ${m.busy ? 'disabled' : ''}>盤點好了</button></div>
+      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>正在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
+}
+ACT.scanMore = () => { const m = invMine(); m.scanResult = null; renderMine(); const t = $('inv-top') || $('view'); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' }); };
+ACT.invDone = async (el) => {   // 沿用舊的起點掃描（start_scan），旅程進度與首頁才接得上；2026-11-24 W12：做完停在本頁出盤點結果卡，不再直接跳去寫
   const m = invMine(), st = (m.inv.statement || []).filter((x) => x.preview), pf = (m.inv.courseResult || []).concat(m.inv.diverse || []).filter((x) => x.preview);
   el.disabled = true;
   const r = await call('start_scan', { p_answers: { hasDraft: st.length > 0, hasMaterial: pf.length > 0, draftFileIds: st.map((x) => x.id), portfolioFileIds: pf.map((x) => x.id) } });
   if (!r.ok) { el.disabled = false; return; }
   const h = await call('me_home', {}, { quiet: true }); if (h.ok) S.home = h;
-  location.hash = '#/write';
+  let sm = r.summary;
+  if (!sm) { const q = await call('my_inventory_summary', {}, { quiet: true }).catch(() => null); sm = q && q.ok ? q.summary : null; }
+  if (!sm) { location.hash = '#/write'; return; }   // 後端還沒有盤點結果（舊版）：照舊跳去寫
+  m.scanResult = { summary: sm, parseJobs: +r.parseJobs || 0 }; m.parseMsg = ''; renderMine(); window.scrollTo(0, 0); const c = $('scan-result'); if (c) c.focus({ preventScroll: true });
 };
 
 // ══ 2026-11-21 審查資料項目模型第三步：畫面①「我的學習歷程」改成兩塊、畫面②標代碼（規格 04_項目模型第三步_畫面規格_v0.1.md 第 2、3 節）══
@@ -603,15 +634,12 @@ function invHtml3() {
     ${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">${esc(W.miPickKind)}</option>${INV_KINDS.filter((x) => x.k !== 'statement').map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}`;
   top += '</div>';
   const nMat = (inv.courseResult || []).length + (inv.diverse || []).length;
-  return `<div class="card active"><h2>${esc(W.miTitle)}</h2><p style="margin:0">${esc(W.miIntro)}</p></div>`
+  return scanResultCard12() + `<div class="card active"><h2>${esc(W.miTitle)}</h2><p style="margin:0">${esc(W.miIntro)}</p>${whereToGet12()}</div>`
     + `<div class="inv2">${top}${invBottom3()}</div>`
     + invPicks3()
     + (m.items && m.items.length ? `<div class="card"><h2>從你的檔案整理出 ${m.items.length} 件事</h2><p class="muted small" style="margin:0 0 6px">系統整理的，老師還沒逐字看過。</p>${m.items.map(matRow).join('')}</div>` : '')
     + lessonsCard() + invHiddenHtml()
-    + `<div class="card"><p class="muted small" style="margin:0 0 8px">盤點到一個段落就可以往下寫，之後隨時回來補。</p><div class="row">
-      ${nMat && S.aiOn !== false ? `<button type="button" class="btn ghost" data-act="invParse" ${m.busy ? 'disabled' : ''}>讀我的檔案，整理出我做過的事</button>` : ''}
-      <button type="button" class="btn" data-act="invDone" ${m.busy ? 'disabled' : ''}>盤點好了，往下寫</button></div>
-      ${m.busy === 'parse' ? '<div class="hint"><span class="spin"></span>正在讀你的檔案，通常幾秒鐘…</div>' : ''}${m.parseMsg ? `<div class="muted small" style="margin-top:6px">${esc(m.parseMsg)}</div>` : ''}</div>`;
+    + invFoot12();   // 2026-11-24 A13 W12-15：〔讀我的檔案〕併進〔盤點好了〕，見 invFoot12
 }
 // 畫面②的動作
 const invFind3 = (id) => { const inv = (S.mine && S.mine.inv) || {}; for (const k of Object.keys(inv)) { const x = (inv[k] || []).find((y) => String(y.id) === String(id)); if (x) return x; } return null; };

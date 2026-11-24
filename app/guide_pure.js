@@ -519,5 +519,33 @@ function renderDeptIntro(lines, fmtDate) {
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
     + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
-root.NG = { isQ: isQ, mergeQuotes: mergeQuotes, offGroup: offGroup, offLimit: offLimit, offItem: offItem, offName: offName, limitLine: limitLine, CAC_NAMES: CAC_NAMES,codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+// ── 2026-11-24 A13 W15：N、O 的旁欄與挑件頁上半塊（各系要求分「都要的」「某系多要的」）。資料＝後端 28y my_doc_dept_diff 的 diff，兩處用同一份、同一套分法 ──
+// common＝兩個系以上都有的句子（每句附哪幾系）；depts[].only＝只有這一系有；status＝checking 的系只回系名，不回任何句子（不帶 115）。
+// 只有一個系通過檢查時：那一系的要求全部算「都要的」（只有一系，沒有「某系才有」可分）。
+function diffZones(diff) {
+  var ds = diff && Array.isArray(diff.depts) ? diff.depts.filter(Boolean) : [];
+  var ok = ds.filter(function (d) { return d.status === 'ok'; }), chk = ds.filter(function (d) { return d.status === 'checking'; });
+  var nm = function (d) { return ((d.schoolName || '') + ' ' + (d.name || '')).trim() || String(d.deptCode || ''); };
+  var byCode = {}; ds.forEach(function (d) { byCode[d.deptCode] = nm(d); });
+  var item = function (x, names) { return { text: String(x.text || ''), kind: x.kind || 'question', names: names || [] }; };
+  var all = [], some = [];
+  if (ok.length === 1) all = (ok[0].only || []).map(function (x) { return item(x); });
+  else if (ok.length > 1) {
+    all = (Array.isArray(diff.common) ? diff.common : []).map(function (c) { var cs = Array.isArray(c.depts) ? c.depts : []; return item(c, cs.length >= ok.length ? [] : cs.map(function (k) { return byCode[k] || k; })); });
+    some = ok.filter(function (d) { return (d.only || []).length; }).map(function (d) { return { dept: nm(d), deptCode: d.deptCode, items: d.only.map(function (x) { return item(x); }) }; });
+  }
+  return { all: all, some: some, checking: chk.map(function (d) { return { dept: nm(d), deptCode: d.deptCode }; }), okCount: ok.length };
+}
+// o.t＝畫面字 { all, some（含 {dept}）, checking（含 {dept}）, none }；o.link(deptCode)＝這一系的官方原文連結（沒有就空字串）
+function focusDiffHtml(diff, o) {
+  var z = diffZones(diff), t = (o && o.t) || {}, link = (o && o.link) || function () { return ''; };
+  var li = function (x) { return '<li>' + (isQ({ kind: x.kind, text: x.text }) ? '' : esc(WORDS.adv116)) + esc(x.text) + (x.names.length ? ' <span class="muted small">（' + esc(x.names.join('、')) + '）</span>' : '') + '</li>'; };
+  var h = '';
+  if (z.all.length) h += '<div class="fsec dzone dz-all"><b>' + esc(t.all) + '</b><ul class="plain">' + z.all.map(li).join('') + '</ul></div>';
+  var some = z.some.map(function (s) { return '<div class="dsome"><b>' + esc(fill(t.some, { dept: s.dept })) + '</b><ul class="plain">' + s.items.map(li).join('') + '</ul></div>'; }).join('');
+  var chk = z.checking.map(function (c) { var u = safeUrl(link(c.deptCode)); return '<div class="small dchk">' + esc(fill(t.checking, { dept: c.dept })) + (u ? ' <a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(WORDS.officialLink) + '</a>' : '') + '</div>'; }).join('');
+  if (some || chk) h += '<div class="fsec dzone dz-some">' + some + chk + '</div>';
+  return h || '<p class="small dnone" style="margin:0 0 6px">' + esc(t.none) + '</p>';
+}
+root.NG = { diffZones: diffZones, focusDiffHtml: focusDiffHtml, isQ: isQ, mergeQuotes: mergeQuotes, offGroup: offGroup, offLimit: offLimit, offItem: offItem, offName: offName, limitLine: limitLine, CAC_NAMES: CAC_NAMES,codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);

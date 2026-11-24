@@ -7,36 +7,31 @@
 <meta name="referrer" content="no-referrer">
 <title>NOPQ通｜行政後台</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../app/nopq-base.css">
 <style>
   /* 育才仕 NOPQ通 1a staff 後台（帳號版）。配色同學生端；手機與電腦都能用，表格在窄螢幕改成直排卡片。 */
-  :root { --main:#1F3B5C; --sub:#5E8CA7; --accent:#D08A1E; --text:#1D2433; --muted:#5B6472; --bg:#FFFFFF; --soft:#F4F5F7; --line:#D9DDE3; --ok:#1E7B4B; --warn:#B26A00; --bad:#B3261E; }
   * { box-sizing:border-box; }
-  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:16px; line-height:1.55; overflow-x:hidden; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:var(--fs-base); line-height:1.55; overflow-x:hidden; }
   body { padding-bottom:40px; } .hidden { display:none !important; }
-  header.top { background:var(--main); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-  header.top .brand { font-weight:700; font-size:17px; } header.top .who { font-size:13px; display:flex; gap:8px; align-items:center; }
-  nav.tabs { background:#fff; border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
-  nav.tabs a { padding:10px 11px; font-size:15px; color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
+  header.top { background:var(--main); color:var(--white); padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  header.top .brand { font-weight:700; font-size:var(--fs-lg); } header.top .who { font-size:var(--fs-sm); display:flex; gap:8px; align-items:center; }
+  nav.tabs { background:var(--white); border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
+  nav.tabs a { padding:10px 11px; font-size:var(--fs-base); color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; display:inline-flex; align-items:center; min-height:var(--tap); } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
   main { max-width:1000px; margin:0 auto; padding:12px 12px 0; }
-  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:17px; margin:0 0 8px; } .card h3 { font-size:15px; margin:12px 0 6px; }
-  .muted { color:var(--muted); font-size:14px; } .small { font-size:13px; } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
-  .btn { font:inherit; font-size:15px; padding:8px 15px; min-height:38px; border-radius:6px; border:1px solid var(--main); background:var(--main); color:#fff; cursor:pointer; text-decoration:none; display:inline-block; }
-  .btn.ghost { background:#fff; color:var(--main); border-color:var(--line); } .btn.sm { padding:4px 11px; font-size:14px; min-height:32px; } .btn:disabled { opacity:.45; cursor:default; }
-  .pill { display:inline-block; font-size:12px; line-height:1.7; padding:0 9px; border-radius:999px; border:1px solid var(--sub); color:var(--sub); background:#fff; margin:2px 4px 2px 0; }
-  .pill.ok { border-color:var(--ok); color:var(--ok); } .pill.warn { border-color:var(--warn); color:var(--warn); } .pill.bad { border-color:var(--bad); color:var(--bad); } .pill.main { background:var(--main); border-color:var(--main); color:#fff; }
-  input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], textarea, select { font:inherit; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--text); }
-  textarea { min-height:90px; resize:vertical; } label.f { display:block; font-size:14px; color:var(--muted); margin:10px 0 3px; } label.chk { display:flex; gap:6px; align-items:center; margin:8px 0; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:var(--fs-lg); margin:0 0 8px; } .card h3 { font-size:var(--fs-base); margin:12px 0 6px; }
+  .muted { color:var(--muted); font-size:var(--fs-sm); } .small { font-size:var(--fs-sm); } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
+  textarea { min-height:90px; resize:vertical; } label.f { display:block; font-size:var(--fs-sm); color:var(--muted); margin:10px 0 3px; } label.chk { display:flex; gap:6px; align-items:center; margin:8px 0; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; } .grid2 > div { min-width:0; }
-  .trow { display:grid; grid-template-columns:1.2fr 1fr .8fr 1fr 1.4fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:center; word-break:break-word; } .trow.head { font-size:13px; color:var(--muted); border-top:0; }
-  .trow.pick { cursor:pointer; } .trow.pick:hover { background:var(--soft); } .trow.sel { background:#EEF3F8; }
-  .rrow { display:grid; grid-template-columns:2fr 1fr 2fr; gap:8px; padding:6px 0; border-top:1px solid var(--line); align-items:center; font-size:14px; word-break:break-word; }
-  .ok-box { background:#EAF6EF; border:1px solid var(--ok); border-radius:6px; padding:10px 12px; margin-top:10px; } .bad-box { background:#FDECEA; border:1px solid var(--bad); border-radius:6px; padding:10px 12px; margin-top:10px; }
-  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:#fff; padding:10px 16px; border-radius:6px; font-size:14px; z-index:50; } .toast.bad { background:var(--bad); }
+  .trow { display:grid; grid-template-columns:1.2fr 1fr .8fr 1fr 1.4fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:center; word-break:break-word; } .trow.head { font-size:var(--fs-sm); color:var(--muted); border-top:0; }
+  .trow.pick { cursor:pointer; min-height:var(--tap); } .trow.pick:hover { background:var(--soft); } .trow.sel { background:var(--info-bg); }
+  .rrow { display:grid; grid-template-columns:2fr 1fr 2fr; gap:8px; padding:6px 0; border-top:1px solid var(--line); align-items:center; font-size:var(--fs-sm); word-break:break-word; }
+  .ok-box { background:var(--ok-bg); border:1px solid var(--ok); border-radius:6px; padding:10px 12px; margin-top:10px; } .bad-box { background:var(--bad-bg); border:1px solid var(--bad); border-radius:6px; padding:10px 12px; margin-top:10px; }
+  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:var(--white); padding:10px 16px; border-radius:6px; font-size:var(--fs-sm); z-index:50; } .toast.bad { background:var(--bad); }
   .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--main); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; } @keyframes sp { to { transform:rotate(360deg); } }
-  .center { text-align:center; padding:30px 0; } .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
+  .center { text-align:center; padding:30px 0; } .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:var(--fs-lg); color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:var(--fs-sm); margin-top:8px; }
   @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } .trow { grid-template-columns:1fr 1fr; } .trow.head { display:none; } .rrow { grid-template-columns:1fr; } }
   /* 11-12 訂單與額度（28n） */
-  .orow { display:grid; grid-template-columns:1.4fr 1.6fr 1fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:start; font-size:14px; word-break:break-word; }
+  .orow { display:grid; grid-template-columns:1.4fr 1.6fr 1fr; gap:8px; padding:8px 0; border-top:1px solid var(--line); align-items:start; font-size:var(--fs-sm); word-break:break-word; }
   .orow.p3 { grid-template-columns:2fr 1fr 130px; align-items:center; } .orow .full { grid-column:1/-1; }
   @media (max-width:760px) { .orow, .orow.p3 { grid-template-columns:1fr; } }
 </style>
@@ -551,6 +546,8 @@ const rgFoundHtml = () => (S.ui.rg.found || []).map((d) => `<div class="rrow" st
 const rgListHtml = () => { const r = S.ui.rg; return r.busy ? '<p class="muted"><span class="spin"></span>讀取這一班的志願…</p>' : r.list ? SG.renderClassList(r.list, r.status) : ''; };
 function viewGuide() {
   const r = S.ui.rg = S.ui.rg || RG0();
+  // 2026-11-24 A13：補回「校系指引用語（手打）」的狀態（10-30 原有，11 月加確認頁時漏掉，分頁一打開就 ReferenceError: g is not defined）
+  const g = S.ui.gd = S.ui.gd || { year: '116', ch: 'UNI', q: '', dept: '', terms: '', quote: '', found: [], msg: '' };
   view(`<div class="card"><h2>校系指引</h2><p class="muted" style="margin:0 0 6px">各校的審查資料準備指引，由系統整理成表。只有這一班同學填的志願系需要老師確認；沒確認的系，學生頁會請他看官方原文。</p>
     <div class="grid2"><div><label class="f" for="rg-year">學年度</label><input type="text" id="rg-year" data-in="rg" data-k="year" value="${esc(r.year)}"></div><div><label class="f" for="rg-ch">管道</label><select id="rg-ch" data-in="rg" data-k="ch"><option value="UNI" ${r.ch === 'UNI' ? 'selected' : ''}>一般大學</option><option value="TECH" ${r.ch === 'TECH' ? 'selected' : ''}>技專</option></select></div></div>
     <label class="f" for="rg-q">找校系（校名與系名，至少 2 字）</label><div class="row"><input type="text" id="rg-q" data-in="rg" data-k="q" value="${esc(r.q)}" style="flex:1"><button class="btn sm" data-act="rgFind">搜尋</button></div>

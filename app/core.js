@@ -22,7 +22,9 @@ const ERRS = {
   HAS_WISH_EVENT: '這版存過志願，會留著，不能刪。', ACK_REQUIRED: '請先看完落點分析的說明並勾選，再存成志願。', AI_DISABLED: '這個功能現在沒有開放，請按「請老師看」。',
   AI_OFF: '這一步由老師來做。',   // 2026-11-12 28l：AI 總開關關著
 };
-const FIELD_NAMES = { inventory: '你的學習歷程還沒整理完，請找育才仕幫忙', gridTemplate: '這一篇的欄位還沒準備好', answer: '回答不可空白（最多 2000 字）', turnId: '這一題已不存在',
+// 2026-11-24 A13 W12-03：N、O 被「盤點」擋住時，錯誤字改成指路（原：請找育才仕幫忙）；下面 errText 對這一種不再加「資料不完整」的前綴
+const INV_GATE_TEXT = '先到「我的學習歷程」放幾件你做過的事，按「盤點好了」，這一篇就能開始。';
+const FIELD_NAMES = { inventory: INV_GATE_TEXT, gridTemplate: '這一篇的欄位還沒準備好', answer: '回答不可空白（最多 2000 字）', turnId: '這一題已不存在',
   text: '內容不可空白或太長', assetIds: '文字或檔案至少要一項', decisions: '沒有選任何要點', pointId: '找不到這個要點', termIds: '這個能力標籤不在可以選的清單裡，請重新選', freeText: '整段文字不可空白（最多 5000 字）',
   sectionMap: '對回欄位的資料格式不對', textBySection: '稿件格式不對', scores: '成績要在 0 到 15 級分之間', items: '志願最多六個，而且要是有效的校系', deptCode: '有一個校系代碼找不到',
   nopqType: '這份稿標的是另一篇，和你選的文件對不上', extractedText: '這個檔案沒有讀到文字，請改用「貼文字」' };
@@ -31,7 +33,11 @@ function detailText(x) {
   if (x && typeof x === 'object') return x.note || x.kind || '';
   const k = String(x).split(':')[0]; return FIELD_NAMES[k] || String(x);
 }
+const NEED_SCAN = new Map();   // 按〔開始〕被「還沒盤點」擋住的文件 id → 當時有沒有盤點紀錄（'new'＝沒有、'stuck'＝有但還是被擋）：那一篇的開始卡改放「去盤點」的鈕（write.js warmupCard）
+const hasScan = () => !!(((S.home || {}).journey || {}).scan);
+const isInvGate = (d) => !!d && d.error === 'VALIDATION' && JSON.stringify(d.detail || '').includes('inventory');   // 2026-11-24 A13 W12-03
 function errText(d) {
+  if (isInvGate(d)) return INV_GATE_TEXT;
   const base = ERRS[d.error] || '這個動作沒做成，請再按一次。還是不行，請把畫面截圖給老師。';
   return d.error === 'VALIDATION' && d.detail != null ? base + '：' + detailText(d.detail) : base;
 }
@@ -98,7 +104,7 @@ setInterval(() => {
 // 存進伺服器成功 → 清掉對應的本機暫存（W1）
 function keepAfterSave(fn, args) {
   const doc = S.docId ? 'doc:' + S.docId + ':' : '';
-  if (doc && (fn === 'save_draft_grid' || fn === 'save_draft_free' || fn === 'submit_for_review' || fn === 'submit_self_check')) { keepClear(doc + 'cell:'); keepClear(doc + 'free'); }
+  if (doc && (fn === 'save_draft_grid' || fn === 'save_draft_free' || fn === 'save_pq_cells' || fn === 'submit_for_review' || fn === 'submit_self_check')) { keepClear(doc + 'cell:'); keepClear(doc + 'free'); }
   else if (doc && fn === 'interview_answer') keepClear(doc + 'answer');
   else if (doc && fn === 'submit_assignment') keepClear(doc + 'assign');
   else if (fn === 'upload_register' && args.p_file_name === 'pasted.txt') keepClear(args.p_kind === 'draft' ? 'mine:text1' : 'mine:text2');
@@ -127,6 +133,7 @@ function keepScope(el) {
   if (k === 'assignText') return 'doc:' + S.docId + ':assign';
   if (k === 'free') return 'doc:' + S.docId + ':free';
   if (k === 'cell' && el.tagName === 'TEXTAREA') return 'doc:' + S.docId + ':cell:' + el.dataset.key;
+  if (k === 'pqc' && el.tagName === 'TEXTAREA') return 'doc:' + S.docId + ':cell:' + el.dataset.key;   // 2026-11-24 A13 W14：P、Q 分格寫的每一格也暫存在這台電腦
   return '';
 }
 const keepKey = (scope) => 'ycs-keep:' + (S.uid || 'x') + ':' + scope;
@@ -385,10 +392,11 @@ function needSentence(sum) {
 }
 // ── 首頁：只有「下一步」卡，走過的幕縮成一行 ──
 const STEP_CARD = {
-  2: { t: '先填學測成績，看你的位置和能去的校系。', b: '填成績', href: '#/score' },
+  // 2026-11-24 A13 W12-01／02／16：第 2 步卡加「成績還沒出來」那一句（可先填模考）與不綁科系的入口；第 5 步卡對齊新版「我的學習歷程」頁（不再是兩個問題）
+  2: { t: '先填學測成績，看你的位置和能去的校系。成績還沒出來？可以先填模考成績，或先把學習歷程整理好。', b: '填成績', href: '#/score', b2: '先整理學習歷程', href2: '#/mine' },
   3: { t: '從清單裡挑最多六個你想去的系，存成志願。', b: '去挑科系', href: '#/score' },
   4: { t: '看這幾系要你交哪些審查資料。', b: '看各系要交什麼', href: '#/need' },
-  5: { t: '說說你手上有什麼，老師才知道從哪裡幫你。', b: '回答兩個問題', href: '#/mine' },
+  5: { t: '把學校系統裡你高中三年的東西放進來，按「盤點好了」，老師才知道從哪裡幫你。', b: '去放學習歷程', href: '#/mine' },
 };
 function docTodo(h) {
   const d = h.docs || [], by = (st) => d.find((x) => x.state === st); let x;
@@ -398,7 +406,7 @@ function docTodo(h) {
   if ((x = by('feedback_published'))) return { t: `「${docTitle(x)}」的回覆出來了，先看一下。`, doc: x, b: '去看回覆' };
   if ((x = d.find((z) => z.state === 'warmup' && (z.nopqType === 'N_diverseSummary' || z.nopqType === 'O_reflection')))) return { t: `開始「${docTitle(x)}」：先回答第一個問題。`, doc: x, b: '開始' };
   if ((x = by('review_pending') || by('self_check_pending') || by('feedback_pending'))) return { t: x.state === 'review_pending' ? `「${docTitle(x)}」交給老師了，老師的話出來前不用再做什麼。` : `「${docTitle(x)}」交出去了，回覆出來前不用再做什麼。`, doc: x, b: '看一下', wait: true };
-  if ((x = by('assignment_pending'))) return { t: '你說的收到了，正在準備下一個題目。', doc: x, b: '看一下', wait: true };
+  if ((x = by('assignment_pending'))) return { t: S.aiOn === false || !(h.consent && h.consent.ai) ? `「${docTitle(x)}」整篇交給老師看了，老師看完會再問你。` : '你說的收到了，正在準備下一個題目。', doc: x, b: '看一下', wait: true };   // 2026-11-24 A13 W12-08：AI 關（或沒有同意）時不再說「正在準備下一個題目」
   const core = d.filter((z) => z.nopqType === 'N_diverseSummary' || z.nopqType === 'O_reflection');
   if (core.length && core.every((z) => z.state === 'finalized')) return { t: 'N 和 O 都定稿了。接著寫每個志願系的 P、Q。', href: '#/write', b: '看稿', wait: true };
   return { t: '老師還沒幫你開好要寫的稿子。請找育才仕。', wait: true };
@@ -436,7 +444,10 @@ ACT.homeFresh = () => { homeAt = 0; route(); };
 ACT.openDoc = async (el) => {
   const id = el.dataset.id; el.disabled = true;
   try {
-    if (el.dataset.state === 'warmup') { const r = await call('open_doc', { p_case_doc_id: id }, { noRefresh: true }); if (!r.ok) return; }
+    // 2026-11-24 A13 W13：還沒開始的 N、O 不在這裡直接開稿——先去那一篇挑件（write.js 的挑件頁），挑好或按〔我先用寫的〕才開
+    const hd = ((S.home || {}).docs || []).find((x) => x.caseDocId === id), pickFirst = !!hd && (hd.nopqType === 'N_diverseSummary' || hd.nopqType === 'O_reflection');
+    if (el.dataset.state === 'warmup' && !pickFirst) { const r = await call('open_doc', { p_case_doc_id: id }, { noRefresh: true });
+      if (!r.ok) { if (isInvGate(r)) { NEED_SCAN.set(id, hasScan() ? 'stuck' : 'new'); location.hash = '#/doc/' + id; } return; } }   // 2026-11-24 A13 W12-03：被盤點擋住 → 帶去那一篇，那裡有直接去盤點的鈕
     location.hash = '#/doc/' + id;
   } finally { el.disabled = false; }
 };

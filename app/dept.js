@@ -28,7 +28,7 @@ function dpHidNoteTake(code) {
 async function viewDept(code) {
   setTab('need'); const my = S.rt; DP.hidNotes = dpHidNoteTake(code);
   view(`<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">${esc(dpW().st3Loading)}</span></div>`);
-  Object.assign(DP, { code, r: null, msg: {}, askOpen: false, copyOpen: false, copySel: null, hideReply: false });
+  Object.assign(DP, { code, r: null, msg: {}, askOpen: false, copyOpen: false, copySel: null, hideReply: false, cited: null });
   const r = await call('my_dept_picks', { p_dept_code: code }, { quiet: true }).catch(() => null);
   if (my !== S.rt) return;
   if (!r || !r.ok) {
@@ -36,8 +36,19 @@ async function viewDept(code) {
       + `<div class="row"><button type="button" class="btn" data-act="reload">${esc(dpW().st3Retry)}</button><a class="btn ghost" href="#/need">${esc(dpW().dpBack)}</a></div></div>`);
     return;
   }
-  DP.r = r; dpDraw();
+  DP.r = r; dpDraw(); dpCiteLoad(my, code, r);   // 2026-11-24 A13 W13：再讀這一系各篇引用了哪幾件，補「還沒在任何一篇裡提到」
 }
+// 2026-11-24 A13 W13（07 乙「雙向提示」）：勾給這一系的件，在這一系的 N、O、P、Q 任何一篇都沒被引用 → 那一件下面寫「這一件還沒在任何一篇裡提到。」
+//   每一篇讀 my_cite_items 的 citedIn；有一篇讀不到就不說（免得說錯）；沒有稿的系（還沒開 N、O）也不說。
+async function dpCiteLoad(my, code, r) {
+  const ids = ((r.dept && r.dept.write && r.dept.write.items) || []).filter((x) => x.docId && /^[NOPQ]$/.test(x.code)).map((x) => x.docId);
+  if (!ids.length) return;
+  const rs = await Promise.all(ids.map((id) => call('my_cite_items', { p_case_doc_id: id }, { quiet: true, noRefresh: true }).catch(() => null)));
+  if (my !== S.rt || code !== DP.code || rs.some((x) => !x || !x.ok)) return;
+  const set = new Set(); rs.forEach((x) => (x.items || []).forEach((it) => { if ((it.citedIn || []).length) set.add(it.sourceId); }));
+  DP.cited = set; dpDraw();
+}
+const dpUncited = (f) => (DP.cited && f.picked && !DP.cited.has(f.id) ? `<div class="muted small dpuncited">${esc(W13.deptNo)}</div>` : '');
 async function dpReload(force) {
   const my = S.rt, code = DP.code;
   const r = await call('my_dept_picks', { p_dept_code: code }, { quiet: true }).catch(() => null);
@@ -105,7 +116,7 @@ function dpPickHtml(r, d, off) {
       ${listed ? `<div class="muted small">${esc(dpF('dpListed', { list: listed }))}</div>` : ''}
       <div class="ptitle">${esc(title)}</div>
       ${lim != null && n > lim ? `<div class="redbox">${esc(dpF('dpOverLowered', { limit: lim, n, k: n - lim }))}</div>` : ''}
-      ${n ? `<ol class="plain picked">${picked.map((f, i) => `<li class="pk" data-id="${esc(f.id)}"><span class="ord">${i + 1}</span>${dpSq(f.itemCode)}<span class="pt">${name(f)}${tags(f)}${notes(f)}</span>
+      ${n ? `<ol class="plain picked">${picked.map((f, i) => `<li class="pk" data-id="${esc(f.id)}"><span class="ord">${i + 1}</span>${dpSq(f.itemCode)}<span class="pt">${name(f)}${tags(f)}${notes(f)}${dpUncited(f)}</span>
           <span class="pbtns">${i > 0 ? `<button type="button" class="btn sm ghost" data-act="dpUp" data-id="${esc(f.id)}" data-group="${esc(g.group)}">${esc(W.dpUp)}</button>` : ''}${i < n - 1 ? `<button type="button" class="btn sm ghost" data-act="dpDown" data-id="${esc(f.id)}" data-group="${esc(g.group)}">${esc(W.dpDown)}</button>` : ''}<button type="button" class="btn sm ghost" data-act="dpRemove" data-id="${esc(f.id)}" data-group="${esc(g.group)}">${esc(W.dpRemove)}</button></span></li>`).join('')}</ol>`
         : `<p class="muted small">${esc(lim == null ? dpF('dpNotPickedNoLimit', { n: gf.length }) : dpF('dpNotPicked', { n: gf.length, limit: lim }))}</p>`}
       ${un.length ? `<div class="ptitle">${esc(dpF('dpUnpickedTitle', { m: un.length }))}</div><ul class="plain unpicked">${un.map((f) => `<li class="pk" data-id="${esc(f.id)}">${dpSq(f.itemCode)}<span class="pt">${name(f)}${tags(f)}${notes(f)}</span>

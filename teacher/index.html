@@ -7,54 +7,47 @@
 <meta name="referrer" content="no-referrer">
 <title>NOPQ通｜老師</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../app/nopq-base.css">
 <style>
   /* 育才仕 NOPQ通 1a 老師端。電腦與手機都能用：窄螢幕單欄，寬螢幕批改頁左右兩欄。配色同學生端（STEM 主色）。 */
-  :root { --main:#1F3B5C; --sub:#5E8CA7; --accent:#D08A1E; --text:#1D2433; --muted:#5B6472; --bg:#FFFFFF; --soft:#F4F5F7; --line:#D9DDE3;
-          --ok:#1E7B4B; --warn:#B26A00; --bad:#B3261E; --yellow:#FFF1A8; }
   * { box-sizing:border-box; }
-  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:16px; line-height:1.55; overflow-x:hidden; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:var(--fs-base); line-height:1.55; overflow-x:hidden; }
   body { padding-bottom:40px; } .hidden { display:none !important; }
-  header.top { background:var(--main); color:#fff; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-  header.top .brand { font-weight:700; font-size:17px; } header.top .who { font-size:13px; display:flex; gap:8px; align-items:center; }
-  nav.tabs { background:#fff; border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
-  nav.tabs a { padding:10px 12px; font-size:15px; color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
+  header.top { background:var(--main); color:var(--white); padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  header.top .brand { font-weight:700; font-size:var(--fs-lg); } header.top .who { font-size:var(--fs-sm); display:flex; gap:8px; align-items:center; }
+  nav.tabs { background:var(--white); border-bottom:1px solid var(--line); display:flex; gap:2px; padding:0 8px; flex-wrap:wrap; }
+  nav.tabs a { padding:10px 12px; font-size:var(--fs-base); color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; display:inline-flex; align-items:center; min-height:var(--tap); } nav.tabs a.on { color:var(--main); font-weight:700; border-color:var(--main); }
   main { max-width:1000px; margin:0 auto; padding:12px 12px 0; }
-  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:17px; margin:0 0 8px; } .card h3 { font-size:15px; margin:12px 0 6px; }
-  .card.active { border-color:var(--main); box-shadow:0 0 0 2px rgba(31,59,92,.12); }
-  details.card > summary { cursor:pointer; font-weight:700; list-style:none; } details.card > summary::-webkit-details-marker { display:none; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; } .card h2 { font-size:var(--fs-lg); margin:0 0 8px; } .card h3 { font-size:var(--fs-base); margin:12px 0 6px; }
+  .card.active { border-color:var(--main); box-shadow:0 0 0 2px var(--ring); }
+  details.card > summary { cursor:pointer; font-weight:700; list-style:none; padding:10px 0; min-height:var(--tap); } details:not(.card) > summary { cursor:pointer; padding:10px 0; min-height:var(--tap); } details.card > summary::-webkit-details-marker { display:none; }
   details.card > summary:before { content:"▸ "; color:var(--sub); } details.card[open] > summary:before { content:"▾ "; }
-  .muted { color:var(--muted); font-size:14px; } .small { font-size:13px; } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
-  .btn { font:inherit; font-size:15px; padding:8px 15px; min-height:38px; border-radius:6px; border:1px solid var(--main); background:var(--main); color:#fff; cursor:pointer; text-decoration:none; display:inline-block; }
-  .btn.ghost { background:#fff; color:var(--main); border-color:var(--line); } .btn.sm { padding:4px 11px; font-size:14px; min-height:32px; } .btn.warn { background:#fff; color:var(--bad); border-color:var(--bad); } .btn:disabled { opacity:.45; cursor:default; }
-  .pill { display:inline-block; font-size:12px; line-height:1.7; padding:0 9px; border-radius:999px; border:1px solid var(--sub); color:var(--sub); background:#fff; margin:2px 4px 2px 0; }
-  .pill.on { background:var(--sub); color:#fff; } .pill.ok { border-color:var(--ok); color:var(--ok); } .pill.warn { border-color:var(--warn); color:var(--warn); } .pill.bad { border-color:var(--bad); color:var(--bad); } .pill.main { background:var(--main); border-color:var(--main); color:#fff; }
-  button.pill { font-family:inherit; cursor:pointer; }
-  input[type=text], input[type=email], input[type=password], input[type=datetime-local], textarea, select { font:inherit; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--text); }
-  textarea { min-height:80px; resize:vertical; } label.f { display:block; font-size:14px; color:var(--muted); margin:10px 0 3px; }
+  .muted { color:var(--muted); font-size:var(--fs-sm); } .small { font-size:var(--fs-sm); } .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
+  textarea { min-height:80px; resize:vertical; } label.f { display:block; font-size:var(--fs-sm); color:var(--muted); margin:10px 0 3px; }
   .bar { display:flex; gap:3px; margin:6px 0 4px; } .bar i { flex:1; height:7px; border-radius:3px; background:var(--line); } .bar i.done { background:var(--sub); } .bar i.cur { background:var(--accent); }
-  .hint { background:var(--soft); border-left:4px solid var(--main); padding:8px 12px; border-radius:0 6px 6px 0; margin-top:8px; font-size:15px; }
-  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:#fff; padding:10px 16px; border-radius:6px; font-size:14px; z-index:50; } .toast.bad { background:var(--bad); }
+  .hint { background:var(--soft); border-left:4px solid var(--main); padding:8px 12px; border-radius:0 6px 6px 0; margin-top:8px; font-size:var(--fs-base); }
+  .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; max-width:92vw; background:var(--text); color:var(--white); padding:10px 16px; border-radius:6px; font-size:var(--fs-sm); z-index:50; } .toast.bad { background:var(--bad); }
   .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--main); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; } @keyframes sp { to { transform:rotate(360deg); } }
   .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px; }
-  .tile { display:block; background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px; text-decoration:none; color:var(--text); } .tile b { display:block; font-size:28px; color:var(--main); line-height:1.1; } .tile.hot { border-color:var(--accent); } .tile.hot b { color:var(--accent); }
+  .tile { display:block; background:var(--white); border:1px solid var(--line); border-radius:6px; padding:12px; text-decoration:none; color:var(--text); } .tile b { display:block; font-size:var(--fs-xl); color:var(--main); line-height:1.1; } .tile.hot { border-color:var(--accent); } .tile.hot b { color:var(--accent-ink); }
   .srow { display:grid; grid-template-columns:1.1fr 1.7fr; gap:8px; padding:10px 0; border-top:1px solid var(--line); align-items:start; } .srow:first-of-type { border-top:0; }
-  .chat { display:flex; flex-direction:column; gap:6px; margin:6px 0; } .bub { max-width:90%; padding:7px 11px; border-radius:6px; white-space:pre-wrap; word-break:break-word; font-size:15px; }
-  .bub.q { align-self:flex-start; background:var(--soft); border:1px solid var(--line); } .bub.a { align-self:flex-end; background:var(--main); color:#fff; } .bub .who { display:block; font-size:12px; opacity:.75; }
+  .chat { display:flex; flex-direction:column; gap:6px; margin:6px 0; } .bub { max-width:90%; padding:7px 11px; border-radius:6px; white-space:pre-wrap; word-break:break-word; font-size:var(--fs-base); }
+  .bub.q { align-self:flex-start; background:var(--soft); border:1px solid var(--line); } .bub.a { align-self:flex-end; background:var(--main); color:var(--white); } .bub .who { display:block; font-size:var(--fs-sm); opacity:.75; }
   .pt { border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin:8px 0; } .pt.cand { border-style:dashed; border-color:var(--sub); } .pt .txt { white-space:pre-wrap; word-break:break-word; }
-  .pt blockquote { margin:6px 0; padding:3px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:14px; white-space:pre-wrap; }
+  .pt blockquote { margin:6px 0; padding:3px 10px; border-left:3px solid var(--line); color:var(--muted); font-size:var(--fs-sm); white-space:pre-wrap; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; } .two > div { min-width:0; }
-  .cellv { border:1px solid var(--line); border-radius:6px; margin:8px 0; padding:8px 10px; background:#fff; } .cellv.edited { background:var(--yellow); border-color:#E0C84A; } .cellv.pick { box-shadow:0 0 0 2px var(--accent); cursor:pointer; }
-  .cellv .lab { font-size:13px; font-weight:700; color:var(--main); display:flex; justify-content:space-between; gap:6px; flex-wrap:wrap; } .cellv .ro { white-space:pre-wrap; word-break:break-word; margin-top:3px; user-select:text; }
+  .cellv { border:1px solid var(--line); border-radius:6px; margin:8px 0; padding:8px 10px; background:var(--white); } .cellv.edited { background:var(--yellow); border-color:var(--yellow-line); } .cellv.pick { box-shadow:0 0 0 2px var(--accent); cursor:pointer; min-height:var(--tap); }
+  .cellv .lab { font-size:var(--fs-sm); font-weight:700; color:var(--main); display:flex; justify-content:space-between; gap:6px; flex-wrap:wrap; } .cellv .ro { white-space:pre-wrap; word-break:break-word; margin-top:3px; user-select:text; }
   .seg { margin:12px 0 4px; padding:5px 10px; border-left:4px solid var(--main); background:var(--soft); font-weight:700; border-radius:0 6px 6px 0; }
   .pcols { display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0; } .pcols .pcol { flex:1 1 220px; min-width:0; } .pcols ul.plain { margin:2px 0 4px; }   /* 28u：題目換了，原本／現在 */
-  .issue { border-left:4px solid var(--warn); padding:4px 10px; margin:6px 0; background:#FFF8EC; font-size:14px; } .cm { border-left:4px solid var(--accent); padding:6px 10px; margin:8px 0; background:#FFF8EC; font-size:14px; }
-  .badge { display:inline-block; font-size:12px; padding:0 8px; border-radius:4px; background:#EEF1F5; color:var(--muted); border:1px solid var(--line); } .badge.ai { background:#FFF8EC; color:var(--warn); border-color:#F0D9A8; }
+  .issue { border-left:4px solid var(--warn); padding:4px 10px; margin:6px 0; background:var(--cream); font-size:var(--fs-sm); } .cm { border-left:4px solid var(--accent); padding:6px 10px; margin:8px 0; background:var(--cream); font-size:var(--fs-sm); }
+  .badge { display:inline-block; font-size:var(--fs-sm); padding:0 8px; border-radius:4px; background:var(--badge-bg); color:var(--muted); border:1px solid var(--line); } .badge.ai { background:var(--cream); color:var(--warn); border-color:var(--cream-line); }
   .seg-tabs { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; } ul.plain { margin:4px 0; padding-left:20px; } .center { text-align:center; padding:30px 0; }
-  .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:22px; color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:14px; margin-top:8px; }
+  .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:var(--fs-lg); color:var(--main); margin:0 0 4px; } .err { color:var(--bad); font-size:var(--fs-sm); margin-top:8px; }
   @media (max-width:760px) { .two { grid-template-columns:1fr; } .srow { grid-template-columns:1fr; } }
-  .lvbox { margin-top:6px; } .lvpanel { background:var(--soft); border-radius:6px; padding:6px 10px 10px; } .lvpanel h3 { font-size:14px; margin:10px 0 4px; }   /* 2026-11-09 落點分析版本 */
+  .lvbox { margin-top:6px; } .lvpanel { background:var(--soft); border-radius:6px; padding:6px 10px 10px; } .lvpanel h3 { font-size:var(--fs-sm); margin:10px 0 4px; }   /* 2026-11-09 落點分析版本 */
   /* 2026-11-21 審查資料項目模型第三步：老師頁畫面⑥⑦ */
-  .csq { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:#F4F5F7; border:1px solid var(--main); font-weight:700; flex:none; }
+  .csq { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:var(--soft); border:1px solid var(--main); font-weight:700; flex:none; }
   .csq.q { border-style:dashed; border-color:var(--warn); color:var(--warn); }
   .drow2 { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
   .drow2 .grow { flex:1 1 220px; min-width:0; }
@@ -62,8 +55,8 @@
   .pk .pt { flex:1 1 220px; min-width:0; overflow-wrap:anywhere; }
   .advs { display:flex; gap:6px; flex-wrap:wrap; flex-basis:100%; }
   .advs label { display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 8px; border:1px solid var(--line); border-radius:6px; cursor:pointer; }
-  .pk input[type=text] { flex-basis:100%; min-height:40px; }
-  .redbox { border:2px solid var(--bad); border-radius:6px; padding:6px 10px; color:var(--bad); background:#FFF3F3; font-size:14px; margin-top:6px; }
+  .pk input[type=text] { flex-basis:100%; }
+  .redbox { border:2px solid var(--bad); border-radius:6px; padding:6px 10px; color:var(--bad); background:var(--bad-soft); font-size:var(--fs-sm); margin-top:6px; }
   .pickgrid { display:block; } .pickside { margin-top:12px; }
   @media (min-width:900px) { .pickgrid { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1fr); gap:12px; align-items:start; } .pickside { margin-top:0; position:sticky; top:8px; } }
 </style>
@@ -554,10 +547,37 @@ function promptCheckHtml(d) {
   return `<div class="issue" id="prompt-check"><b>${esc(lead)}</b>${nameCh ? `<div class="small">項目名稱：${esc(o.itemLabel || '')} → ${esc(c.itemLabel)}</div>` : ''}
     <div class="pcols">${promptColT('原本的題目（學生寫的時候）', o)}${promptColT('現在的題目', c)}</div></div>`;
 }
+// 2026-11-24 A13 W13：稿子上方列「這篇引用了」（teacher_doc 的 cites，後端 29c W09），每一件可以點開看全文（teacher_inventory_item，28v）。
+//   引述只是旁邊的清單，不進稿子的字；學生把件收起來之後原件還看得到（hidden），刪掉的看不到全文。字見文案對照表第 11 節 W13-28～W13-32。
+const TC = { title: '這篇引用了（{n}）', full: '看全文', hide: '收起全文', claim: '他用它證明：{c}', gone: '這一件學生已經收起來了，原件還看得到。', none: '這一件已經刪掉，看不到全文。', fail: '全文現在讀不到，請再按一次。', whole: '整篇' };
+const tcf = (k, o) => String(TC[k]).replace(/\{(\w+)\}/g, (_, x) => (o && o[x] != null ? o[x] : ''));
+function citeWhereT(k) {
+  if (!k) return TC.whole;
+  const g = ((S.doc && S.doc.pqGrid) || {}).cells, hit = Array.isArray(g) ? g.find((x) => x.key === k) : null;
+  return hit ? hit.label : cellLabel(k, '') || k;
+}
+function citesCard() {
+  const cs = (S.doc && S.doc.cites) || []; if (!cs.length) return ''; const cf = (S.ui.cf = S.ui.cf || {});
+  return `<details class="card" id="cites-card" open><summary>${esc(tcf('title', { n: cs.length }))}</summary>${cs.map((x) => {
+    const code = [x.itemCode, x.codeName].filter(Boolean).join(' '), f = cf[x.sourceId];
+    return `<div class="pt"><div class="small muted">${esc(citeWhereT(x.sectionKey))}</div><b>${esc(x.title || '')}</b>${code ? ` <span class="pill">${esc(code)}</span>` : ''}
+      ${x.status === 'invalid' ? `<div class="issue">${esc(x.invalidReason === 'deleted' ? TC.none : TC.gone)}</div>` : ''}${x.claim ? `<div class="small">${esc(tcf('claim', { c: x.claim }))}</div>` : ''}
+      <div class="row" style="margin-top:6px"><button type="button" class="btn sm ghost" data-act="tCiteFull" data-id="${esc(x.sourceId)}">${esc(f != null ? TC.hide : TC.full)}</button></div>
+      ${f != null ? `<div class="cellv"><div class="ro" style="white-space:pre-wrap">${esc(f)}</div></div>` : ''}</div>`;
+  }).join('')}</details>`;
+}
+ACT.tCiteFull = async (el) => {
+  const cf = (S.ui.cf = S.ui.cf || {}), id = el.dataset.id; if (cf[id] != null) { delete cf[id]; renderDoc(); return; }
+  el.disabled = true;
+  try {
+    const r = await call('teacher_inventory_item', { p_file_asset_id: id }, { quiet: true, noRefresh: true }).catch(() => null);
+    cf[id] = r && r.ok ? (r.item && r.item.text) || '（沒有讀到文字）' : r && r.error === 'NOT_FOUND' ? TC.none : TC.fail; renderDoc();
+  } finally { el.disabled = false; }
+};
 function renderDoc() {
   const d = S.doc; if (!d || d.caseDocId !== S.docId) return; const y = window.scrollY;
   const late = ['draft_open', 'self_check_pending', 'review_pending', 'finalized'].includes(d.state);   // 進到稿件階段，批改頁放最前面
-  view(headCard() + (late ? gradeCard() : '') + dialogueCard() + pointsCard() + assignCard() + feedbackCard() + allowCard() + (late ? '' : gradeCard()) + versionsCard()); window.scrollTo(0, y);
+  view(headCard() + citesCard() + (late ? gradeCard() : '') + dialogueCard() + pointsCard() + assignCard() + feedbackCard() + allowCard() + (late ? '' : gradeCard()) + versionsCard()); window.scrollTo(0, y);
 }
 function headCard() {
   const d = S.doc, i = Math.max(0, STATES.indexOf(d.state)), st = d.internal && d.internal.student, lj = d.lastJob;
@@ -702,14 +722,25 @@ function gradeCells() {
   const segs = segCount(spec, t), seg = spec.segments;
   return head.concat(expandCells(spec, segs).filter((c) => { const m = seg && c.section.startsWith(seg.prefix) && c.section.match(/\[(\d+)\]$/); return !m || +m[1] <= segs; }));
 }
+// 2026-11-24 A13 W14：P、Q 分格寫的稿，版本裡每格一段（P.c1…）。先列「格名＋那一格的字」（只看）；整篇那一欄留著，改字、逐句意見照舊都在整篇上做。
+//   整段寫的稿、或老師改過整篇（各格拼起來跟整篇不一樣）就不列各格，照舊只有整篇一欄。字見文案對照表第 12 節 W14-13。
+const TPQ = { title: '各格的字', whole: '整篇（各格拼起來；改字、逐句意見都在這一欄）', empty: '（空白）', shared: '每個志願系共用', alone: '這一系自己寫' };
+function pqCellsView() {
+  const d = S.doc, g = d.pqGrid, v = d.draft && d.draft.currentVersion; if (!g || !Array.isArray(g.cells) || !v) return '';
+  const t = v.textBySection || {}, cells = g.cells.filter((c) => typeof t[c.key] === 'string'); if (!cells.length) return '';
+  const free = typeof t._free === 'string' ? t._free.trim() : '', plain = cells.map((c) => String(t[c.key]).trim()).filter(Boolean).join('\n\n');
+  if (plain !== free) return '';
+  return `<div class="seg" id="pq-cells">${esc(TPQ.title)}</div>` + cells.map((c) => `<div class="cellv pqv" data-pqcell="${esc(c.key)}"><div class="lab"><span>${esc(c.label)}${c.scope === 'shared' ? ' <span class="pill">' + esc(c.linked ? TPQ.shared : TPQ.alone) + '</span>' : ''}</span><span class="muted" style="font-weight:400">已 ${nlen(t[c.key])} 字</span></div>
+    <div class="ro" style="white-space:pre-wrap">${esc(t[c.key]) || '<span class="muted">' + esc(TPQ.empty) + '</span>'}</div></div>`).join('');
+}
 function cellsHtml(pick) {
-  const t = S.doc.draft.currentVersion.textBySection || {}; let last = '';
-  return gradeCells().map((c) => {
+  const t = S.doc.draft.currentVersion.textBySection || {}; let last = ''; const pv = pqCellsView();
+  return pv + gradeCells().map((c) => {
     const v = t[c.key], hit = c.kind === 'text' ? editFor(c.key, v) : null, head = c.child !== 'text' && c.section !== last ? `<div class="seg">${esc(c.secLabel)}</div>` : ''; last = c.section;
     const body = c.kind === 'terms' ? ((Array.isArray(v) ? v : []).map((x) => `<span class="pill on">${esc(termName(x))}</span>`).join('') || '<span class="muted">（沒選）</span>') : esc(c.kind === 'table' ? tableText(v) : v || '') || '<span class="muted">（空白）</span>';
     const n = nlen(v);
     return head + `<div class="cellv ${hit ? 'edited' : ''} ${pick && c.kind === 'text' ? 'pick' : ''}" data-key="${esc(c.key)}" ${pick && c.kind === 'text' ? `data-act="pickCell" data-ck="${esc(c.key)}"` : ''}>
-      <div class="lab"><span>${esc(c.label)}${c.req ? '<span style="color:var(--bad)"> *</span>' : ''}</span>${c.kind === 'text' ? `<span class="muted" style="font-weight:400">已 ${n} 字${c.limit ? '／≤' + c.limit : ''}</span>` : ''}</div>
+      <div class="lab"><span>${esc(c.key === '_free' && pv ? TPQ.whole : c.label)}${c.req ? '<span style="color:var(--bad)"> *</span>' : ''}</span>${c.kind === 'text' ? `<span class="muted" style="font-weight:400">已 ${n} 字${c.limit ? '／≤' + c.limit : ''}</span>` : ''}</div>
       <div class="ro" data-sec="${esc(c.section)}" data-fld="${esc(c.child)}">${body}</div>${hit ? `<div class="small" style="margin-top:4px">老師改過｜原文：「${esc(hit.beforeText || '（空白）')}」</div>` : ''}</div>`;
   }).join('');
 }
@@ -807,7 +838,7 @@ async function verGet(id) {
   return (vu.cache[id] = r.version);
 }
 const verName = (v) => `第 ${v.versionNumber} 版（${AUTHOR[v.authorType] || v.authorType}，${when(v.createdAt)}）`;
-const segHtml = (segs) => segs.map((x) => x.t === '-' ? `<del style="background:#fde2e2;color:#9b1c1c">${esc(x.s)}</del>` : x.t === '+' ? `<ins style="background:#dcfce7;color:#14532d;text-decoration:none">${esc(x.s)}</ins>` : esc(x.s)).join('');
+const segHtml = (segs) => segs.map((x) => x.t === '-' ? `<del style="background:var(--bad-bg);color:var(--bad)">${esc(x.s)}</del>` : x.t === '+' ? `<ins style="background:var(--ok-bg);color:var(--ok);text-decoration:none">${esc(x.s)}</ins>` : esc(x.s)).join('');
 function versionsCard() {
   const vs = (S.doc.draft && S.doc.draft.versions) || []; if (!vs.length) return ''; const cur = S.doc.draft.currentVersion, vu = verUi(), newest = vs.slice().reverse();
   const a = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), b = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
@@ -831,7 +862,7 @@ ACT.verCmp = async (el) => {
   try {
     const A = await verGet(aId), B = A && await verGet(bId); if (!A || !B) return;
     const [o, n] = A.versionNumber <= B.versionNumber ? [A, B] : [B, A], df = TD.diffText(verPlain(o), verPlain(n));
-    verShow(`<div class="muted small" style="margin-top:10px">左邊第 ${o.versionNumber} 版、右邊第 ${n.versionNumber} 版：<del style="background:#fde2e2;color:#9b1c1c">紅底劃線</del>＝後來拿掉的，<ins style="background:#dcfce7;color:#14532d;text-decoration:none">綠底</ins>＝後來加的。</div>
+    verShow(`<div class="muted small" style="margin-top:10px">左邊第 ${o.versionNumber} 版、右邊第 ${n.versionNumber} 版：<del style="background:var(--bad-bg);color:var(--bad)">紅底劃線</del>＝後來拿掉的，<ins style="background:var(--ok-bg);color:var(--ok);text-decoration:none">綠底</ins>＝後來加的。</div>
       ${df.changed ? '' : '<div class="hint">這兩版的內容一樣。</div>'}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:6px">
         <div><h3 style="margin-top:0">${esc(verName(o))}</h3><div class="cellv"><div class="ro" style="white-space:pre-wrap">${segHtml(df.left) || '（沒有內容）'}</div></div></div>
