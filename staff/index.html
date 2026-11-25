@@ -184,6 +184,7 @@ const ERRS = {
   GUARDIAN_NAME_INVALID: '監護人姓名不能寫「本人」。', GUARDIAN_CONTACT_REQUIRED: '要填聯絡方式。', CONSENT_METHOD_INVALID: '登錄方式要選紙本或 Tally。', CONSENT_SCOPE_VERSION_REQUIRED: '要填同意書版本。',
   RECORDED_BY_REQUIRED: '缺少登錄人。', ATTACHMENT_REQUIRED: '紙本同意要填附件檔名。', CONSENT_AT_REQUIRED: '紙本同意要填簽署日期。', CONSENT_AT_INVALID: '簽署日期不能在未來。', DEPT_NOT_FOUND: '找不到這個校系。',
   NAME_REQUIRED: '要填名稱。', UNAUTHENTICATED: '登入已過期，請重新登入。', LINK_FAILED: '帳號沒建成，已經恢復原狀，請再試一次。', ADMIN_FAILED: '建帳號失敗，請稍後再試。', QUERY_TOO_SHORT: '至少輸入 2 個字。',
+  CHANNEL_NOT_FOUND: '找不到這個通路代號', CHANNEL_INACTIVE: '這個通路已停用', PLAN_NOT_IN_CHANNEL: '這個通路沒有開這個方案',   // 2026-11-25 A7（29b staff_set_student_plan 的錯誤碼；字照主線指定）
 };
 const FIELD_NAMES = { guide: '指引內容的格式不對', 'N.required': 'N 的必交／選交選項不對', 'O.required': 'O 的必交／選交選項不對', 'P.required': 'P 的必交／選交選項不對', 'Q.required': 'Q 的必交／選交選項不對', deptCode: '校系代碼不存在', terms: '用語要 1～30 個、每個最多 30 字', sourceQuote: '指引原句最多 300 字', email: 'email 格式不對', 'password（8–72 字元）': '暫時密碼要 8～72 字元', p_age_status: '年齡選項不對' };
 const detailText = (x) => (Array.isArray(x) ? x.map(detailText).join('、') : x && typeof x === 'object' ? x.note || '' : FIELD_NAMES[String(x)] || String(x));
@@ -324,17 +325,59 @@ ACT.impGo = async (el) => {
   if (!r.ok) { el.disabled = false; return; } x.result = r; x.rows = []; await loadBase(); viewImport(); toast('匯入完成');
 };
 // ── 建帳號（呼叫 nopq-admin；只顯示 authUserId，不顯示密碼）──
-function viewAccount() {
-  const u = S.ui; u.ac = u.ac || { role: 'student', id: '', email: '', pw: '' }; const a = u.ac;
+// 2026-11-25 A7：通路清單（29b staff_list_channels）。直接讀、不跳錯：讀不到（舊後端）就不顯示通路欄與「學生方案」卡，畫面照舊
+async function loadChannels() {
+  if (S.channels) return S.channels;
+  try { const { data, error } = await sb.rpc('staff_list_channels', {}); S.chOk = !error && !!data && data.ok === true; S.channels = S.chOk ? data.items || [] : []; } catch (e) { S.chOk = false; S.channels = []; }
+  return S.channels;
+}
+const chOptions = (cur) => `<option value="">不掛通路（直售）</option>` + (S.channels || []).filter((c) => c.active).map((c) => `<option value="${esc(c.code)}" ${cur === c.code ? 'selected' : ''}>${esc(c.name)}（${esc(c.code)}）</option>`).join('');
+const chName = (code) => { const c = (S.channels || []).find((x) => x.code === code); return c ? `${c.name}（${c.code}）` : code; };
+async function viewAccount() {
+  await loadChannels(); if (VIEWS[location.hash || '#/'] !== 'account') return;   // 等通路清單時已換頁就停
+  const u = S.ui; u.ac = u.ac || { role: 'student', id: '', email: '', pw: '', ch: '' }; const a = u.ac;
+  u.sp = u.sp || { student: '', ch: '', snap: null }; const sp = u.sp;
+  const chOn = a.role === 'student' && (S.channels || []).some((c) => c.active);
   const people = a.role === 'student' ? studentOptions(a.id) : (S.teachers || []).map((t) => `<option value="${esc(t.id)}" data-email="${esc(t.email || '')}" ${a.id === t.id ? 'selected' : ''}>${esc(t.name)}（${esc(t.email || '無 email')}）</option>`).join('');
   view(`<div class="card"><h2>建登入帳號</h2><p class="muted" style="margin:0 0 6px">幫學生或老師建 email＋暫時密碼的帳號。密碼只有你輸入的這一次，建好後不會顯示；請另外告訴他本人，叫他登入後自己換。</p>
     <div class="row"><label class="chk"><input type="radio" name="ac-role" value="student" data-in="acRole" ${a.role === 'student' ? 'checked' : ''}> 學生</label><label class="chk"><input type="radio" name="ac-role" value="teacher" data-in="acRole" ${a.role === 'teacher' ? 'checked' : ''}> 老師</label></div>
     <label class="f" for="ac-who">要建給誰</label><select id="ac-who" data-in="acPerson"><option value="">請選…</option>${people}</select>
     <label class="f" for="ac-email">登入 email</label><input type="email" id="ac-email" data-in="acEmail" value="${esc(a.email)}" autocomplete="off">
     <label class="f" for="ac-pw">暫時密碼（8～72 字元）</label><input type="password" id="ac-pw" data-in="acPw" autocomplete="new-password" value="">
-    <div style="margin-top:12px"><button class="btn" data-act="mkAccount">建立帳號</button></div><div id="ac-out">${u.acResult || ''}</div></div>`);
+    ${chOn ? `<label class="f" for="ac-ch">通路代號（從補習班或合作單位來的學生才選）</label><select id="ac-ch" data-in="acCh">${chOptions(a.ch || '')}</select>` : ''}
+    <div style="margin-top:12px"><button class="btn" data-act="mkAccount">建立帳號</button></div><div id="ac-out">${u.acResult || ''}</div></div>
+    ${S.chOk ? `<div class="card" id="sp-card"><h2>學生方案</h2>
+    <label class="f" for="sp-student">學生</label><select id="sp-student" data-in="spStudent"><option value="">請選…</option>${studentOptions(sp.student)}</select>
+    <div id="sp-body">${spBody()}</div></div>` : ''}`);
 }
-IN.acRole = (el) => { S.ui.ac = { role: el.value, id: '', email: '', pw: '' }; S.ui.acResult = ''; viewAccount(); };
+IN.acRole = (el) => { S.ui.ac = { role: el.value, id: '', email: '', pw: '', ch: '' }; S.ui.acResult = ''; viewAccount(); };
+IN.acCh = (el) => { S.ui.ac.ch = el.value; };
+// 「學生方案」卡（A7 第 4 點）：選學生 → 讀 staff_get_student_plan 顯示目前方案與通路；〔存〕只改通路（planCode 不傳＝沿用）；〔拿掉通路代號〕＝channelCode 空字串
+function spBody() {
+  const sp = S.ui.sp || {}, r = sp.snap; if (!sp.student || !r) return '';
+  if (!r.ok) return `<div class="bad-box">${esc(errText(r))}</div>`;
+  return `<div id="sp-now" class="small" style="margin-top:8px">目前：${esc(r.plan ? `${r.plan.name}（${r.plan.code}）` : '—')}｜${esc(r.channelCode ? chName(r.channelCode) : '不掛通路（直售）')}</div>
+    <label class="f" for="sp-ch">通路代號（從補習班或合作單位來的學生才選）</label><select id="sp-ch" data-in="spCh">${chOptions(sp.ch)}</select>
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="spSave">存</button><button class="btn ghost" data-act="spClear">拿掉通路代號</button></div>`;
+}
+async function spLoad() {
+  const sp = S.ui.sp, id = sp.student; sp.snap = null;
+  if (id) { let r = null; try { r = await call('staff_get_student_plan', { p_student_id: id }, { quiet: true }); } catch (e) { r = null; } if (!S.ui.sp || S.ui.sp.student !== id) return; sp.snap = r || { ok: false, error: 'EMPTY' }; sp.ch = (r && r.ok && r.channelCode) || ''; }
+  if ($('sp-body')) $('sp-body').innerHTML = spBody();
+}
+IN.spStudent = (el) => { S.ui.sp.student = el.value; spLoad(); };
+IN.spCh = (el) => { S.ui.sp.ch = el.value; };
+async function spSet(el, ch) {
+  const sp = S.ui.sp; if (!sp || !sp.student) return;
+  el.disabled = true;
+  try {
+    const r = await call('staff_set_student_plan', { p: { studentId: sp.student, channelCode: ch } }, { quiet: true });
+    if (!r.ok) return toast(errText(r), true);
+    toast('已存'); await spLoad();
+  } finally { el.disabled = false; }
+}
+ACT.spSave = (el) => spSet(el, S.ui.sp ? S.ui.sp.ch : '');
+ACT.spClear = (el) => spSet(el, '');
 IN.acPerson = (el) => { const o = el.selectedOptions[0]; S.ui.ac.id = el.value; S.ui.ac.email = (o && o.dataset.email) || ''; $('ac-email').value = S.ui.ac.email; };
 IN.acEmail = (el) => { S.ui.ac.email = el.value; }; IN.acPw = (el) => { S.ui.ac.pw = el.value; };
 ACT.mkAccount = async (el) => {
@@ -346,7 +389,13 @@ ACT.mkAccount = async (el) => {
   } catch (e) { res = { ok: false, error: 'ADMIN_FAILED' }; }
   a.pw = ''; $('ac-pw').value = ''; el.disabled = false;
   const who = $('ac-who').selectedOptions[0].textContent;
-  S.ui.acResult = res && res.ok ? `<div class="ok-box"><b>帳號已建立</b>：${esc(who)}<div class="small">帳號編號：<code>${esc(res.authUserId)}</code></div><div class="small muted">密碼不會顯示，請另外告訴本人。</div></div>` : `<div class="bad-box">${esc(errText(res || { error: 'ADMIN_FAILED' }))}</div>`;
+  // 2026-11-25 A7：學生選了通路 → 帳號建好後接著掛上（直售免費＋通路代號）；第二步失敗不回滾帳號，提示到「學生方案」卡重選
+  let chLine = '';
+  if (res && res.ok && a.role === 'student' && a.ch) {
+    let sp = null; try { sp = await call('staff_set_student_plan', { p: { studentId: a.id, planCode: 'direct_free', channelCode: a.ch } }, { quiet: true }); } catch (e) { sp = null; }
+    chLine = sp && sp.ok ? `<div class="small">已掛上通路：${esc(chName(a.ch))}</div>` : `<div class="small err">${esc(sp && ERRS[sp.error] ? ERRS[sp.error] + '。' : '')}帳號已建好，請到下面「學生方案」重新選通路</div>`;
+  }
+  S.ui.acResult = res && res.ok ? `<div class="ok-box"><b>帳號已建立</b>：${esc(who)}<div class="small">帳號編號：<code>${esc(res.authUserId)}</code></div>${chLine}<div class="small muted">密碼不會顯示，請另外告訴本人。</div></div>` : `<div class="bad-box">${esc(errText(res || { error: 'ADMIN_FAILED' }))}</div>`;
   $('ac-out').innerHTML = S.ui.acResult; if (res && res.ok) toast('帳號已建立'); else toast(errText(res || { error: 'ADMIN_FAILED' }), true);
 };
 // ── 同意登錄 ──

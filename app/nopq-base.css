@@ -105,6 +105,9 @@ label:has(> input[type=checkbox]), label:has(> input[type=radio]) { min-height:v
 summary { cursor:pointer; min-height:var(--tap); min-width:var(--tap); padding-block:10px; }   /* 2026-11-24 A13：「更多」只有兩個字時寬 43px，補最小寬 */
 input[type=file] { font:inherit; font-size:var(--fs-sm); width:100%; max-width:100%; min-height:var(--tap); }
 
+/* ── 獨立一行的返回連結（稿頁「← 回到『撰寫NOPQ』」、老師頁「← 我的學生」等）：至少 44px 高（2026-11-24 前端下一批） ── */
+a.back { display:inline-flex; align-items:center; min-height:var(--tap); }
+
 /* ── 四種狀態畫面：讀取中、沒資料、出錯、完成 ── */
 .state { border-radius:var(--radius); padding:14px 16px; margin:0 0 12px; font-size:var(--fs-base); line-height:1.55; }
 .state .state-title { font-weight:700; margin:0 0 4px; }

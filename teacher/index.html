@@ -386,14 +386,14 @@ function drawPick() {
   const y = window.scrollY, r = TP.r, d = r.dept, nick = (r.student && r.student.nickname) || '', off = r.official, files = r.files || [], ask = d.ask;
   const res = pickResult(), overG = Object.keys(res).find((g) => res[g].limit != null && res[g].list.length > res[g].limit);
   const listed = (d.pick || []).filter((g) => g.listed).map((g) => `${g.group} ${(g.codes || []).join('、')}（每系最多勾 ${g.limit == null ? '—' : g.limit} 件）`).join('；');
-  const head = `<div class="card"><a class="small" href="#/students">← ${esc(TW.back)}</a><h2 style="margin:6px 0 4px">${esc(tf('pTitle', { nick, school: d.schoolName || '', name: d.name || '' }))}</h2>
+  const head = `<div class="card"><a class="small back" href="#/students">← ${esc(TW.back)}</a><h2 style="margin:6px 0 4px">${esc(tf('pTitle', { nick, school: d.schoolName || '', name: d.name || '' }))}</h2>
     <p class="small" style="margin:0">${esc(ask && ask.status === 'asked' ? (ask.studentNote ? tf('pAsked', { nick, d: tDate(ask.askedAt), note: ask.studentNote }) : tf('pAskedNoNote', { nick, d: tDate(ask.askedAt) })) : tf('pNotAsked', { nick }))}</p>
     ${ask && ask.changedAfterReply ? `<p class="small" style="color:var(--warn);margin:4px 0 0">${esc(tf('pChanged', { nick }))}</p>` : ''}
     ${listed ? `<p class="muted small" style="margin:4px 0 0">${esc(tf('pListed', { list: listed }))}</p>` : ''}</div>`;
   if (!files.length) { view(head + `<div class="card"><p>${esc(tf('noFiles', { nick }))}</p><a class="btn ghost" href="#/students">${esc(TW.back)}</a></div>` + lowHtml(r)); window.scrollTo(0, y); return; }
   const item = (f) => {
     const g = (d.pick || []).find((p) => p.group === f.group) || {};
-    const codes = ((off && off.items) || []).filter((x) => x.groupName === f.group);
+    const codes = ((off && off.items) || []).filter((x) => x.groupName === f.group && x.origin !== 'applyWrite');   // 2026-11-25 29j：申請時才寫的稿（origin＝applyWrite）不放進下拉
     return `<div class="pk" data-id="${esc(f.id)}">${tSq(f.itemCode)}<span class="pt"><b>${esc(f.title || f.fileName || '')}</b> <span class="pill ${f.picked ? 'main' : ''}">${esc(f.picked ? tf('pRank', { n: f.sortOrder }) : TW.pNot)}</span>
         ${f.itemCode ? (g.listed && !(g.codes || []).includes(f.itemCode) ? `<div class="muted small">${esc(tf('notListed', { code: f.itemCode }))}</div>` : '') : ` <span class="pill warn">${esc(TW.noCode)}</span>
           <select data-in="tpTag" data-id="${esc(f.id)}" aria-label="幫忙標代碼"><option value="">${esc(TW.tagPick)}</option>${codes.map((x) => `<option value="${esc(x.code)}">${esc(tOffName(off, x.code))}</option>`).join('')}</select>`}
@@ -581,7 +581,7 @@ function renderDoc() {
 }
 function headCard() {
   const d = S.doc, i = Math.max(0, STATES.indexOf(d.state)), st = d.internal && d.internal.student, lj = d.lastJob;
-  return `<div class="card active"><a href="#/students" class="small" style="text-decoration:none">← 我的學生</a>
+  return `<div class="card active"><a href="#/students" class="small back" style="text-decoration:none">← 我的學生</a>
     <h2 style="margin-top:4px">${esc(st ? st.nickname : '學生')}｜${esc(docTypeName(d))}${d.nopqType === 'X_extraWriting' && d.deptName ? '｜' + esc((d.schoolName || '') + ' ' + d.deptName) : ''}</h2><div class="bar">${STATES.map((s, k) => `<i class="${k < i ? 'done' : k === i ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="small muted">第 ${i + 1}／${STATES.length} 步：<b>${esc(d.stateLabel)}</b>${d.cycle ? `｜第 ${d.cycle.round} 輪` : ''}｜${esc(TRACK[d.track] || d.track)}｜${esc(AGE[d.internal && d.internal.ageStatus] || '')}｜這一步已 ${(d.internal && d.internal.stuckDays) || 0} 天
       ｜<span class="pill ${d.aiEnabled ? 'ok' : 'warn'}">${d.aiEnabled ? '學生可用 AI' : d.aiSwitch === false ? '沒開 AI，題目和能力標籤要你自己來' : '學生還沒同意使用 AI，題目要你自己出'}</span></div>

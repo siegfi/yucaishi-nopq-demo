@@ -100,6 +100,7 @@
 .yearline { background:var(--white); border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:0 0 6px; }
 .disc { color:var(--muted); background:var(--white); border-left:4px solid var(--sub); padding:6px 10px; border-radius:0 6px 6px 0; margin:0 0 12px; line-height:1.6; }
 .linkbtn { font:inherit; font-size:inherit; background:none; border:0; padding:0; color:var(--main); text-decoration:underline; cursor:pointer; }
+.linkbtn[data-act="discFull"] { min-height:var(--tap); vertical-align:middle; }   /* 2026-11-24 第 2 批：落點告知的〔完整說明〕單獨一顆，補到 44px */
 .tick { display:inline-flex; align-items:center; gap:6px; cursor:pointer; min-height:var(--tap); } .tick input { margin:0; }
 .modal { position:fixed; inset:0; background:var(--overlay); z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; }
 .mbox { background:var(--white); border-radius:8px; padding:16px; width:100%; max-width:560px; max-height:calc(100vh - 32px); overflow:auto; box-shadow:0 8px 30px var(--shadow-modal); }
@@ -253,3 +254,8 @@ label.f.pqlab { font-size:var(--fs-base); font-weight:700; color:var(--main); ma
 .pat { margin:6px 0; } .pat-box { border:1px dashed var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; background:var(--white); }
 .pat-title { font-size:var(--fs-sm); font-weight:700; color:var(--main); } .pat-list { margin:4px 0; padding-left:1.5em; } .pat-list li { margin:4px 0; overflow-wrap:anywhere; }
 .selfchk { margin:8px 0; padding:8px 10px; border-left:4px solid var(--warn); background:var(--white); overflow-wrap:anywhere; }
+/* 2026-11-24 結案唯讀：頁首說明與被關掉的東西（只用 nopq-base 的色與字級；被關掉的鈕與輸入框本身用 disabled／readonly，這裡只是讓人看得出來） */
+.closed-bar { margin:0 0 12px; background:var(--info-bg); }
+textarea.is-closed, input.is-closed, select.is-closed { background:var(--soft); color:var(--text); }
+a.is-closed, label.btn.is-closed { opacity:.45; cursor:default; }
+a.is-closed { pointer-events:none; }

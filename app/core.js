@@ -12,7 +12,10 @@ let bootQuiet = true;   // 開機時還沒有人按過「登入」：存的登�
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_KEY } });
 const S = { home: null, uid: '', doc: null, docId: null, ui: {}, poll: 0, rt: 0, terms: [], termsMiss: {}, sc: null, mine: null, reqSeen: null };   // ui：畫面上還沒存的輸入；rt：換頁計數（慢回應不蓋掉新頁）
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET', 'NOT_STUDENT', 'NOT_TEACHER', 'NOT_STAFF']);
+// 2026-11-24 結案唯讀（文案對照表第 15 節 CL-01、CL-02）：err＝資料庫擋下寫入（錯誤訊息以 CASE_CLOSED 開頭）時顯示；bar＝每一頁頁首的說明
+const CL = { err: '這一份已經結案，只能看、不能改。', bar: '這一份已經結案：你寫的、放的都還在，可以看、複製、下載，不能再改。' };
 const ERRS = {
+  CASE_CLOSED: CL.err,
   NOT_STUDENT: '這個帳號不是學生帳號。老師請到老師頁登入。', NOT_TEACHER: '這個帳號不是老師帳號。', NOT_STAFF: '這個帳號不是行政帳號，請改用行政帳號登入。',
   CASE_NOT_FOUND: '找不到這一篇（或不是你的）。', NOT_FOUND: '找不到這個項目（或不是你的）。', NOT_ASSIGNED: '這個項目不是你的。', CONSENT_MISSING: '同意書還沒登錄完成，暫時不能繼續，請聯絡育才仕。',
   AI_CONSENT_MISSING: '這一步由老師來做。', STATE_INVALID: '這個動作現在不能做，畫面已經更新，請再看一次。',
@@ -42,14 +45,16 @@ function errText(d) {
   return d.error === 'VALIDATION' && d.detail != null ? base + '：' + detailText(d.detail) : base;
 }
 let toastTimer = 0;
+let closedHitAt = 0;   // 剛被結案擋下的時間；那一瞬間各頁自己的「沒存成」不蓋掉結案那一句
 function toast(msg, bad) {
+  if (bad && msg !== CL.err && Date.now() - closedHitAt < 1500) return;
   const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4200);
 }
 // ── 2026-11-12 楊老師試用回饋 階段 0②④（OUTPUTS/nopq_yang_feedback_revision_v0.1.md 第四節）──
 // 每一次跟資料庫要資料都有等待上限；「載入中」說得出在等什麼，久了加一句「還在讀」；失敗時把「載入中」換成一句話＋重新載入鈕（不再一直轉）。
 // 首頁資料 me_home 換分頁不重撈：讀過 60 秒內直接用；只要叫了會寫資料的 RPC（存檔、交出…）就作廢，回首頁會重讀；首頁有「更新」鈕。
 const RPC_LIMIT = 25000, HOME_TTL = 60000;
-const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|luodian_ai_status|ai_switch_status|ai_job_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢（ai_job_status：2026-11-22 排隊進度，輪詢用）
+const READ_RPC = /^(me_home|my_|list_|get_|dept_|search_|export_|luodian_ai_status|ai_switch_status|ai_job_status)/;   // 只讀不寫的 RPC；其他的一叫就讓首頁資料作廢（ai_job_status：2026-11-22 排隊進度，輪詢用）
 let homeCache = null, homeAt = 0, lastFailMsg = '';
 const WAIT_MSG = { me_home: '正在讀你的資料…', get_doc_state: '正在打開這一篇…', open_doc: '正在打開這一篇…', my_inventory: '正在讀你的東西…', my_wishlist: '正在讀你的志願…',
   my_files: '正在讀你的檔案…', my_materials: '正在讀整理出的事…', list_terms: '正在讀能力標籤…', list_luodian_versions: '正在讀你存過的落點版本…' };
@@ -67,6 +72,7 @@ async function call(fn, args, opts = {}) {
   if (error) {
     if (error.status === 401 || error.code === 'PGRST301' || /JWT|expired/i.test(error.message || '')) { await toLogin(bootQuiet ? '' : '登入已過期，請重新登入。'); throw new Error('AUTH'); }
     if (error.status === 403 || error.code === '42501') { if (!opts.quiet) toast('這個帳號沒有權限做這件事。', true); throw new Error('DENIED'); }
+    if (/^CASE_CLOSED/.test(String(error.message || ''))) { closedHit(); return { ok: false, error: 'CASE_CLOSED' }; }   // 2026-11-24 結案：不是連線失敗，也不換成「沒有載入」的重試卡
     const msg = late || error.message === 'TIMEOUT' ? '等太久沒有回應，請檢查網路再試一次。' : '連線失敗，請檢查網路再試一次。';
     lastFailMsg = msg;   // guard 接到例外時用這句說原因
     if (!opts.quiet) { toast(msg, true); loadFail(msg, my); }
@@ -75,7 +81,8 @@ async function call(fn, args, opts = {}) {
   if (data && data.ok === false) {
     const code = data.error;
     if (code === 'NOT_STUDENT' || code === 'NOT_TEACHER' || code === 'NOT_STAFF') { await toLogin(bootQuiet ? '' : (ERRS[code] || '這個帳號不能使用此頁。')); throw new Error(code); }   // 開機時存的登入是舊的（帳號已不是學生）：靜默回登入頁；老師手動輸入帳密登進來才顯示這句
-    if (!opts.quiet) { toast(errText(data), true); loadFail(errText(data), my); }
+    if (code === 'CASE_CLOSED') closedHit();   // 2026-11-24：後端日後改回 JSON 也是同一句
+    else if (!opts.quiet) { toast(errText(data), true); loadFail(errText(data), my); }
     if ((code === 'STALE' || code === 'STATE_INVALID') && S.docId && !opts.noRefresh) refreshDoc();
   }
   if (fn === 'me_home' && data && data.ok) { homeCache = structuredClone(data); homeAt = Date.now(); }
@@ -111,10 +118,12 @@ function keepAfterSave(fn, args) {
 }
 document.addEventListener('click', async (ev) => {
   const el = ev.target.closest('[data-act]'); if (!el || el.disabled || !ACT[el.dataset.act]) return;
+  if (closedLocked(el)) { toast(CL.err, true); return; }   // 2026-11-24 結案：萬一有個鈕沒被關到，按了也不送出
   try { await ACT[el.dataset.act](el, ev); } catch (e) { if (!KNOWN.has(e.message)) { toast('發生預期外的問題，請重新整理再試。', true); console.warn('act', el.dataset.act, e.message); } }
 });
 document.addEventListener('input', async (ev) => {   // select、checkbox、file 的選取變化也會觸發 input
   const el = ev.target.closest('[data-in]'); if (!el || !IN[el.dataset.in]) return;
+  if (closedLocked(el)) return;
   try { await IN[el.dataset.in](el, ev); } catch (e) { if (!KNOWN.has(e.message)) { toast('發生預期外的問題，請重新整理再試。', true); console.warn('in', el.dataset.in, e.message); } }
 });
 // ── 共用輸入框（2026-11-08 owner 試用回饋 #4，架構稿 W1）：打字自動暫存在這台電腦、回來接回；大框旁「用 Word 檔帶入」 ──
@@ -166,7 +175,7 @@ function keepScan() {
     if (!keepOrig.has(el)) {
       keepOrig.set(el, el.value);
       const d = keepGet(scope);
-      if (d && d.v !== el.value && d.base === el.value && !el.disabled) {
+      if (d && d.v !== el.value && d.base === el.value && !el.disabled && !S.closed) {   // 結案後不把沒存的字接回去
         el.value = d.v; const e = new Event('input', { bubbles: true }); e.keepRestore = true; el.dispatchEvent(e); restored++;
       }
     }
@@ -272,7 +281,7 @@ function ldReady() {
 // ── 登入／開機／路由 ──
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function showLogin(msg) {
-  S.home = null; S.doc = null; S.docId = null; S.ui = {}; S.sc = null; S.ack = null; S.lv = null; S.dinfo = null; S.mine = null; S.reqSeen = null; S.uid = ''; S.imp = null; S.aiOn = null; homeCache = null; homeAt = 0; stopPoll(); show('boot', false); show('app', false); show('login', true);
+  S.home = null; S.doc = null; S.docId = null; S.ui = {}; S.sc = null; S.ack = null; S.lv = null; S.dinfo = null; S.mine = null; S.reqSeen = null; S.closed = false; planAt = 0; S.uid = ''; S.imp = null; S.aiOn = null; homeCache = null; homeAt = 0; stopPoll(); show('boot', false); show('app', false); show('login', true);
   $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false; loginBanner();
 }
 async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
@@ -284,6 +293,44 @@ $('login-form').addEventListener('submit', async (ev) => {
   await enter();
 });
 ACT.logout = async () => { if (S.uid) keepClear(''); await toLogin(''); };   // 按登出才清這個帳號的本機暫存（登入過期被踢回登入頁不清，回來還接得回）
+// ── 2026-11-24 結案唯讀（V9 乙案）：my_plan().close.closed＝true 的學生，畫面只能看、複製、下載 ──
+// 後端另有觸發器擋寫入（錯誤訊息以 CASE_CLOSED 開頭，上面 call 接住）；這裡先把會寫東西的鈕與輸入框關掉。my_plan 讀不到（舊後端）＝當沒結案。
+// 名單＝會寫資料的 data-act／data-in 名稱（其他頁的檔裡定義）；看、複製、下載、取消、換頁、買東西、預約、標「看過」不在名單裡。
+const CLOSED_ACT = new Set(['wordIn', 'acceptPrompt', 'startDoc', 'sendAnswer', 'stopAsk', 'stopInterview', 'submitAssign', 'pqSubmit', 'pqMode', 'pqSplit', 'saveDraft', 'selfCheck', 'sendReview',
+  'verSet', 'openExtra', 'pickGo', 'ciAdd', 'ciDrop', 'ciClaimSave', 'draftTerm', 'addSeg',
+  'qpick', 'scan', 'subDraft', 'runParse', 'rmFile', 'saveText', 'mineReset', 'invEdit', 'invEditSave', 'invSwapOpen', 'invSwapSave', 'invHide', 'invUnhide', 'invWithdraw', 'invWriteToggle',
+  'invSaveText', 'invReview', 'invSubmitDraft', 'invParse', 'scanMore', 'invDone', 'invTagOpen', 'invTagYes', 'invTagKind', 'invTagCode',
+  'dpPick', 'dpRemove', 'dpUp', 'dpDown', 'dpAskOpen', 'dpAskSend', 'dpAccept', 'dpCopyOpen', 'dpCopyGo', 'dpSkip', 'dpUnskip',
+  'saveVer', 'saveWish', 'asWish', 'asLook', 'asAi', 'lvWish', 'lvEdit', 'lvEditSave', 'lvDel', 'lvRestore', 'carryOk', 'doImport', 'importForce']);
+const CLOSED_IN = new Set(['answer', 'assignText', 'cell', 'pqc', 'free', 'pickSel', 'ciClaim', 'photoTog',
+  'dtype', 'mtext', 'dpick', 'file', 'invEditTitle', 'invEditText', 'invNewText', 'invSwapFile', 'invType', 'invTitle', 'invText', 'invDoc', 'invFile', 'invKind', 'dpCopySel', 'dpCheck', 'score', 'listen', 'kind']);
+const closedLocked = (el) => !!S.closed && !!el.dataset && (el.dataset.act ? (CLOSED_ACT.has(el.dataset.act) || (el.dataset.act === 'openDoc' && el.dataset.state === 'warmup')) : CLOSED_IN.has(el.dataset.in));
+function closedHit() { closedHitAt = Date.now(); S.closed = true; toast(CL.err, true); closedQueue(); }   // 資料庫擋下寫入：這一份已結案，之後的畫面一律唯讀
+let planAt = 0, closedQ = false;
+async function loadPlan() {   // 讀 my_plan().close；讀不到（舊後端、網路）＝不動現在的狀態
+  const keep = lastFailMsg; planAt = Date.now();
+  try { const r = await call('my_plan', {}, { quiet: true }); if (r && r.ok && r.close) S.closed = r.close.closed === true; } catch (e) { /* 讀不到就當沒結案，畫面照舊 */ }
+  lastFailMsg = keep; closedQueue();
+}
+function lockEl(el) {
+  el.classList.add('is-closed');
+  if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && /^(text|number|search|url|tel)?$/.test(el.type))) el.readOnly = true;
+  else if ('disabled' in el) el.disabled = true; else { el.setAttribute('aria-disabled', 'true'); el.tabIndex = -1; }
+  const lb = el.closest('label.btn'); if (lb) lb.classList.add('is-closed');
+}
+function closedSweep() {
+  closedQ = false;
+  let bar = $('closed-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'closed-bar'; bar.className = 'hint closed-bar hidden'; bar.setAttribute('role', 'note'); bar.textContent = CL.bar; $('view').parentNode.insertBefore(bar, $('view')); }
+  const p = hashParts().path, mine = !!S.home && !!S.closed && !/^#\/(shop|book)/.test(p);
+  bar.classList.toggle('hidden', !mine); if (!S.closed) return;
+  document.querySelectorAll('[data-act],[data-in]').forEach((el) => { if (closedLocked(el)) lockEl(el); });
+  const imp = $('imp-code'); if (imp) imp.readOnly = true;
+  document.querySelectorAll('#view .keeprow, #view .keephint').forEach((e) => e.classList.add('hidden'));   // 「這台電腦會記住你打的字」在唯讀時沒有意義
+}
+function closedQueue() { if (!closedQ) { closedQ = true; setTimeout(closedSweep, 0); } }
+new MutationObserver(closedQueue).observe(document.body, { childList: true, subtree: true });
+// 2026-11-24 第 2 批 phase2_verify：Chrome 把焦點放進唯讀的文字框時不會捲過去（結案後的格子按 Tab 會跳到畫面外），這裡補捲進畫面
+document.addEventListener('focusin', (ev) => { const t = ev.target; if (t && t.readOnly && t.scrollIntoView) t.scrollIntoView({ block: 'nearest' }); });
 // ── 從落點通帶志願來：#/import?ld1=<代碼>。先存 sessionStorage，登入後自動匯入，成功才清掉 ──
 const LD1_KEY = 'ycs-ld1-pending';
 function ssGet() { try { return sessionStorage.getItem(LD1_KEY) || ''; } catch (e) { return ''; } }
@@ -321,7 +368,7 @@ async function enter() {
   show('login', false); show('boot', true);
   try {
     const ss = await sb.auth.getSession(); S.uid = (ss.data && ss.data.session && ss.data.session.user && ss.data.session.user.id) || '';
-    const [h, sw] = await Promise.all([call('me_home', {}, { fresh: true }), call('ai_switch_status', {}, { quiet: true }).catch(() => null)]);
+    const [h, sw] = await Promise.all([call('me_home', {}, { fresh: true }), call('ai_switch_status', {}, { quiet: true }).catch(() => null), loadPlan()]);   // 2026-11-24 loadPlan：結案了沒（讀不到＝沒結案）
     if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h; S.aiOn = sw && sw.ok ? !!sw.enabled : null;
   } catch (e) { if (!(e && (e.message === 'AUTH' || /^NOT_/.test(e.message)))) bootFail(); return; }
   show('boot', false); show('app', true); $('who').textContent = S.home.nickname;
@@ -330,7 +377,8 @@ async function enter() {
 }
 window.addEventListener('hashchange', () => { capturePending(); if (S.home) route(); else loginBanner(); });
 function route() {
-  flushSave(); stopPoll(); S.rt++; lastFailMsg = ''; window.scrollTo(0, 0); if (typeof modalClose === 'function') modalClose();
+  if (S.home && Date.now() - planAt > 20000) loadPlan();   // 2026-11-24 結案：換頁時（20 秒內不重讀）順便確認一次，做好最後一項後下一頁就是唯讀
+  closedQueue(); flushSave(); stopPoll(); S.rt++; lastFailMsg = ''; window.scrollTo(0, 0); if (typeof modalClose === 'function') modalClose();
   document.body.classList.remove('docwide');   // 11-13 第 32 條：寫稿頁有「對照」欄時內容欄放寬，離開就恢復
   const h = hashParts().path; const m = h.match(/^#\/doc\/([\w-]+)$/);
   if (m) return guard(() => viewDoc(m[1]));   // 2026-11-12：開一篇也經過 guard（原本失敗會停在「載入中」）

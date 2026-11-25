@@ -147,6 +147,7 @@ document.addEventListener('dragover', (ev) => { const z = dropZone(ev); if (z) {
 document.addEventListener('dragleave', (ev) => { const z = dropZone(ev); if (z) z.classList.remove('over'); });
 document.addEventListener('drop', (ev) => {
   const z = dropZone(ev); if (!z) return; ev.preventDefault(); z.classList.remove('over');
+  if (S.closed) { toast(CL.err, true); return; }   // 2026-11-24 結案：拖檔進來也不收
   if (ev.dataTransfer && ev.dataTransfer.files.length && !S.mine.busy) uploadMany(+z.dataset.n, Array.from(ev.dataTransfer.files)).catch((e) => { if (!KNOWN.has(e.message)) toast('傳不上去，請稍後再試。', true); });
 });
 async function uploadMany(n, files) {
@@ -223,7 +224,7 @@ const INV_KINDS = [
   { k: 'courseRecord', name: '修課紀錄', tip: '成績單、學校系統的修課紀錄（截圖或 PDF），高一、高二的也放進來。老師參考用。', write: false, review: false },
   { k: 'courseResult', name: '課程學習成果', tip: '課堂報告、實作、作品。學校系統裡有的、以前做的都可以放進來；還沒放上去的，可以在這裡補寫。寫好可以交給老師看。', write: true, review: true },
   { k: 'diverse', name: '多元表現', tip: '社團、競賽、志工、檢定、自主學習。以前的紀錄也可以放進來，或在這裡補寫；寫好交給老師看。', write: true, review: true },
-  { k: 'statement', name: '學習歷程自述（N、O、P、Q）', tip: '已經寫好的 N、O、P、Q 稿上傳在這裡，再交給老師改；還沒寫的到「撰寫NOPQ」那一頁寫。', write: false, review: false },
+  { k: 'statement', name: '綜整心得與學習歷程自述（N、O、P、Q）', tip: '已經寫好的 N、O、P、Q 稿上傳在這裡，再交給老師改；還沒寫的到「撰寫NOPQ」那一頁寫。', write: false, review: false },
 ];
 const INV_NAME = Object.fromEntries(INV_KINDS.map((x) => [x.k, x.name]));
 const REV_TEXT = { pending: '等老師看', replied: '老師回了', needMore: '老師請你補一下', withdrawn: '你收回了' };
@@ -560,7 +561,7 @@ function invTagHtml(it) {
     <p class="muted small">${esc(W.tgQ1Hint)}</p>`;
   if (t.kind === 'courseRecord') h += `<p class="muted small">${esc(W.tgAOnly)}</p>`;
   else if (t.kind && t.step === 2) {
-    const g = INV3_GROUP[t.kind], codes = ((off && off.items) || []).filter((x) => x.groupName === g);
+    const g = INV3_GROUP[t.kind], codes = ((off && off.items) || []).filter((x) => x.groupName === g && x.origin !== 'applyWrite');   // 2026-11-25 29j：N 併進多元表現後，申請時才寫的稿（origin＝applyWrite）不放進盤點下拉
     h += `<p><b>${esc(W.tgQ2)}</b></p><p class="muted small">${esc(W.tgQ2Hint)}</p><div class="codes">${codes.map((x) => `<button type="button" class="btn sm ${it.code === x.code ? '' : 'ghost'}" data-act="invTagCode" data-code="${esc(x.code)}">${esc(NG.offName(off, x.code))}</button>`).join('')}
       <button type="button" class="btn sm ghost" data-act="invTagCode" data-code="">${esc(W.tgUnsure)}</button></div>`;
   }

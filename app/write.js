@@ -238,7 +238,7 @@ function headCard() {
   const ownQ = isX(d) && (d.prompts || []).some((p) => promptText(p));
   const handed = d.state === 'assignment_pending' && d.docMode !== 'free' && (d.aiEnabled === false || aiIsOff());   // 2026-11-24 W12-08：整篇答完交給老師
   const hint = gone || pickMode() ? '' : handed ? OFF_HANDED_HINT : d.docMode === 'free' && d.state === 'draft_open' && !NG.focusHasPoints(S.focus) && !ownQ ? NG.WORDS.pqDraftOpenNone : (d.docMode === 'free' ? PQ_HINTS : HINTS)[d.state];
-  return `<div class="card active"><a href="#/write" class="small" style="text-decoration:none">← 回到「撰寫NOPQ」</a>
+  return `<div class="card active"><a href="#/write" class="small back" style="text-decoration:none">← 回到「撰寫NOPQ」</a>
     <h2 style="margin-top:4px">${esc(home ? docTitle(home) : typeName(d) + (d.schoolName ? '｜' + d.schoolName + ' ' + (d.deptName || '') : ''))}</h2>
     ${hint ? `<div class="hint" style="margin-top:0">${esc(hint)}</div>` : ''}
     ${d.docMode === 'free' ? promptBanner(d) : ''}
@@ -673,15 +673,14 @@ ACT.pqSplit = async (el) => {
   } finally { el.disabled = false; }
 };
 ACT.pqCopyKept = async () => { toast((await copyText(String((S.doc && S.doc.freeText) || ''))) ? W14.copied : '這個瀏覽器不讓我複製，請自己選取複製。', false); };
-// 老師發佈批改後：下載 Word（老師改的字＝追蹤修訂、逐句意見＝註解；W6b，本機伺服器 /export/review.docx）
+// 老師發佈批改後：下載 Word（老師改的字＝追蹤修訂、逐句意見＝註解）。2026-11-25 A3：讀雲端已有的 export_review_doc、在瀏覽器產生，線上也能用（不再打本機 /export/review.docx）
 ACT.dlReview = async (el) => {
   el.disabled = true;
   try {
-    const ss = await sb.auth.getSession(), tok = ss.data && ss.data.session && ss.data.session.access_token;
-    const res = await fetch('/export/review.docx?doc=' + encodeURIComponent(S.docId), { headers: { authorization: 'Bearer ' + (tok || '') } });
-    if (!res.ok) { toast(res.status === 403 ? '老師還沒發佈這一輪，發佈後才下載得到。' : res.status === 404 ? '現在還下載不到這份批改，請跟老師說。' : '下載沒有成功，請稍後再試。', true); return; }
-    const m = /filename\*=UTF-8''([^;]+)/i.exec(res.headers.get('content-disposition') || ''), name = m ? decodeURIComponent(m[1]) : 'NOPQ通批改版.docx';
-    const url = URL.createObjectURL(await res.blob()), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    const r = await call('export_review_doc', { p_case_doc_id: S.docId }, { quiet: true });
+    if (!r || r.ok === false) { toast(r && r.error === 'NOT_PUBLISHED' ? '老師還沒發佈這一輪，發佈後才下載得到。' : r && r.error === 'NOT_FOUND' ? '現在還下載不到這份批改，請跟老師說。' : '下載沒有成功，請稍後再試。', true); return; }
+    const bytes = await NX.docx.buildReviewBytes(r);
+    if (!NX.docx.download(bytes, r.fileName || 'NOPQ通批改版.docx')) toast('下載沒有成功，請稍後再試。', true);
   } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
 };
 function selfCheckHtml(sc, d) {
@@ -744,7 +743,7 @@ function reviewCard() {
   const edits = (rv.edits || []).map((e) => `<div class="cell edited"><div class="lab"><span>${esc(cellLabel(e.sectionKey, e.fieldKey))}</span></div><div class="small">原文：${esc(e.beforeText || '（空白）')}</div><div>改成：${esc(e.afterText)}</div></div>`).join('');
   return `<details class="card active" open><summary>老師的話${rv.decision ? `　<span class="pill main">${esc(DECISION[rv.decision] || rv.decision)}</span>` : ''}</summary>
     ${rv.summary ? `<p style="white-space:pre-wrap;margin:8px 0">${esc(rv.summary)}</p>` : ''}${items ? `<h3>逐句意見</h3>${items}` : ''}${edits ? `<h3>老師改字（黃底）</h3>${edits}` : ''}
-    ${rv.decision && LOCAL_SERVER ? '<div class="row" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="dlReview">下載老師批改的 Word（含追蹤修訂）</button></div>' : ''}</details>`;
+    ${rv.decision ? `<div class="row" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="dlReview">下載老師批改的 Word（含追蹤修訂）</button></div>${expLineHint()}` : ''}</details>`;
 }
 // ── 2026-11-12 楊老師試用回饋 階段 1②（D6）：版本紀錄每一版可以點開看、挑兩版並排比、把某一版設回目前的版本（照那一版的內容存成新的一版；不做自動合併）──
 // 讀一版全文用 get_draft_version（28m）；資料庫還沒有這支時只說「還打不開」，清單照舊。
@@ -842,14 +841,31 @@ async function copyText(text) {
 const COPY_NOTE = '複製出去再改的字，系統裡的定稿不會跟著變；要改請回這一篇，請老師重開。';
 function finalCard() {   // 定稿那一篇：複製全文＋看全文（D7 先給複製全文；Word 等雲端匯出）
   const d = S.doc; if (!d || d.state !== 'finalized') return '';
-  const text = fullTextOf(d, d.draft && d.draft.currentVersion), open = !!S.ui.showFull;
+  const text = fullTextOf(d, d.draft && d.draft.currentVersion), open = !!S.ui.showFull, n = nlen(text);
   return `<div class="card active"><h2 style="margin-top:0">確定版</h2><p style="margin:0 0 8px">這篇定稿了，全文 ${nlen(text)} 字。按「複製全文」貼到你的排版檔（PPT、Canva、Word）。</p>
     <div class="row"><button type="button" class="btn" data-act="copyFull" ${text ? '' : 'disabled'}>複製全文</button><button type="button" class="btn ghost" data-act="toggleFull">${open ? '收起全文' : '看全文'}</button><a class="btn ghost" href="#/deliver">我要交的</a></div>
+    <div class="row" style="margin-top:8px"><button type="button" class="btn" data-act="dlWord" ${text ? '' : 'disabled'}>下載 Word</button><span class="muted small" data-role="dl-count">${n} 字</span><button type="button" class="btn ghost" data-act="printDoc" ${text ? '' : 'disabled'}>列印／存成 PDF</button></div>
+    ${expLineHint()}
     <div class="muted small" style="margin-top:6px">${esc(COPY_NOTE)}</div>
+    <div class="muted small" style="margin-top:6px">${esc(EXP_NAME_NOTE)}</div>
     ${open ? `<div class="cell" style="margin-top:8px"><div class="ro" style="white-space:pre-wrap">${esc(text) || '（沒有內容）'}</div></div>` : ''}</div>`;
 }
 ACT.toggleFull = () => { S.ui.showFull = !S.ui.showFull; renderDoc(); };
 ACT.copyFull = async () => { const d = S.doc, t = fullTextOf(d, d.draft && d.draft.currentVersion); toast((await copyText(t)) ? '全文複製好了，可以貼到你的排版檔。' : '這個瀏覽器不讓我複製，請按「看全文」自己選取複製。', !t); };
+ACT.dlWord = async (el) => {   // 定稿那一篇：下載 Word（學生自己留存：檔頭有篇名、系名、字數；預設不寫學生名字）
+  const d = S.doc; if (!d || d.state !== 'finalized') return;
+  const t = fullTextOf(d, d.draft && d.draft.currentVersion); if (!t) return toast('這一篇沒有讀到內容。', true);
+  el.disabled = true;
+  try {
+    const bytes = await NX.docx.buildDocBytes(expDocOf(d, t));
+    if (!NX.docx.download(bytes, expNameOf(d))) toast('這個瀏覽器沒有下載成功，請改按「列印／存成 PDF」或「複製全文」。', true);
+  } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
+};
+ACT.printDoc = () => {   // 定稿那一篇：開可列印的 A4 版面；新分頁被擋就在這一頁直接叫出列印
+  const d = S.doc; if (!d || d.state !== 'finalized') return;
+  const t = fullTextOf(d, d.draft && d.draft.currentVersion); if (!t) return toast('這一篇沒有讀到內容。', true);
+  const doc = expDocOf(d, t); if (!NX.print.open([doc], { title: doc.title })) NX.print.printHere([doc]);
+};
 // 「我要交的」：首頁資料（me_home 的 docs）＋志願（my_wishlist 的指引與 116 項目層：哪幾篇有列）。N、O 每一系共用一份；P、Q 每系各一篇。
 const DLV_TYPES = [['N', 'N_diverseSummary'], ['O', 'O_reflection'], ['P', 'P_motivation'], ['Q', 'Q_futurePlan']];
 // 2026-11-17 owner 第②題：「必交／選交／指引沒列」改用 NG.WORDS（116 簡章有列／去年指引有列／選繳…）
@@ -857,6 +873,15 @@ async function viewDeliver() {
   setTab('write'); view(loading); const my = S.rt;
   const [h, w] = await Promise.all([call('me_home'), call('my_wishlist')]); if (!h.ok || !w.ok || my !== S.rt) return; S.home = h;
   const docs = h.docs || [], items = (w.items || []).slice().sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  DLV = { docs, items }; EXP_CACHE = {};   // 匯出用：這一頁的首頁資料與志願；全文每篇只讀一次
+  // 2026-11-25 f 項：篇數與定稿數跟系頁同一個來源（28v my_dept_picks 的 dept.write），R 以後要寫的也算。
+  // 2026-11-25 A3b：每一系的下載區塊（要讀各篇定稿全文）跟它同時讀、各系並行，資料齊了才一次畫出整頁——
+  //   原本卡片先出來、下載區塊一系一系填進去（約 8 秒），會把下面的鈕往下推：鍵盤焦點被推出畫面、手指會按錯（phase2_verify 01:53 抓到）。等待時照舊是這一頁的載入字樣。
+  const [dws, packs] = await Promise.all([
+    Promise.all(items.map((it) => call('my_dept_picks', { p_dept_code: it.deptCode }, { quiet: true }).catch(() => null))),
+    Promise.all(items.map((it) => expPack(it).catch(() => null))),
+  ]);
+  if (my !== S.rt) return;   // 等的時候已換頁就停
   const docOf = (type, code) => docs.find((d) => d.nopqType === type && (type === 'N_diverseSummary' || type === 'O_reflection' || d.deptCode === code));
   const row = (letter, d, req) => {
     const st = d ? (stepOf(d.state, [d.state]))[0] : '還沒有這一篇', fin = d && d.state === 'finalized';
@@ -864,17 +889,18 @@ async function viewDeliver() {
       <div class="muted small">${fin ? '<span class="pill ok">定稿了</span>' : esc(st)}${d && d.freeLen ? '｜' + d.freeLen + ' 字' : ''}${d ? flagPill(d) : ''}</div></div>
       ${d ? `<div class="row">${fin ? `<button type="button" class="btn sm" data-act="dlvCopy" data-id="${esc(d.caseDocId)}">複製全文</button>` : ''}<button type="button" class="btn sm ghost" data-act="openDoc" data-id="${esc(d.caseDocId)}" data-state="${esc(d.state)}">${fin ? '看' : '去寫'}</button></div>` : ''}</div>`;
   };
-  const cards = items.map((it) => {
+  const cards = items.map((it, i) => {
     const has = NG.hasGuide(it) || !!NG.gi116(it);   // 同「審查資料準備指引說明」頁（guide_pure.js 的 needOf）
     const list = DLV_TYPES.map(([L, type]) => ({ L, d: docOf(type, it.deptCode), req: NG.needOf(it, L) })).filter((x) => x.req !== 'none' || x.d && x.d.state === 'finalized');
     const fin = list.filter((x) => x.d && x.d.state === 'finalized');
+    const dw = dws[i] && dws[i].ok && dws[i].dept && dws[i].dept.write, useW = !!(dw && dw.total > 0), nAll = useW ? dw.total : list.length, nFin = useW ? dw.finalized : fin.length;   // 讀不到或 0 篇時照舊
     // 2026-11-17 指引重建階段一（設計稿 guide_rebuild_design_v0.2 0.6⑥）：116 簡章另外要交的（R 之後用官方名稱、學習歷程檔案大類）列在下面；
     // R 之後要寫的那幾篇系統還不能寫（階段四），照實講。上面 N–Q 那幾列的要不要交用 NG.WORDS（owner 第②題）。
     // 11-20 審查資料第二步（28t）：R 之後要寫的那幾篇現在可以在這裡寫——帶系碼與這一系已開的 X 稿，renderZones116 放「開始寫」或「繼續寫」
     const gi = NG.gi116 ? NG.gi116(it) : null, more = gi ? NG.renderZones116(gi, { skipNQ: true, desc: false, title: NG.WORDS.z116More, deptCode: it.deptCode, docs }) : '';
     return `<div class="card"><h2 style="margin-top:0">第 ${esc(it.rank)} 志願｜${esc(it.schoolName || '')} ${esc(it.name || '')}</h2>
-      <p style="margin:0 0 6px">${esc(NG.fill(NG.WORDS.dlvCount, { n: list.length, f: fin.length }))}${fin.length >= list.length && list.length ? `　<span class="pill ok">${esc(NG.WORDS.dlvAllDone)}</span>` : ''}${has ? '' : `<span class="muted small">${esc(NG.WORDS.nodata)}</span>`}</p>
-      ${list.map((x) => row(x.L, x.d, x.req)).join('')}${more}
+      <p style="margin:0 0 6px">${esc(NG.fill(NG.WORDS.dlvCount, { n: nAll, f: nFin }))}${nFin >= nAll && nAll ?`　<span class="pill ok">${esc(NG.WORDS.dlvAllDone)}</span>` : ''}${has ? '' : `<span class="muted small">${esc(NG.WORDS.nodata)}</span>`}</p>
+      ${list.map((x) => row(x.L, x.d, x.req)).join('')}${more}<div class="dlv-pack" data-role="dlv-pack" data-dept="${esc(it.deptCode)}" style="margin-top:10px">${packSafe(it, packs[i])}</div>
       ${w.official ? `<div style="margin-top:6px"><a class="btn sm ghost" href="#/dept/${esc(it.deptCode)}">${esc(NG.WORDS.dlvDeptAll)}</a></div>` : ''}</div>`;   // 11-22 A4（規格 14.1）：多一行連到這一系那一頁；後端有第三步（官方項目表）才出現
   });
   view(`<div class="card active"><h2>我要交的</h2><p style="margin:0">照你的志願，一系一張：每一系要交哪幾篇、哪幾篇定稿了。N、O 每一系用同一份；P、Q 每系各寫一篇。定稿的可以直接「複製全文」。</p>
@@ -901,6 +927,95 @@ ACT.dlvCopy = async (el) => {
     const t = fullTextOf(d, d.draft && d.draft.currentVersion);
     toast(!t ? '這一篇沒有讀到內容。' : (await copyText(t)) ? '全文複製好了，可以貼到你的排版檔。' : '這個瀏覽器不讓我複製，請點「看」打開那一篇再複製。', !t);
   } finally { el.disabled = false; }
+};
+// ══ 2026-11-25 A3：定稿後匯出 Word／PDF（NX.docx＝export_docx.js、NX.print＝export_print.js）══
+const EXP_NAME_NOTE = '有些系要求不能出現姓名，要加請自己在檔案裡加';   // 文案對照表第八節 31
+const EXP_LABEL = { N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫' };
+let DLV = null, EXP_CACHE = {};
+const expLineHint = () => { const s = NX.print && NX.print.lineHint ? NX.print.lineHint() : ''; return s ? `<div class="hint" data-role="line-hint">${esc(s)}</div>` : ''; };   // 只有 LINE 內建瀏覽器才有字
+const expDeptName = (d) => ((d.schoolName || '') + ' ' + (d.deptName || '')).trim();
+const expLetter = (d) => { const L = String(d.nopqType || '').charAt(0); return L === 'X' ? (d.itemCode || 'X') : L; };
+const expTitleOf = (d) => (String(d.nopqType || '').charAt(0) === 'X' ? (d.itemLabel || '其他') : (EXP_LABEL[expLetter(d)] || ''));
+const expNameOf = (d) => NX.docx.safeName([expDeptName(d), expLetter(d) + expTitleOf(d)].filter(Boolean).join('_')) + '.docx';
+// N 有標「這段放圖」的段 → 分段，放圖的段後面放一個框；拼起來逐字等於 fullTextOf
+// 2026-11-25（主線）：29f 起 get_doc_state 多回 photos（sectionKey 陣列），整系下載也讀得到；舊後端沒有 photos 時，只有正在看的這一篇用 photoGet()，其餘不放圖框、不報錯
+const expPhotos = (d) => (Array.isArray(d.photos) ? d.photos : S.docId === d.caseDocId ? photoGet() : []);
+function expSections(d) {
+  const t = (d.draft && d.draft.currentVersion && d.draft.currentVersion.textBySection) || {}, spec = d.grid && d.grid.spec, ph = expPhotos(d);
+  if (!spec || (typeof t._free === 'string' && t._free.trim())) return null;
+  const out = []; let cur = null;
+  expandCells(spec, segCount(spec, t)).filter((c) => c.kind === 'text').forEach((c) => {
+    const v = String(t[c.key] || '').trim(); if (!v) return;
+    if (!cur || cur.key !== c.section) { cur = { key: c.section, lines: [(out.length ? '\n' : '') + '【' + c.secLabel + '】'], photo: ph.includes(c.section) }; out.push(cur); }
+    cur.lines.push(v);
+  });
+  return out.map((s) => ({ text: s.lines.join('\n'), photo: s.photo }));
+}
+function expDocOf(d, text) {   // 單篇：N、O 共用寫「全部志願共用」（deptName 空）；學生名字預設不寫
+  const L = String(d.nopqType || '').charAt(0), doc = { title: expTitleOf(d), deptName: L === 'N' || L === 'O' ? '' : expDeptName(d) };
+  const secs = L === 'N' && expPhotos(d).length ? expSections(d) : null;   // 2026-11-25：改讀 get_doc_state 的 photos（29f），沒有才退回 photoGet()
+  if (secs) doc.sections = secs; else doc.text = text;
+  return doc;
+}
+function expDoc(id) {   // 讀一篇：回 Promise<{d, text}|null>；同一次打開這一頁只讀一次（A3b：存的是讀取中的 Promise，各系並行時共用的 N、O 也只讀一次；讀不到不存，下次再讀）
+  const cache = EXP_CACHE;
+  if (!cache[id]) cache[id] = call('get_doc_state', { p_case_doc_id: id }, { quiet: true }).catch(() => null)
+    .then((d) => { if (d && d.ok) return { d, text: fullTextOf(d, d.draft && d.draft.currentVersion) }; if (cache[id]) delete cache[id]; return null; });
+  return cache[id];
+}
+// R、S、T：讀 my_wishlist 這一系 guideItems 有列的（code 在 Q 之後、沒被撤掉）；只放學生已定稿的
+const expXItems = (it) => { const gi = NG.gi116(it); return gi ? gi.items.filter((x) => x && String(x.code) > 'Q' && x.status !== 'withdrawn') : []; };
+async function expPack(it) {   // 一系要交的資料（給 NX.docx.planDept／buildDeptFiles／NX.print.fromDept）：只放這一系有列（NG.needOf 不是 none）而且已定稿的篇
+  const docs = DLV.docs, pk = { deptName: ((it.schoolName || '') + ' ' + (it.name || '')).trim(), showMeta: false, docs: { X: [] }, limits: {}, unfinished: [] };
+  // A3b：這一系要讀的篇先全部發出去（並行），下面再照順序收，份數與順序跟原本一樣
+  const nq = DLV_TYPES.filter(([L]) => NG.needOf(it, L) !== 'none').map(([L, type]) => {
+    const m = docs.find((d) => d.nopqType === type && (type === 'N_diverseSummary' || type === 'O_reflection' || d.deptCode === it.deptCode));
+    return { L, p: m && m.state === 'finalized' ? expDoc(m.caseDocId) : null };
+  });
+  const xq = expXItems(it).map((x) => {
+    const m = docs.find((d) => d.nopqType === 'X_extraWriting' && d.deptCode === it.deptCode && d.itemCode === x.code && d.state === 'finalized');
+    return { x, p: m ? expDoc(m.caseDocId) : null };
+  });
+  for (const { L, p } of nq) {
+    const r = p ? await p : null;
+    if (!r || !r.text) { pk.unfinished.push(DOC_SHORT[L]); continue; }
+    const secs = L === 'N' && expPhotos(r.d).length ? expSections(r.d) : null;   // 2026-11-25 套用時補：整系下載的 N 也放圖框（同 expDocOf；整段貼上的稿沒有分段，照舊不放框）
+    pk.docs[L] = secs ? { title: EXP_LABEL[L], text: r.text, sections: secs, state: 'finalized' } : { title: EXP_LABEL[L], text: r.text, state: 'finalized' };
+    if (L === 'N') pk.limits.N = { maxChars: (r.d.grid && r.d.grid.spec && r.d.grid.spec.totalLimit) || undefined, maxImages: NX.docx.N_MAX_IMAGES };   // 字數上限＝get_doc_state 的 spec.totalLimit；圖數上限＝常數（簡章第 12 頁 C 款）
+  }
+  for (const { x, p } of xq) {
+    const r = p ? await p : null, name = x.officialName || (r && r.d.itemLabel) || '其他';
+    if (!r || !r.text) { pk.unfinished.push(x.code + ' ' + name); continue; }
+    pk.docs.X.push({ code: x.code, officialName: x.officialName || '', title: name, text: r.text, state: 'finalized' });
+  }
+  return pk;
+}
+const expChars = (doc) => NX.docx.count(doc.sections ? doc.sections.map((s) => s.text).join('') : doc.text);
+function packHtml(it, pk) {   // 一系的下載區塊（A3b：跟卡片一起畫，不再事後填進去）
+  const pl = NX.docx.planDept(pk), has = pl.groups.length > 0, dp = esc(it.deptCode);
+  return `<div class="row"><button type="button" class="btn sm" data-act="dlDept" data-dept="${dp}" ${has ? '' : 'disabled'}>下載這一系要交的</button><button type="button" class="btn sm ghost" data-act="printDept" data-dept="${dp}" ${has ? '' : 'disabled'}>列印／存成 PDF</button></div>`
+      + (has ? `<ul class="plain small" style="margin:6px 0 0">${pl.groups.map((g) => `<li data-role="dlv-file" data-kind="${esc(g.kind)}">${esc(g.fileName)}　${expChars(g.doc)} 字</li>`).join('')}</ul>` : '')
+      + (pk.unfinished.length ? `<div class="muted small" data-role="dlv-missing">還沒定稿，這幾篇不能下載：${esc(pk.unfinished.join('、'))}</div>` : '')
+      + pl.warnings.map((w) => `<div class="hint" data-role="dlv-warn">${esc(w)}</div>`).join('') + expLineHint() + `<div class="muted small" style="margin-top:6px">${esc(EXP_NAME_NOTE)}</div>`;
+}
+const packSafe = (it, pk) => { try { return pk ? packHtml(it, pk) : ''; } catch (e) { return ''; } };   // 這一系讀不到或匯出程式出錯：區塊留空，整頁照常畫（同原本事後填的行為）
+const expItem = (code) => (DLV && DLV.items.find((x) => x.deptCode === code)) || null;
+ACT.dlDept = async (el) => {   // 一系要交的：最多三份（N；O＋P＋Q「學習歷程自述」；其他 R、S、T），每份一個 .docx；上傳用的檔不放檔頭
+  const it = expItem(el.dataset.dept); if (!it) return;
+  el.disabled = true;
+  try {
+    const r = await NX.docx.buildDeptFiles(await expPack(it)); if (!r.files.length) return toast('這一系還沒有定稿的篇可以下載。', true);
+    let ok = true; for (const f of r.files) { ok = NX.docx.download(f.bytes, f.fileName) && ok; await new Promise((res) => setTimeout(res, 350)); }   // 連續下載之間留一點空檔，瀏覽器才不會當成連點擋掉
+    if (!ok) toast('這個瀏覽器沒有下載成功，請改按「列印／存成 PDF」。', true);
+  } catch (e) { toast('下載沒有成功，請稍後再試。', true); } finally { el.disabled = false; }
+};
+ACT.printDept = async (el) => {   // 一系要交的：同一套份數排進可列印版面，每份一張
+  const it = expItem(el.dataset.dept); if (!it) return;
+  el.disabled = true;
+  try {
+    const docs = NX.print.fromDept(await expPack(it)); if (!docs.length) return toast('這一系還沒有定稿的篇可以下載。', true);
+    if (!NX.print.open(docs, { title: ((it.schoolName || '') + ' ' + (it.name || '')).trim() })) NX.print.printHere(docs);
+  } catch (e) { toast('列印沒有開起來，請稍後再試。', true); } finally { el.disabled = false; }
 };
 window.addEventListener('beforeunload', (e) => { if (S.ui && S.ui.dirty) { e.preventDefault(); e.returnValue = ''; } });
 sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.home) showLogin('已登出。'); });
