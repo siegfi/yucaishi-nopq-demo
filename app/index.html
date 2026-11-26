@@ -21,17 +21,41 @@
     <label class="f" for="l-pw">密碼</label><input type="password" id="l-pw" autocomplete="current-password" required>
     <div id="l-err" class="err hidden"></div>
     <div style="margin-top:14px"><button class="btn" type="submit" id="l-btn" style="width:100%">登入</button></div>
-    <p class="muted small" style="margin:12px 0 0">老師請到 <a href="../teacher/">老師頁</a>。忘記密碼請聯絡育才仕。</p>
+    <div style="margin-top:8px"><button class="btn ghost" type="button" id="l-forgot" data-act="forgotOpen" style="width:100%">忘記密碼</button></div>
+    <p class="muted small" style="margin:12px 0 0">老師請到 <a href="../teacher/">老師頁</a>。</p>
+  </form>
+  <!-- 2026-11-25 第 ① 步：忘記密碼（寄重設信）。不用新網址，登入頁裡切換顯示；兩張都由 acct.js 的 loginPane 切 -->
+  <form id="forgot-form" class="card hidden" autocomplete="on" novalidate>
+    <p class="muted" style="margin:0 0 4px">填你註冊的 Email，我們寄一封信給你，信裡有設新密碼的連結。</p>
+    <label class="f" for="f-email">Email</label><input type="email" id="f-email" autocomplete="username">
+    <div id="f-err" class="err hidden" role="alert"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit" id="f-btn" style="width:100%">寄重設信</button></div>
+    <div style="margin-top:8px"><button class="btn ghost" type="button" data-act="forgotBack" style="width:100%">回登入</button></div>
+  </form>
+  <div id="forgot-sent" class="card hidden" role="status"><h2>信寄出去了</h2><p style="margin:0 0 12px">如果這個 Email 有帳號，幾分鐘內會收到信。沒收到，先看垃圾信件匣；還是沒有，請聯絡育才仕。</p><button class="btn ghost" type="button" data-act="forgotBack" style="width:100%">回登入</button></div>
+</div>
+<!-- 2026-11-25 第 ① 步：設新密碼頁（重設信裡的連結回來時才顯示；第 ④ 步啟用連結頁共用，標題屆時再換） -->
+<div id="resetpw" class="login hidden">
+  <h1>NOPQ通</h1>
+  <form id="rp-form" class="card" autocomplete="off" novalidate>
+    <h2>設新密碼</h2>
+    <div id="rp-fields">
+      <label class="f" for="rp-new">新密碼</label><input type="password" id="rp-new" autocomplete="new-password">
+      <label class="f" for="rp-new2">再輸入一次新密碼</label><input type="password" id="rp-new2" autocomplete="new-password">
+      <div id="rp-err" class="err hidden" role="alert"></div>
+      <div style="margin-top:14px"><button class="btn" type="submit" id="rp-btn" style="width:100%">設好密碼，進去</button></div>
+    </div>
+    <div id="rp-bad" class="hidden"><p style="margin:0 0 12px">這個連結已經用過或過期了。</p><button class="btn" type="button" data-act="resetAgain" style="width:100%">再寄一封給我</button></div>
   </form>
 </div>
 <div id="app" class="hidden">
-  <header class="top"><a class="brand" href="#/"><span class="ic" aria-hidden="true"><i>N</i><i>O</i><i>P</i><i>Q</i></span>NOPQ通</a><span class="who"><a href="#/shop" class="shoplink">購買與預約</a><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <header class="top"><a class="brand" href="#/"><span class="ic" aria-hidden="true"><i>N</i><i>O</i><i>P</i><i>Q</i></span>NOPQ通</a><span class="who"><a href="#/class" class="classlink">上課</a><a href="#/cart" class="shoplink" id="cart-link" aria-label="購物車">購物車<span class="cart-n hidden" id="cart-n"></span></a><a href="#/acct" class="acctlink"><span id="who">帳號</span></a></span></header>
   <main id="view"></main>
   <!-- 2026-11-13 改版建議第 29 條：分頁改名。寬螢幕左欄用全名（.tf），手機底部分頁列放不下，用短名（.ts）；aria-label 一律全名 -->
   <nav class="tabs" id="tabs"><a href="#/score" data-t="score" aria-label="落點分析">落點分析</a><a href="#/wish" data-t="wish" aria-label="我的志願">我的志願</a><a href="#/need" data-t="need" aria-label="審查資料準備指引說明"><span class="tf">審查資料準備指引說明</span><span class="ts">準備指引</span></a><a href="#/mine" data-t="mine" aria-label="我的學習歷程"><span class="tf">我的學習歷程</span><span class="ts">學習歷程</span></a><a href="#/write" data-t="write" aria-label="撰寫NOPQ">撰寫NOPQ</a></nav>
 </div>
 <div id="toast" class="toast hidden"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>
 <script defer src="../luodian/data/wubiao_multi_year.js"></script>
 <!-- 2026-11-12 楊老師回饋階段 0④：兩個落點大檔點到落點相關頁才下載（core.js 的 ldReady 讀 data-src 注入）；換年度改這兩行 -->
 <script type="text/x-lazy" data-src="../luodian/data/caac_history_116.js?v=20261116"></script>
@@ -59,6 +83,11 @@
   <script src="dept.js"></script>
   <script src="export_docx.js"></script>
   <script src="export_print.js"></script>
+  <!-- 2026-11-25 第 ① 步：帳號頁、忘記密碼、設新密碼（acct.js）與首頁行程卡（sched.js）；acct.js 用到 shop.js 的額度、訂單兩段，執行時才呼叫，載入順序不影響 -->
+  <script src="acct.js"></script>
+  <script src="sched.js"></script>
+  <!-- 2026-11-25 第 ③ 步：上課頁（class.js；用到 shop.js 的預約畫面與 core.js 的 FMT，執行時才呼叫，載入順序不影響） -->
+  <script src="class.js"></script>
   <!-- 2026-11-13 回饋清單第 38 條：購買頁 #/shop 與預約頁 #/book（rev1113-booking 寫的 ../shop/shop.js，後端 28p；學生頁施工線接線） -->
   <script src="../shop/shop.js"></script>
   <script src="main.js"></script>

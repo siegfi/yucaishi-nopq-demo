@@ -33,11 +33,11 @@
 </div>
 <div id="app" class="hidden">
   <header class="top"><a class="brand" href="../app/"><span class="ic" aria-hidden="true"><i>N</i><i>O</i><i>P</i><i>Q</i></span>NOPQ通</a><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
-  <nav class="shop-nav" id="tabs"><a href="#/shop" data-t="shop">購買</a><a href="#/book" data-t="book">預約一對一</a></nav>
+  <nav class="shop-nav" id="tabs"><a href="#/shop" data-t="shop">購買</a><a href="#/cart" data-t="cart">購物車</a><a href="#/book" data-t="book">預約一對一</a></nav>
   <main id="view"></main>
 </div>
 <div id="toast" class="toast hidden"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>
 <script>
 'use strict';
 const SUPABASE_URL = 'https://phnulnhmasmyorhmplho.supabase.co';   // 本機平台會自動換成本機網址；上雲時換成正式 URL（佔位字只能放在 .html）
@@ -111,7 +111,7 @@ async function enter() {
 window.addEventListener('hashchange', () => { if (S.me) route(); });
 function route() {
   S.rt++; lastFailMsg = ''; window.scrollTo(0, 0);
-  const f = { '#/book': viewBook }[location.hash] || viewShop;
+  const f = { '#/book': viewBook, '#/cart': viewCart, '#/cart2': viewCart2, '#/cart3': viewCart3 }[location.hash] || viewShop;   // 2026-11-25 第 ② 步：購物車三步
   return Promise.resolve().then(f).catch((e) => { if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return; view(failCard(lastFailMsg || '請檢查網路，再按「重新載入」。')); console.warn('view', e && e.message); });
 }
 sb.auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_OUT' && S.me) showLogin('已登出。'); });

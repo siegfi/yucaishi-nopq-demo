@@ -59,6 +59,22 @@
   .redbox { border:2px solid var(--bad); border-radius:6px; padding:6px 10px; color:var(--bad); background:var(--bad-soft); font-size:var(--fs-sm); margin-top:6px; }
   .pickgrid { display:block; } .pickside { margin-top:12px; }
   @media (min-width:900px) { .pickgrid { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1fr); gap:12px; align-items:start; } .pickside { margin-top:0; position:sticky; top:8px; } }
+  /* 2026-11-25 第 ① 步：頂欄帳號連結、帳號頁（同學生頁 app.css 的 .acctlink、.acct-*） */
+  header.top { flex-wrap:nowrap; } header.top .brand { white-space:nowrap; flex:none; } header.top .who { min-width:0; justify-content:flex-end; }   /* 頂欄只剩品牌＋帳號連結：不折行，名字太長就截斷 */
+  header.top .who .acctlink { color:var(--white); font-size:var(--fs-sm); display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap); min-width:var(--tap); flex:0 1 auto; overflow:hidden; max-width:100%; }
+  header.top .who .acctlink > #who { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .acct-k { font-size:var(--fs-sm); color:var(--muted); margin:10px 0 3px; }
+  .acct-ro { border-top:1px solid var(--line); margin-top:10px; } .acct-ro .acct-k { margin-top:8px; } .acct-ro .acct-v { min-width:0; overflow-wrap:anywhere; }
+  .acct-out { margin:0 0 12px; }
+  #acct-prof, #acct-pw { scroll-margin-top:12px; }
+  /* 2026-11-25 第 ③ 步：老師一週時段打勾表（#/slots）。只用 nopq-base.css 的變數；每一格可點至少 44px；375 寬：6 欄 × 44px ＋間距約 280px，放得下 */
+  .sgrid { display:grid; grid-template-columns:auto repeat(5, minmax(44px, 1fr)); gap:4px; margin:10px 0 6px; }
+  .sgrid .hd, .sgrid .wd { font-size:var(--fs-sm); color:var(--muted); display:flex; align-items:center; justify-content:center; min-height:var(--tap); text-align:center; }
+  .sgrid .wd { justify-content:flex-start; padding-right:4px; font-weight:700; color:var(--main); }
+  .slot { display:flex; align-items:center; justify-content:center; min-height:var(--tap); min-width:var(--tap); border:1px solid var(--border-strong); border-radius:var(--radius); background:var(--bg); cursor:pointer; font-size:var(--fs-sm); }
+  label.slot:has(input:checked) { background:var(--ring); border-color:var(--main); }
+  .slot.lock { background:var(--soft); color:var(--muted); cursor:default; } .slot.have { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); cursor:default; }
+  #sl-result { scroll-margin-top:12px; }
 </style>
 </head>
 <body>
@@ -75,12 +91,12 @@
   </form>
 </div>
 <div id="app" class="hidden">
-  <header class="top"><span class="brand">NOPQ通・老師</span><span class="who"><span id="who"></span><button class="btn sm ghost" data-act="logout">登出</button></span></header>
+  <header class="top"><span class="brand">NOPQ通・老師</span><span class="who"><a href="#/acct" class="acctlink"><span id="who"></span></a></span></header><!-- 2026-11-25 第 ① 步：〔登出〕搬進帳號頁，頂欄只留帳號連結 -->
   <nav class="tabs" id="tabs"><a href="#/" data-t="home">今天要做</a><a href="#/students" data-t="students">我的學生</a><a href="#/materials" data-t="materials">素材待回</a><a href="#/lessons" data-t="lessons">排課</a><a href="#/terms" data-t="terms">補充用語</a></nav>
   <main id="view"></main>
 </div>
 <div id="toast" class="toast hidden"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>
 <script src="../app/text_diff.js"></script>
 <script>
 'use strict';
@@ -181,7 +197,12 @@ async function enter() {
   show('login', false); show('boot', true);
   try { const h = await call('teacher_home'); if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h; }
   catch (e) { if (!(e && (e.message === 'AUTH' || /^NOT_/.test(e.message)))) bootFail(); return; }
-  show('boot', false); show('app', true); route();
+  show('boot', false); show('app', true); setWho(''); teacherWho(); route();   // 2026-11-25 第 ① 步：頂欄先寫「老師」，名字讀到了再換
+}
+// 2026-11-25 第 ① 步：頂欄的名字。my_teacher_profile() 有回 name 就顯示它，沒有（含函式還沒上線）維持「老師」
+function setWho(name) { S.whoName = String(name || '').trim(); const w = $('who'); if (w) w.textContent = S.whoName || '老師'; }
+async function teacherWho() {
+  try { const r = await rpcLimited('my_teacher_profile', {}), d = r && r.data; if (d && d.ok && d.name) setWho(d.name); } catch (e) { /* 讀不到就維持「老師」 */ }
 }
 window.addEventListener('hashchange', () => { if (S.home) route(); });
 function route() {
@@ -196,6 +217,8 @@ function route() {
   S.docId = null; S.doc = null;
   const mp = h.match(/^#\/pick\/([\w-]+)\/([0-9A-Z]{6})$/);   // 2026-11-21 第三步：幫一系挑（畫面⑦）
   if (mp) return go(() => viewPick(mp[1], mp[2]));
+  if (h === '#/acct') return go(viewAcct);   // 2026-11-25 第 ① 步：帳號頁；頁籤不亮任何一格（上面 on 判斷對不到 #/acct）
+  if (h === '#/slots') return go(viewSlots);   // 2026-11-25 第 ③ 步：一週時段打勾表；頁籤也不亮任何一格（頁籤本身不加）
   if (h === '#/students') return go(viewStudents); if (h === '#/materials') return go(viewMaterials); if (h === '#/lessons') return go(viewLessons); if (h === '#/terms') return go(viewTerms);
   return go(viewHome);
 }
@@ -209,13 +232,138 @@ const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return isN
 const TILES = [['pendingPoints', '學生剛回答，等你看', ['interviewing', 'assignment_pending', 'submission_pending', 'feedback_pending', 'feedback_published']], ['pendingAssignments', '等你出作業', ['assignment_pending']],
   ['pendingFeedback', '等你回饋', ['feedback_pending']], ['pendingReviews', '學生交稿，等你改', ['review_pending']], ['pendingFinalize', '待定稿', ['review_pending']], ['pendingAllowDraft', '等你決定能不能開始寫', ['feedback_published']]];
 async function viewHome() {
-  view(loading); const my = RT, h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = '老師';
+  view(loading); const my = RT, h = await call('teacher_home'); if (!h.ok) return; S.home = h; $('who').textContent = S.whoName || '老師';   // 2026-11-25 第 ① 步：讀到顯示名字就用它
   if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把首頁畫回去蓋掉別頁（2026-11-14，同排課區塊的做法）
   view(`<div class="card"><h2>今天要做</h2><p class="muted" style="margin:0">點一個數字，看是哪幾位學生。</p></div><div class="tiles">${TILES.map(([k, t]) => `<a class="tile ${h[k] > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f="${k}"><b>${h[k] || 0}</b>${t}</a>`).join('')}${h.pendingMaterialReviews != null ? `<a class="tile ${h.pendingMaterialReviews > 0 ? 'hot' : ''}" href="#/materials"><b>${h.pendingMaterialReviews}</b>素材待回</a>` : ''}${h.pendingPickReviews != null ? `<a class="tile ${h.pendingPickReviews > 0 ? 'hot' : ''}" href="#/students" data-act="tile" data-f=""><b>${h.pendingPickReviews}<small> 系</small></b>請你看勾選清單</a>` : ''}</div>
   <div class="card"><h2>我帶的學生（${(h.students || []).length} 位）</h2>${(h.students || []).map((s) => `<span class="pill">${esc(s.nickname)}</span>`).join('') || '<span class="muted">目前沒有指派給你的學生。</span>'}</div>`);
 }
 ACT.tile = (el) => { S.filter = el.dataset.f; };
 ACT.clearFilter = () => { S.filter = ''; viewStudents(); };
+// ── 2026-11-25 第 ① 步：帳號頁（#/acct）。個人資料卡（讀 my_teacher_profile、存用 update_my_teacher_profile）、改密碼、〔登出〕 ──
+// 畫面上的字逐字照 OUTPUTS/uiux_plan_20261119/11_畫面文字待確認表_v0.1.md 第九節（第 53、54、57～62、66、67、74～76、78、79、82、83、85 條）。
+// 老師頁有自己的 supabase client（storageKey: 'ycs-teacher-auth'），改密碼一律用這支 sb，不共用學生頁的函式。老師的忘記密碼第 ① 步不做，登入頁那句不動。
+const ACCT_PW = { wrong: '現在的密碼不對。', mismatch: '兩次輸入的新密碼不一樣。', len: '新密碼要 8 到 72 個字元。', done: '密碼改好了，下次登入用新密碼。', same: '新密碼跟現在的一樣，換一個。' };   // 第 75、76、77、78、83 條
+const ACCT_FIELD_MSG = { name: '名字要 1 到 20 個字。', phone: '手機號碼要 09 開頭、10 個數字。' };   // 第 85、79 條
+const ACCT_NET = '連線失敗，請檢查網路再試一次。';
+const acctLen = (s) => Array.from(String(s || '')).length;
+const acctNetErr = (e) => !!e && (e.name === 'AuthRetryableFetchError' || !e.status);
+const acctAuthMsg = (e) => (acctNetErr(e) ? ACCT_NET : errText({}));
+// 讀個人資料。函式不存在（PGRST202 或 404）回 NOT_READY：那一張卡整張不畫；其他連線失敗回 NET
+async function acctRead() {
+  try { return await call('my_teacher_profile', {}, { quiet: true }); }
+  catch (e) {
+    if (!e || e.message !== 'NET') throw e;
+    const keep = lastFailMsg; let missing = false;
+    try { const pr = await sb.rpc('my_teacher_profile', {}); missing = !!(pr.error && (pr.error.code === 'PGRST202' || pr.status === 404)); } catch (e2) { /* 探不到就當一般連線失敗 */ }
+    lastFailMsg = keep;
+    return { ok: false, error: missing ? 'NOT_READY' : 'NET', msg: keep };
+  }
+}
+function acctProfHtml(p) {
+  const cs = (p.cohorts || []).map((c) => (c && typeof c === 'object' ? c.name : c)).filter(Boolean);
+  const ro = (k, v) => `<div class="acct-ro"><div class="acct-k">${k}</div><div class="row"><span class="acct-v">${esc(v)}</span><span class="pill">不能改</span></div></div>`;
+  return `<div class="card active" id="acct-profcard"><h2>個人資料</h2><p class="muted" style="margin:0">標「不能改」的，要改請聯絡育才仕。</p>
+    <label class="f" for="ac-name">顯示的名字</label><div class="muted small" style="margin:0 0 3px">學生在課表上看到的名字。</div><input type="text" id="ac-name" autocomplete="off" value="${esc(p.name)}">
+    <label class="f" for="ac-phone">手機號碼</label><input type="tel" id="ac-phone" inputmode="tel" autocomplete="off" value="${esc(p.phone)}">
+    ${ro('登入的 Email', p.email)}${ro('我帶的班', cs.length ? cs.join('、') : '還沒有。')}
+    <div id="acct-perr" class="err hidden" role="alert"></div>
+    <div style="margin-top:14px"><button type="button" class="btn" data-act="acctSave">存起來</button></div></div>`;
+}
+function acctDraw() {
+  const el = $('acct-prof'), x = S.ui.acct && S.ui.acct.prof; if (!el || !x) return;
+  if (x.s === 'load') el.innerHTML = '<div class="state state-loading">正在讀你的資料…</div>';
+  else if (x.s === 'err') el.innerHTML = `<div class="state state-error"><p class="state-title">這一頁沒有載入</p><p style="margin:0">${esc(x.msg)}</p><div class="state-act"><button type="button" class="btn" data-act="acctRetry">重新載入</button></div></div>`;
+  else if (x.s === 'ok') el.innerHTML = acctProfHtml(x.d);
+  else el.innerHTML = '';   // 後端沒好：整張卡不畫
+}
+async function acctLoad() {
+  const A = S.ui.acct, my = RT; if (!A) return;
+  if (!A.prof || A.prof.s !== 'ok') { A.prof = { s: 'load' }; acctDraw(); }
+  let r;
+  try { r = await acctRead(); }
+  catch (e) { if (e && (e.message === 'AUTH' || /^NOT_/.test(e.message))) return; console.warn('acct', e && e.message); r = { ok: false, error: 'NET' }; }
+  if (S.ui.acct !== A || my !== RT) return;   // 已經換頁，晚到的不蓋掉新的一頁
+  A.prof = r.ok ? { s: 'ok', d: r } : r.error === 'NOT_READY' ? { s: 'miss' } : { s: 'err', msg: r.error === 'NET' ? (r.msg || '請檢查網路，再按「重新載入」。') : errText(r) };
+  if (r.ok && r.name) setWho(r.name);
+  acctDraw();
+}
+ACT.acctRetry = () => { acctLoad().catch((e) => console.warn('acct', e && e.message)); };
+function acctPErr(list) {
+  const e = $('acct-perr'); if (!e) return;
+  e.innerHTML = (list || []).map((m) => `<div>${esc(m)}</div>`).join(''); e.classList.toggle('hidden', !(list && list.length));
+}
+ACT.acctSave = async (el) => {
+  const A = S.ui.acct, x = A && A.prof; if (!x || x.s !== 'ok') return;
+  const p = x.d;
+  const cur = { name: $('ac-name').value.trim(), phone: $('ac-phone').value.trim() };
+  const base = { name: String(p.name || '').trim(), phone: String(p.phone || '').trim() };
+  const send = {}, bad = [];
+  Object.keys(cur).forEach((k) => { if (cur[k] !== base[k]) send[k] = cur[k]; });   // 只送改過的欄；多帶任何鍵（Email、我帶的班）後端會整筆擋掉
+  if ('name' in send && (acctLen(send.name) < 1 || acctLen(send.name) > 20)) bad.push(ACCT_FIELD_MSG.name);
+  if ('phone' in send && send.phone.replace(/[\s-]/g, '') !== '' && !/^09\d{8}$/.test(send.phone.replace(/[\s-]/g, ''))) bad.push(ACCT_FIELD_MSG.phone);
+  if (bad.length) { acctPErr(bad); return; }
+  acctPErr([]);
+  if (!Object.keys(send).length) { toast('存好了。'); return; }
+  el.disabled = true;
+  let r;
+  try { r = await call('update_my_teacher_profile', { p: send }, { quiet: true }); }
+  catch (e) { if (e && e.message === 'NET') acctPErr([lastFailMsg || ACCT_NET]); else if (!e || !KNOWN.has(e.message)) throw e; return; }
+  finally { el.disabled = false; }
+  if (S.ui.acct !== A) return;
+  if (!r.ok) {
+    const msgs = [];
+    if (r.error === 'VALIDATION' && Array.isArray(r.detail)) r.detail.forEach((k) => { const m = ACCT_FIELD_MSG[k] || ERRS.VALIDATION; if (!msgs.includes(m)) msgs.push(m); });
+    acctPErr(msgs.length ? msgs : [errText(r)]); return;
+  }
+  A.prof = { s: 'ok', d: Object.assign({}, p, r) }; acctDraw();
+  setWho(r.name);   // 頂欄的名字跟著變
+  toast('存好了。');
+};
+// 改密碼：先用現在的密碼登入一次（老師頁自己的 sb），對了才換
+function acctPwErr(msg) { const e = $('acct-pwerr'); if (!e) return; e.textContent = msg || ''; e.classList.toggle('hidden', !msg); }
+function acctPwAuthMsg(e, signIn) {
+  const code = e.code || '', msg = String(e.message || '');
+  if (signIn && (code === 'invalid_credentials' || /invalid|credentials/i.test(msg))) return ACCT_PW.wrong;
+  if (!signIn && (code === 'same_password' || /different from the old|same/i.test(msg))) return ACCT_PW.same;
+  if (!signIn && (code === 'weak_password' || /password should|at least|characters/i.test(msg))) return ACCT_PW.len;
+  return acctAuthMsg(e);
+}
+ACT.pwChange = async () => {
+  const cur = $('pw-cur').value, nw = $('pw-new').value, again = $('pw-new2').value, btn = $('acct-pwbtn');
+  acctPwErr('');
+  if (!cur) { acctPwErr(ACCT_PW.wrong); return; }
+  if (nw !== again) { acctPwErr(ACCT_PW.mismatch); return; }
+  if (nw.length < 8 || nw.length > 72) { acctPwErr(ACCT_PW.len); return; }
+  if (nw === cur) { acctPwErr(ACCT_PW.same); return; }
+  btn.disabled = true;
+  try {
+    const ss = await sb.auth.getSession(), u0 = ss.data && ss.data.session && ss.data.session.user, pd = S.ui.acct && S.ui.acct.prof && S.ui.acct.prof.d;
+    const a = await sb.auth.signInWithPassword({ email: (u0 && u0.email) || (pd && pd.email) || '', password: cur });
+    if (a.error) { acctPwErr(acctPwAuthMsg(a.error, true)); return; }
+    const u = await sb.auth.updateUser({ password: nw });
+    if (u.error) { acctPwErr(acctPwAuthMsg(u.error, false)); return; }
+    $('pw-cur').value = ''; $('pw-new').value = ''; $('pw-new2').value = '';
+    toast(ACCT_PW.done);
+  } catch (e) { acctPwErr(ACCT_NET); }
+  finally { btn.disabled = false; }
+};
+document.addEventListener('submit', (ev) => {
+  if (ev.target && ev.target.id === 'acct-pwform') { ev.preventDefault(); ACT.pwChange().catch((e) => console.warn('pw', e && e.message)); }
+});
+async function viewAcct() {
+  S.ui.acct = { prof: { s: 'load' } };
+  view(`<div id="acct-prof"></div>
+    <div class="card" id="acct-slots"><h3>我開的一對一時段</h3><p class="muted" style="margin:0 0 8px">一次開很多段，用打勾表。</p><a class="btn ghost" href="#/slots">去開時段</a></div>
+    <details class="card" id="acct-pw"><summary>改密碼</summary><form id="acct-pwform" autocomplete="off">
+      <label class="f" for="pw-cur">現在的密碼</label><input type="password" id="pw-cur" autocomplete="current-password">
+      <label class="f" for="pw-new">新密碼</label><input type="password" id="pw-new" autocomplete="new-password">
+      <label class="f" for="pw-new2">再輸入一次新密碼</label><input type="password" id="pw-new2" autocomplete="new-password">
+      <div id="acct-pwerr" class="err hidden" role="alert"></div>
+      <div style="margin-top:14px"><button type="submit" class="btn" id="acct-pwbtn">改密碼</button></div></form></details>
+    <div class="acct-out"><button type="button" class="btn ghost" data-act="logout">登出</button></div>`);
+  acctDraw();
+  acctLoad().catch((e) => console.warn('acct', e && e.message));
+}
 // ── 我的學生 ──
 async function viewStudents() {
   // 2026-11-21 第三步（畫面⑥）：後端有 teacher_dept_rows（28v）而且沒有從磚塊篩選時，換成「要我回的／只是資料」兩區；否則照舊
@@ -881,10 +1029,149 @@ const LERR = { SLOT_CONFLICT: '這個時間你開了一對一時段，直播課�
   BOOKING_NOT_ACTIVE: '這筆預約已經取消或完成了，已為你更新畫面。', TOO_EARLY_TO_COMPLETE: '課還沒開始；開始之後才能按「已完成」。',
   QUOTA_EXHAUSTED: '這位學生的時數不夠，這堂沒有扣時數，預約還是「已約」。請找育才仕行政查他的時數。', NOT_ASSIGNED: '這個班別不是你帶的，沒辦法建課。' };
 const lerr = (r) => LERR[r.error] || errText(r);
-const SKIP_WHY = { SLOT_OVERLAP: '跟已開的時段重疊', LIVE_LESSON_CONFLICT: '那時有直播課' };
+const SKIP_WHY = { SLOT_OVERLAP: '跟已開的時段重疊', LIVE_LESSON_CONFLICT: '那時有直播課', SLOT_IN_PAST: '時間已過' };   // 2026-11-25 第 ③ 步：加「時間已過」（29n 逐段跳過已過的時間）
 const WD = '日一二三四五六', p2 = (n) => String(n).padStart(2, '0');
 const dayTime = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()}（${WD[d.getDay()]}）${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+// ── 2026-11-25 第 ③ 步：一週時段打勾表（#/slots）。老師一次開很多段一對一時段：勾「星期 × 點鐘」，選起始週與連開幾週。後端 profile-db/29n_class_list.sql 的 teacher_add_tutor_slots_grid ──
+// 時間一律台北時間（Intl、hourCycle h23）：現有時段對到哪一格、跳過清單的時間、「這一週」「下一週」都是；送出的 dow（1＝星期一…7＝星期日）與 time（HH:00）也是台北時間。
+// 沒做的（待 owner 確認）：「已經開的」那張卡、選填的「上課方式或連結」欄、排課頁那顆連結；打勾表上不能收回已開的格，收回用「排課」的一對一。
+const SL_HOURS = [16, 17, 18, 19, 20];   // 表上的點鐘；改範圍只動這一處（owner 還沒定）
+const SL_WD = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+const SL_WEEKS = [1, 2, 4, 8];   // 連續開幾週的選項；後端上限是 13（29n），這四個都在範圍內
+const SL_MAX = 200;   // 29n：格數 × 週數的上限；後端若改了，這裡要跟著改
+const SL_DAY_MS = 86400000;
+const SL_MSG = { many: '一次開太多段，請減少週數或勾選的時段，分兩次開。', none: '先勾要開的時段。', nothing: '沒有開出新的時段。', off: '一對一功能還不能用，請找育才仕行政。' };
+function slTp(iso) {   // 台北時間各段；解析不了回 null。dow：1＝星期一…7＝星期日
+  try {
+    const d = new Date(iso); if (!iso || isNaN(d)) return null;
+    const ps = new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+    const g = (k) => { const x = ps.find((q) => q.type === k); return x ? x.value : ''; };
+    const y = Number(g('year')), mo = Number(g('month')), da = Number(g('day')); if (!y || !mo || !da) return null;
+    const u = new Date(Date.UTC(y, mo - 1, da)).getUTCDay();
+    return { y, mo, d: da, dow: ((u + 6) % 7) + 1, wd: '日一二三四五六'[u], hh: Number(g('hour')), mm: String(g('minute')).padStart(2, '0') };
+  } catch (e) { return null; }
+}
+const slDayText = (iso) => { const a = slTp(iso); return a ? `${a.mo}/${a.d}（${a.wd}）${p2(a.hh)}:${a.mm}` : ''; };
+const slYmd = (ms) => new Date(ms).toISOString().slice(0, 10);
+// 這一週的星期一（台北日期，以 UTC 零點的毫秒表示）。基準：伺服器的 now；沒有、不是時間、或讀不到時間表，就用手機時鐘（只影響週起點，後端會逐段跳過已過的時間）
+function slWeekMs(g) {
+  let base = Date.parse(g.now); if (isNaN(base)) base = Date.now();
+  const a = slTp(new Date(base).toISOString()); if (!a) return Date.UTC(1970, 0, 5);
+  const mon = Date.UTC(a.y, a.mo - 1, a.d) - (a.dow - 1) * SL_DAY_MS;
+  return g.from === 'this' ? mon : mon + 7 * SL_DAY_MS;
+}
+// 現有時段對到哪一格：鍵「星期-點鐘」→ 'lock'（已約）或 'have'（已開）。看 status 與 booking：有預約（booked、completed）＝已約；status 是 open 而且沒有預約＝已開；其他（已收回、沒有預約）當空格
+function slMap(g) {
+  const mon = slWeekMs(g), map = new Map();
+  (g.slots || []).forEach((s) => {
+    const booked = !!(s.booking && (s.booking.status === 'booked' || s.booking.status === 'completed')), open = s.status === 'open';
+    if (!booked && !open) return;
+    const a = slTp(s.startsAt); if (!a) return;
+    const day = Math.round((Date.UTC(a.y, a.mo - 1, a.d) - mon) / SL_DAY_MS); if (day < 0 || day > 6) return;
+    let n = Number(s.hours); if (!(n >= 1)) n = Math.max(1, Math.round((Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 3600000) || 1);
+    for (let i = 0; i < n; i++) {
+      const h = a.hh + i; if (h > 23) break;
+      const k = `${day + 1}-${h}`; if (booked) map.set(k, 'lock'); else if (!map.has(k)) map.set(k, 'have');
+    }
+  });
+  return map;
+}
+function slGridHtml(g, map) {
+  const head = '<div class="hd"></div>' + SL_HOURS.map((h) => `<div class="hd">${h} 點</div>`).join('');
+  const rows = SL_WD.map((w, i) => `<div class="wd">${w}</div>` + SL_HOURS.map((h) => {
+    const k = `${i + 1}-${h}`, st = map.get(k), nm = `${w} ${h} 點`;
+    if (st === 'lock') return `<span class="slot lock on" aria-label="${nm} 已約">已約</span>`;
+    if (st === 'have') return `<span class="slot have on" aria-label="${nm} 已開">已開</span>`;
+    return `<label class="slot"><input type="checkbox" data-in="slCell" data-d="${i + 1}" data-h="${h}" aria-label="${nm}"${g.cells.has(k) ? ' checked' : ''}></label>`;
+  }).join('')).join('');
+  return head + rows;
+}
+function slGrid() {   // 只重畫表：已約、已開的格不能勾，換週後落在這些格上的勾拿掉
+  const g = S.ui.sl, el = $('sl-grid'); if (!g || !el) return;
+  const map = slMap(g); [...g.cells].forEach((k) => { if (map.has(k)) g.cells.delete(k); });
+  el.innerHTML = slGridHtml(g, map);
+}
+// 送出之後沒開的段：一句彙總＋可展開的清單（不逐筆塞進提示）
+function slResHtml(res) {
+  if (!res) return '';
+  const sk = res.skipped || []; if (!sk.length && !res.nothing) return '';
+  const cnt = {}; sk.forEach((x) => { if (SKIP_WHY[x.reason]) cnt[x.reason] = (cnt[x.reason] || 0) + 1; });
+  const parts = Object.keys(SKIP_WHY).filter((k) => cnt[k]).map((k) => `${SKIP_WHY[k]} ${cnt[k]} 段`);
+  const sum = res.nothing ? `<b>${SL_MSG.nothing}</b>` + (parts.length ? `<div class="small">${esc(parts.join('、'))}。</div>` : '') : `另有 ${sk.length} 段沒開${parts.length ? `（${esc(parts.join('、'))}）` : ''}。`;
+  const list = sk.length ? `<details style="margin-top:6px"><summary>看沒開的時段</summary>${sk.map((x) => `<div class="small" style="padding:4px 0;border-top:1px solid var(--line)">${esc(slDayText(x.startsAt))}${SKIP_WHY[x.reason] ? '　' + esc(SKIP_WHY[x.reason]) : ''}</div>`).join('')}</details>` : '';
+  return `<div class="hint">${sum}${list}</div>`;
+}
+function slRender() {
+  const g = S.ui.sl, map = slMap(g);
+  const opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${t}</option>`;
+  view(`<a class="back" href="#/acct">回帳號</a>
+    <div class="card active" id="sl-card"><h2>開一對一時段</h2><p class="muted" style="margin:0">一次開很多段：下面打勾，每一格是一小時（標的是開始的點鐘）。</p>
+      <label class="f" for="sl-from">從哪一週開始</label><select id="sl-from" data-in="slSel" data-k="from">${opt('this', '這一週', g.from === 'this')}${opt('next', '下一週', g.from !== 'this')}</select>
+      <label class="f" for="sl-n">連續開幾週</label><select id="sl-n" data-in="slSel" data-k="n">${SL_WEEKS.map((n) => opt(n, `${n} 週`, g.n === n)).join('')}</select>
+      <div class="row" style="margin:12px 0 0"><button type="button" class="btn sm ghost" data-act="slQuick" data-k="wk">平日晚上全選</button><button type="button" class="btn sm ghost" data-act="slQuick" data-k="we">週末全選</button><button type="button" class="btn sm ghost" data-act="slQuick" data-k="clr">全部清掉</button></div>
+      <div class="sgrid" id="sl-grid" role="group" aria-label="一週時段">${slGridHtml(g, map)}</div>
+      <p class="muted" style="margin:6px 0 0">灰色「已約」的格，學生已經約走，不能取消。要改，請先聯絡學生。</p>
+      <p class="muted" style="margin:4px 0 0">「已開」的格已經開好了；要收回，到「排課」的一對一。</p>
+      <div style="margin-top:12px"><button type="button" class="btn" id="sl-go" data-act="slGo">開這些時段</button></div>
+      <div id="sl-result" role="status">${slResHtml(g.res)}</div></div>`);
+}
+async function viewSlots() {
+  view(loading); const my = RT;
+  const ts = await call('teacher_tutor_schedule', {}, { quiet: true }).catch(() => ({ ok: false }));   // 讀不到就當沒有現有時段（照樣能勾）
+  if (my !== RT) return;   // 讀的時候老師已經換到別頁：不要把打勾表畫回去蓋掉別頁
+  S.ui.sl = { from: 'next', n: 4, cells: new Set(), res: null, slots: ts.ok ? ts.slots || [] : [], now: ts.ok ? ts.now || '' : '' };
+  slRender();
+}
+async function slRefresh() {   // 送出成功後：重讀現有時段，新開的格變成「已開」；勾清空，週數保留，沒開的結果留著
+  const g = S.ui.sl, my = RT;
+  const ts = await call('teacher_tutor_schedule', {}, { quiet: true }).catch(() => ({ ok: false }));
+  if (my !== RT || S.ui.sl !== g) return;
+  if (ts.ok) { g.slots = ts.slots || []; g.now = ts.now || g.now; }
+  g.cells.clear(); slRender();
+}
+IN.slCell = (el) => { const g = S.ui.sl; if (!g) return; const k = `${el.dataset.d}-${el.dataset.h}`; if (el.checked) g.cells.add(k); else g.cells.delete(k); };
+IN.slSel = (el) => {
+  const g = S.ui.sl; if (!g) return;
+  if (el.dataset.k === 'from') g.from = el.value === 'this' ? 'this' : 'next'; else g.n = SL_WEEKS.includes(Number(el.value)) ? Number(el.value) : 4;
+  slGrid();
+};
+ACT.slQuick = (el) => {
+  const g = S.ui.sl; if (!g) return; const k = el.dataset.k;
+  if (k === 'clr') g.cells.clear();
+  else {   // 平日晚上＝週一到週五的 18 點起；週末＝週六、週日整排（待 owner 確認「平日晚上」是哪幾格）
+    const days = k === 'wk' ? [1, 2, 3, 4, 5] : [6, 7], hrs = k === 'wk' ? SL_HOURS.filter((h) => h >= 18) : SL_HOURS, map = slMap(g);
+    days.forEach((d) => hrs.forEach((h) => { if (!map.has(`${d}-${h}`)) g.cells.add(`${d}-${h}`); }));
+  }
+  slGrid();
+};
+ACT.slGo = async (el) => {
+  const g = S.ui.sl; if (!g) return;
+  const cells = [...g.cells].map((k) => { const [d, h] = k.split('-').map(Number); return { dow: d, time: p2(h) + ':00', hours: 1 }; }).sort((a, b) => a.dow - b.dow || (a.time < b.time ? -1 : 1));
+  if (!cells.length) return toast(SL_MSG.none, true);
+  if (g.n * cells.length > SL_MAX) return toast(SL_MSG.many, true);   // 送出前先算先擋：後端總段數上限 200
+  el.disabled = true; let r;
+  try { r = await call('teacher_add_tutor_slots_grid', { p: { weekStart: slYmd(slWeekMs(g)), weeks: g.n, cells } }, { quiet: true }); }
+  catch (e) {
+    if (!e || e.message !== 'NET') throw e;
+    const keep = lastFailMsg; let missing = false;
+    try { const pr = await sb.rpc('teacher_add_tutor_slots_grid', { p: {} }); missing = !!(pr.error && pr.error.code === 'PGRST202'); } catch (e2) { /* 探不到就當一般連線失敗 */ }
+    toast(missing ? SL_MSG.off : keep || '連線失敗，請檢查網路再試一次。', true); return;
+  } finally { el.disabled = false; }
+  const sk = Array.isArray(r.skipped) ? r.skipped : [], made = r.ok && Array.isArray(r.created) ? r.created.length : 0;
+  if (r.ok && made) {
+    g.res = sk.length ? { nothing: false, skipped: sk } : null;
+    toast(`已開 ${made} 段。` + (sk.length ? `另有 ${sk.length} 段沒開。` : ''), sk.length > 0);
+    return slRefresh();
+  }
+  if (r.error === 'VALIDATION') return toast(SL_MSG.many, true);
+  if (r.ok || r.error === 'NOTHING_CREATED') {   // 全部被跳過（後端只有 NOTHING_CREATED 這一種回法；ok:true 但沒開出任何一段是防呆）：勾留著，老師可以改
+    g.res = { nothing: true, skipped: sk }; toast(SL_MSG.nothing, true);
+    const box = $('sl-result'); if (box) { box.innerHTML = slResHtml(g.res); box.scrollIntoView({ block: 'nearest' }); }
+    return;
+  }
+  toast(lerr(r), true);
+};
 async function viewLessons() {
   S.ui.ltab = S.ui.ltab || 'live'; S.ui.ask = null;
   S.ui.lf = S.ui.lf || { title: '', format: 'live', at: '', url: '', card: '', cohort: '' };

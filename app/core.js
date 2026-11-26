@@ -9,6 +9,7 @@ const nlen = (s) => String(s || '').replace(/\s/g, '').length;   // 字數＝去
 const AUTH_KEY = 'ycs-student-auth';
 // 初載：存的登入過期了交給 supabase-js 自己用 refresh token 換新的（雲端學生幾天沒開也不用重登）；換不到、或帳號已不是學生，下面開機流程靜默回登入頁，不出錯誤句
 let bootQuiet = true;   // 開機時還沒有人按過「登入」：存的登入若不能用，靜默回登入頁，不出錯誤句（按過登入或開機結束就改回 false）
+const BOOT_URL = { hash: location.hash || '', search: location.search || '' };   // 2026-11-25 第 ① 步：重設密碼的信回來時，網址 # 後面帶 type=recovery；supabase-js 開機會自己吃掉並清掉網址，所以建立 sb 之前先記下來（acct.js resetBoot 讀）
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_KEY } });
 const S = { home: null, uid: '', doc: null, docId: null, ui: {}, poll: 0, rt: 0, terms: [], termsMiss: {}, sc: null, mine: null, reqSeen: null };   // ui：畫面上還沒存的輸入；rt：換頁計數（慢回應不蓋掉新頁）
 const ACT = {}, IN = {}, KNOWN = new Set(['AUTH', 'DENIED', 'NET', 'NOT_STUDENT', 'NOT_TEACHER', 'NOT_STAFF']);
@@ -283,6 +284,7 @@ const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function showLogin(msg) {
   S.home = null; S.doc = null; S.docId = null; S.ui = {}; S.sc = null; S.ack = null; S.lv = null; S.dinfo = null; S.mine = null; S.reqSeen = null; S.closed = false; planAt = 0; S.uid = ''; S.imp = null; S.aiOn = null; homeCache = null; homeAt = 0; stopPoll(); show('boot', false); show('app', false); show('login', true);
   $('l-err').textContent = msg || ''; show('l-err', !!msg); $('l-btn').disabled = false; loginBanner();
+  if (typeof loginPane === 'function') loginPane('login');   // 2026-11-25 第 ① 步：回到登入表單（不是忘記密碼那一張）
 }
 async function toLogin(msg) { try { await sb.auth.signOut(); } catch (e) { /* 本機已清除即可 */ } showLogin(msg); }
 $('login-form').addEventListener('submit', async (ev) => {
@@ -321,7 +323,7 @@ function lockEl(el) {
 function closedSweep() {
   closedQ = false;
   let bar = $('closed-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'closed-bar'; bar.className = 'hint closed-bar hidden'; bar.setAttribute('role', 'note'); bar.textContent = CL.bar; $('view').parentNode.insertBefore(bar, $('view')); }
-  const p = hashParts().path, mine = !!S.home && !!S.closed && !/^#\/(shop|book)/.test(p);
+  const p = hashParts().path, mine = !!S.home && !!S.closed && !/^#\/(shop|book|acct|cart|class)/.test(p);   // 2026-11-25 第 ② 步：購物車三步（#/cart、#/cart2、#/cart3）跟購買頁一樣，結案了也能買、不出現結案橫幅；2026-11-25 第 ③ 步：上課頁（#/class）也一樣，結案的學生還能約課、看課表
   bar.classList.toggle('hidden', !mine); if (!S.closed) return;
   document.querySelectorAll('[data-act],[data-in]').forEach((el) => { if (closedLocked(el)) lockEl(el); });
   const imp = $('imp-code'); if (imp) imp.readOnly = true;
@@ -335,7 +337,8 @@ document.addEventListener('focusin', (ev) => { const t = ev.target; if (t && t.r
 const LD1_KEY = 'ycs-ld1-pending';
 function ssGet() { try { return sessionStorage.getItem(LD1_KEY) || ''; } catch (e) { return ''; } }
 function ssSet(v) { try { if (v) sessionStorage.setItem(LD1_KEY, v); else sessionStorage.removeItem(LD1_KEY); } catch (e) { /* 存不了就只靠網址 */ } }
-function hashParts() { const h = location.hash || '#/', i = h.indexOf('?'); return { path: i < 0 ? h : h.slice(0, i), q: i < 0 ? '' : h.slice(i + 1) }; }
+function hashParts() { let h = location.hash || '#/'; if (h.charAt(1) !== '/') h = '#/'; const i = h.indexOf('?');   // 2026-11-25 第 ① 步：#access_token=… 這種不是頁名的網址一律當首頁
+  return { path: i < 0 ? h : h.slice(0, i), q: i < 0 ? '' : h.slice(i + 1) }; }
 function hashLd1() { const m = hashParts().q.match(/(?:^|&)ld1=([^&]*)/); if (!m) return ''; try { return decodeURIComponent(m[1]).trim(); } catch (e) { return m[1].trim(); } }
 function capturePending() { const c = hashLd1(); if (c) ssSet(c); return c; }
 function decodeLd1(raw) {   // 解碼不連網；年度、檢查碼不對就回 ld1_code.js 的原句
@@ -371,7 +374,8 @@ async function enter() {
     const [h, sw] = await Promise.all([call('me_home', {}, { fresh: true }), call('ai_switch_status', {}, { quiet: true }).catch(() => null), loadPlan()]);   // 2026-11-24 loadPlan：結案了沒（讀不到＝沒結案）
     if (!h.ok) { showLogin('登入沒成功，請稍後再試。'); return; } S.home = h; S.aiOn = sw && sw.ok ? !!sw.enabled : null;
   } catch (e) { if (!(e && (e.message === 'AUTH' || /^NOT_/.test(e.message)))) bootFail(); return; }
-  show('boot', false); show('app', true); $('who').textContent = S.home.nickname;
+  show('boot', false); show('app', true); $('who').textContent = S.home.nickname || '帳號';
+  if (typeof cartHead === 'function') { cartHead(); if (typeof cartSync === 'function') cartSync(); }   // 2026-11-25 第 ② 步：頂欄購物車件數（讀瀏覽器存的，不等後端）；購物車有東西才背景讀一次 my_shop 把下架的拿掉
   if (ssGet() && hashParts().path !== '#/import') { try { history.replaceState(null, '', '#/import'); } catch (e) { location.hash = '#/import'; } }   // 帶著志願代碼登入：直接到匯入頁，由它接手
   route();
 }
@@ -388,7 +392,9 @@ function route() {
   // 2026-11-09 落點分析改版 L0：三個子分頁共用「落點分析」那一格（setTab('score')）
   const f = { '#/score': viewScore, '#/score/history': viewScoreHistory, '#/score/assess': viewScoreAssess, '#/wish': viewWish, '#/need': viewNeed, '#/mine': viewMine, '#/write': viewWrite, '#/import': viewImport,
     '#/deliver': viewDeliver,   // 2026-11-12 階段 1：我要交的（write.js）
-    ...(typeof viewShop === 'function' ? { '#/shop': viewShop, '#/book': viewBook } : {}) }[h];   // 2026-11-13 第 38 條：購買、預約（../shop/shop.js；沒載到就回首頁）
+    ...(typeof viewAcct === 'function' ? { '#/acct': viewAcct } : {}),   // 2026-11-25 第 ① 步：帳號頁（acct.js）
+    ...(typeof viewShop === 'function' ? { '#/shop': viewShop, '#/book': viewBook, '#/cart': viewCart, '#/cart2': viewCart2, '#/cart3': viewCart3 } : {}),   // 2026-11-25 第 ② 步：購物車三步（shop.js）   // 2026-11-13 第 38 條：購買、預約（../shop/shop.js；沒載到就回首頁）
+    ...(typeof viewClass === 'function' ? { '#/class': viewClass, '#/book': () => viewClass('book') } : {}) }[h];   // 2026-11-25 第 ③ 步：上課頁（class.js）；放在 shop.js 那一項後面，所以 #/book 改落到上課頁並捲到預約一對一（獨立購買頁外殼 shop/index.html 有自己的路由，不受影響）
   return guard(f || viewHome);
 }
 // 每一頁載入失敗（連線斷了等）都給一個重試鈕，不要停在「載入中」
@@ -402,7 +408,7 @@ function guard(f) {
   });
 }
 ACT.reload = () => { homeAt = 0; route(); };
-function setTab(t) { document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === t)); show('tabs', t !== 'doc'); }
+function setTab(t) { document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.t === t)); show('tabs', t !== 'doc' && t !== 'cart'); }   // 2026-11-25 第 ② 步：購物車三步底部放自己的固定鈕列，不放底部分頁列
 const view = (html) => { $('view').innerHTML = html; };
 const loading = '<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">載入中…</span><div class="ld-slow small hidden" style="margin-top:6px">第一次打開會比較久，請再等一下。</div></div>';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -486,7 +492,9 @@ async function viewHome() {
     ${h.consent.general ? '' : '<div class="hint">同意書還沒登錄完成，暫時不能開始寫。請聯絡育才仕。</div>'}</div>
   <div class="card active"><h2>下一步</h2><p style="margin:0 0 10px">${esc(todo.t)}</p>${btn}
     <p class="muted small" style="margin:10px 0 0">${homeAt ? esc(when(new Date(homeAt).toISOString())) + ' 讀的資料。' : ''}老師那邊剛改過？<button type="button" class="btn ghost sm" data-act="homeFresh">更新</button></p></div>
+  <div id="home-sched"></div>
   ${rows.length ? `<div class="card"><h3 style="margin-top:0">走過的</h3>${rows.map((r) => `<div class="done-row"><div><b>${esc(r[0])}</b>　${esc(r[1])}</div><a href="${esc(r[2])}">${esc(r[3])}</a></div>`).join('')}</div>` : ''}`);
+  if (typeof homeSched === 'function') homeSched(my);   // 2026-11-25 第 ① 步：行程卡晚到再填（sched.js），不卡住首頁
 }
 ACT.homeFresh = () => { homeAt = 0; route(); };
 ACT.openDoc = async (el) => {

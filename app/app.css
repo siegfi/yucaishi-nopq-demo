@@ -178,7 +178,7 @@ body.sel-open { overflow:clip; } html:has(body.sel-open) { overflow:clip; }   /*
 }
 @media (min-width:900px) and (max-width:1099px) { .selsum { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 /* 2026-11-13 第 38 條：頁首「購買與預約」入口（購買頁、預約頁在 ../shop/shop.js） */
-header.top .who .shoplink { color:var(--white); white-space:nowrap; font-size:var(--fs-sm); display:inline-flex; align-items:center; min-height:var(--tap); }
+header.top .who .shoplink { color:var(--white); white-space:nowrap; font-size:var(--fs-sm); display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap); min-width:var(--tap); flex:none; }   /* 2026-11-25 第 ① 步：字改成「購買」，補最小寬 44px */
 /* 2026-11-13 第 33 條：我的學習歷程最上面的總清單（每一類一列，點了跳過去）、每一類的摘要行、每一筆的摘要 */
 .invsums { display:flex; flex-direction:column; gap:6px; }
 .invsum { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; width:100%; text-align:left; font:inherit; color:var(--text); background:var(--soft); border:1px solid var(--line); border-radius:6px; padding:8px 12px; min-height:44px; cursor:pointer; }
@@ -265,3 +265,45 @@ label.f.pqlab { font-size:var(--fs-base); font-weight:700; color:var(--main); ma
 textarea.is-closed, input.is-closed, select.is-closed { background:var(--soft); color:var(--text); }
 a.is-closed, label.btn.is-closed { color:var(--muted); cursor:not-allowed; text-decoration:none; } a.btn.is-closed, label.btn.is-closed { background:var(--soft); border-color:var(--line); }   /* 11-25 Hallmark N28：關掉的不只靠變淡，底色、字色、游標都換 */
 a.is-closed { pointer-events:none; }
+/* 2026-11-25 第 ① 步：頂欄帳號連結、帳號頁、首頁行程卡（顏色、字級只用 nopq-base.css 的變數；可點的至少 44px；375 寬不橫向捲動、頂欄不折行） */
+header.top .who .acctlink { color:var(--white); font-size:var(--fs-sm); display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap); min-width:var(--tap); flex:0 1 auto; overflow:hidden; }
+header.top .who .acctlink > #who { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#acct-prof, #acct-pw, #acct-cons, #acct-shop { scroll-margin-top:68px; }
+.acct-jump { margin:0 0 12px; }
+.acct-k { font-size:var(--fs-sm); color:var(--muted); margin:10px 0 3px; }
+.acct-ro { border-top:1px solid var(--line); margin-top:10px; } .acct-ro .acct-k { margin-top:8px; } .acct-ro .acct-v { min-width:0; overflow-wrap:anywhere; }
+.acct-crow { padding:8px 0; border-top:1px solid var(--line); overflow-wrap:anywhere; }
+.acct-out { margin:0 0 12px; }
+.sched-next { margin:0 0 8px; font-size:var(--fs-base); overflow-wrap:anywhere; }
+.sched-row { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 10px; padding:6px 0; border-top:1px solid var(--line); font-size:var(--fs-sm); overflow-wrap:anywhere; }
+/* 2026-11-25 第 ② 步：頂欄購物車件數、結帳三步（步驟條、每一項、底部固定列）、帳號頁購物車一行、行程卡待付款提醒（顏色、字級只用 nopq-base.css 的變數；可點的至少 44px；375 寬不橫向捲動） */
+.cart-n { display:inline-block; margin-left:4px; min-width:20px; padding:0 6px; border-radius:999px; background:var(--white); color:var(--main); font-size:var(--fs-sm); line-height:1.6; font-weight:700; text-align:center; }
+.cart-steps { display:flex; gap:6px; list-style:none; margin:8px 0 0; padding:0; }
+.cart-steps li { flex:1 1 0; min-width:0; text-align:center; font-size:var(--fs-sm); color:var(--muted); border-bottom:3px solid var(--line); padding:4px 2px 6px; overflow-wrap:anywhere; }
+.cart-steps li:nth-child(2) { flex:2 1 0; }
+.cart-steps li.now { color:var(--main); font-weight:700; border-bottom-color:var(--main); }
+.cart-steps li.done { color:var(--ok); border-bottom-color:var(--ok); } .cart-steps li.done:before { content:"✓ "; }
+.cart-line { display:flex; justify-content:space-between; align-items:flex-start; gap:8px 12px; padding:10px 0; border-top:1px solid var(--line); }
+.cart-line:first-child { border-top:0; padding-top:0; }
+.cart-main { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.cart-amt { flex:none; white-space:nowrap; }
+.cart-qty { margin-top:6px; } .cart-q { min-width:3.5em; text-align:center; }
+.cart-total { padding-top:10px; border-top:1px solid var(--line); }
+.cartbar { position:fixed; left:0; right:0; bottom:0; z-index:12; background:var(--white); border-top:1px solid var(--line); padding:8px 0 calc(8px + env(safe-area-inset-bottom)); }
+.cartbar-in { max-width:640px; margin:0 auto; padding:0 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.cartbar-sum { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.cart-spacer { height:76px; }
+body:has(#cartbar) .toast { bottom:84px; }
+@media (min-width:900px) { .cartbar-in { max-width:760px; } }
+.cart-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:8px 0; margin:0 0 4px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.cart-row > div { min-width:0; overflow-wrap:anywhere; }
+.sched-pend { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 12px; background:var(--warn-bg); border:1px solid var(--warn-line); border-radius:6px; padding:8px 12px; margin:0 0 8px; }
+.sched-pend > div { min-width:0; overflow-wrap:anywhere; }
+/* 2026-11-25 第 ③ 步：頂欄「上課」、上課頁的課表列（顏色、字級只用 nopq-base.css 的變數；可點的至少 44px；375 寬不橫向捲動、頂欄不折行） */
+header.top .who .classlink { color:var(--white); white-space:nowrap; font-size:var(--fs-sm); display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap); min-width:var(--tap); flex:none; }
+#cls-mine, #cls-list, #cls-book { scroll-margin-top:68px; }
+.cls-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:8px 0; border-top:1px solid var(--line); }
+.cls-row .cls-d { flex:0 0 auto; min-width:6em; font-weight:700; color:var(--main); font-size:var(--fs-sm); }
+.cls-row .cls-m { flex:1 1 150px; min-width:0; overflow-wrap:anywhere; }
+.cls-row .cls-t { display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; }
+.cls-row .cls-b { flex:none; }
