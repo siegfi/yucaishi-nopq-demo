@@ -1,11 +1,15 @@
   /* 育才仕 NOPQ通 學生端（2026-11-02 前六幕重做）。配色用 STEM 主色（視覺規則 v0.1 §2）；手機優先，單欄，不橫向捲動。 */
   * { box-sizing:border-box; }
-  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:var(--fs-base); line-height:1.55; overflow-x:hidden; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:var(--font); font-size:var(--fs-base); line-height:1.55; overflow-x:clip; }   /* 2026-11-25 Hallmark N28：字型走 token；clip 不讓 body 變成捲動容器 */
+  h1, h2, h3 { text-wrap:balance; } p, li { text-wrap:pretty; }   /* 2026-11-25 Hallmark N30：標題平衡折行、段尾不留單字 */
   body { padding-bottom:78px; }
   .hidden { display:none !important; }
   a { color:var(--main); }
   header.top { background:var(--main); color:var(--white); padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  header.top .brand { font-weight:700; font-size:var(--fs-lg); color:var(--white); text-decoration:none; } header.top .who { font-size:var(--fs-sm); opacity:.9; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; min-width:0; }
+  header.top .brand { font-weight:700; font-size:var(--fs-lg); color:var(--white); text-decoration:none; white-space:nowrap; flex:none; } header.top .who { font-size:var(--fs-sm); opacity:.9; display:flex; gap:8px; align-items:center; flex-wrap:nowrap; justify-content:flex-end; min-width:0; }   /* 2026-11-25 Hallmark N22：品牌與頂欄不折行 */
+  header.top .who > #who { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } header.top .who .btn { white-space:nowrap; flex:none; }   /* 名字太長就截斷，〔登出〕不掉到第二行 */
+  .doc-row:has(> select) { flex-wrap:wrap; } .doc-row:has(> select) > .dmain { flex:1 1 10em; min-width:0; overflow-wrap:anywhere; } .doc-row > select { flex:1 1 12em; width:auto; }   /* 2026-11-25 Hallmark N23：「還沒分類的」檔名不再被下拉選單擠成直排（mine.js:635）；窄的時候選單換到下一行 */
+  .doc-row > .btn, .drow > .btn { white-space:nowrap; flex:none; }   /* Hallmark N22：清單列右邊的鈕不折行（〔看過了〕wish.js:37、〔去挑〕mine.js:624）；左邊的字自己換行 */
   main { max-width:640px; margin:0 auto; padding:12px 12px 0; }
   .card { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:14px; margin:0 0 12px; }
   .card h2 { font-size:var(--fs-lg); margin:0 0 8px; } .card h3 { font-size:var(--fs-base); margin:12px 0 6px; }
@@ -15,13 +19,13 @@
   .muted { color:var(--muted); font-size:var(--fs-sm); } .small { font-size:var(--fs-sm); }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .spread { justify-content:space-between; }
   textarea { min-height:84px; resize:vertical; } textarea.big { min-height:200px; font-size:var(--fs-base); } label.f { display:block; font-size:var(--fs-sm); color:var(--muted); margin:10px 0 3px; }
-  .hint { background:var(--soft); border-left:4px solid var(--main); padding:8px 12px; border-radius:0 6px 6px 0; margin-top:8px; font-size:var(--fs-base); }
-  .teach { background:var(--cream); border-left:4px solid var(--accent); padding:10px 12px; border-radius:0 6px 6px 0; margin:0 0 10px; font-size:var(--fs-base); }
+  .hint { background:var(--info-bg); border:1px solid var(--line); padding:8px 12px; border-radius:6px; margin-top:8px; font-size:var(--fs-base); }   /* 2026-11-25 Hallmark N20：說明框改淺底細框，粗左邊條只留給出錯（.state-error） */
+  .teach { background:var(--cream); border:1px solid var(--cream-line); padding:10px 12px; border-radius:6px; margin:0 0 10px; font-size:var(--fs-base); }
   .teach p { margin:6px 0 0; }
   .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:84px; max-width:92vw; background:var(--text); color:var(--white); padding:10px 16px; border-radius:6px; font-size:var(--fs-sm); z-index:50; }
   .toast.bad { background:var(--bad); }
   nav.tabs { position:fixed; left:0; right:0; bottom:0; background:var(--white); border-top:1px solid var(--line); display:flex; justify-content:space-around; padding:4px 0 calc(4px + env(safe-area-inset-bottom)); z-index:10; }
-  nav.tabs a { flex:1; text-align:center; padding:8px 2px; min-height:var(--tap); display:flex; align-items:center; justify-content:center; min-height:var(--tap); display:flex; align-items:center; justify-content:center; min-height:var(--tap); display:flex; align-items:center; justify-content:center; font-size:var(--fs-sm); color:var(--muted); text-decoration:none; min-width:0; } nav.tabs a.on { color:var(--main); font-weight:700; box-shadow:inset 0 2px 0 var(--main); }
+  nav.tabs a { flex:1; text-align:center; padding:8px 2px; min-height:var(--tap); display:flex; align-items:center; justify-content:center; font-size:var(--fs-sm); color:var(--muted); text-decoration:none; min-width:0; } nav.tabs a.on { color:var(--main); font-weight:700; box-shadow:inset 0 2px 0 var(--main); }
   /* 2026-11-13 第 29 條：手機底部分頁列用短名，寬螢幕左欄用全名 */
   nav.tabs .tf { display:none; } nav.tabs .ts { display:inline; }
   header.top .brand { display:inline-flex; align-items:center; gap:8px; min-height:var(--tap); }
@@ -32,6 +36,7 @@
     body { padding-bottom:24px; }
     header.top { position:fixed; top:0; left:0; right:0; height:56px; padding:0 20px; z-index:11; }
     #app { padding-left:200px; padding-top:56px; }   /* 11-13 第 29 條：左欄 176→200px，放得下「審查資料準備指引說明」 */
+    #app:has(> #tabs.hidden) { padding-left:0; }   /* 2026-11-25 Hallmark N24：寫稿頁把左欄藏起來時，左邊 200px 空白也一起拿掉（core.js setTab） */
     main { max-width:760px; padding-top:20px; }
     nav.tabs { top:56px; bottom:0; right:auto; width:200px; flex-direction:column; justify-content:flex-start; gap:2px; border-top:0; border-right:1px solid var(--line); padding:14px 0; }
     nav.tabs a { flex:none; text-align:left; justify-content:flex-start; padding:12px 14px 12px 18px; font-size:var(--fs-base); line-height:1.4; }
@@ -48,7 +53,7 @@
   .scgrid label { display:block; font-size:var(--fs-sm); color:var(--muted); margin-bottom:2px; } .scgrid select { padding:8px 4px; }
   .band { font-size:var(--fs-sm); min-height:18px; color:var(--sub); margin-top:2px; } .band.top { color:var(--ok); font-weight:700; } .band.low { color:var(--bad); }
   .posline { font-size:var(--fs-base); line-height:1.9; }
-  .ztabs { display:flex; gap:6px; margin-bottom:6px; } .ztab { flex:1; font:inherit; font-size:var(--fs-sm); padding:7px 4px; min-height:var(--tap); min-height:var(--tap); min-height:var(--tap); border:1px solid var(--line); background:var(--white); border-radius:6px; cursor:pointer; color:var(--text); }
+  .ztabs { display:flex; gap:6px; margin-bottom:6px; } .ztab { flex:1; font:inherit; font-size:var(--fs-sm); padding:7px 4px; min-height:var(--tap); border:1px solid var(--line); background:var(--white); border-radius:6px; cursor:pointer; color:var(--text); }
   .ztab.on { border-color:var(--main); box-shadow:inset 0 0 0 1px var(--main); font-weight:700; }
   .lp { display:inline-block; font-size:var(--fs-sm); line-height:1.6; padding:0 8px; border-radius:4px; color:var(--white); font-weight:700; white-space:nowrap; }
   .lp.safe { background:var(--ok); } .lp.reach { background:var(--mid); } .lp.dream { background:var(--dream); } .lp.none { background:var(--muted); }
@@ -75,9 +80,9 @@
   .cell { border:1px solid var(--line); border-radius:6px; margin:8px 0; padding:8px 10px; background:var(--white); } .cell.edited { background:var(--yellow); border-color:var(--yellow-line); }
   .cell .lab { display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-sm); font-weight:700; color:var(--main); flex-wrap:wrap; } .cell .cnt { font-weight:400; color:var(--muted); font-size:var(--fs-sm); } .cell .cnt.over { color:var(--bad); font-weight:700; }
   .cell textarea { min-height:60px; margin-top:4px; } .cell .ro { white-space:pre-wrap; word-break:break-word; margin-top:4px; min-height:24px; }
-  .seg { margin:12px 0 4px; padding:6px 10px; border-left:4px solid var(--main); background:var(--soft); font-weight:700; border-radius:0 6px 6px 0; }
-  .issue { border-left:4px solid var(--warn); padding:4px 10px; margin:6px 0; background:var(--cream); font-size:var(--fs-sm); }
-  .cm { border-left:4px solid var(--accent); padding:6px 10px; margin:8px 0; background:var(--cream); font-size:var(--fs-sm); } .cm q { color:var(--muted); }
+  .seg { margin:12px 0 4px; padding:6px 10px; background:var(--soft); font-weight:700; border-radius:6px; }   /* 2026-11-25 Hallmark N20：拿掉粗左邊條 */
+  .issue { border:1px solid var(--cream-line); border-radius:6px; padding:4px 10px; margin:6px 0; background:var(--cream); font-size:var(--fs-sm); }
+  .cm { border:1px solid var(--cream-line); border-radius:6px; padding:6px 10px; margin:8px 0; background:var(--cream); font-size:var(--fs-sm); } .cm q { color:var(--muted); }
   .badge { display:inline-block; font-size:var(--fs-sm); padding:0 8px; border-radius:4px; background:var(--badge-bg); color:var(--muted); border:1px solid var(--line); } .badge.ai { background:var(--cream); color:var(--warn); border-color:var(--cream-line); }
   ul.plain { margin:4px 0; padding-left:20px; } ul.plain li { margin:3px 0; } .center { text-align:center; padding:30px 0; }
   .login { max-width:380px; margin:8vh auto 0; padding:0 14px; } .login h1 { font-size:var(--fs-lg); color:var(--main); margin:0 0 4px; }
@@ -86,11 +91,11 @@
   .err { color:var(--bad); font-size:var(--fs-sm); margin-top:8px; }
   .gline { margin-top:8px; font-size:var(--fs-sm); } .gline .k { color:var(--muted); } .gline ul.plain { margin:2px 0 0; } .gline .pill { margin:0 6px 2px 0; }
   .gfoot { margin-top:8px; font-size:var(--fs-sm); color:var(--muted); }
-  .digest { background:var(--cream); border-left:4px solid var(--accent); padding:8px 12px; border-radius:0 6px 6px 0; margin:8px 0; font-size:var(--fs-base); }   /* W2 老師幫你畫重點 */
+  .digest { background:var(--cream); border:1px solid var(--cream-line); padding:8px 12px; border-radius:6px; margin:8px 0; font-size:var(--fs-base); }   /* W2 老師幫你畫重點；11-25 Hallmark N20 拿掉粗左邊條 */
   .digest ul.plain { margin:4px 0 0; }
   /* 2026-11-17 指引重建階段一：來源年份小標、116 簡章項目區塊（guide_pure.js renderItems116） */
   .yr { display:inline-block; font-size:var(--fs-sm); line-height:1.5; padding:0 6px; margin-left:4px; border-radius:4px; background:var(--soft); color:var(--muted); vertical-align:1px; white-space:nowrap; font-weight:normal; }
-  .i116 { border:1px solid var(--line); border-radius:6px; padding:8px 12px; margin:8px 0; background:var(--white); }
+  .i116 { border-top:1px solid var(--line); padding:8px 0; margin:8px 0 0; }   /* 2026-11-25 Hallmark N19：指引卡、交件卡裡不再框裡套框，改細線分段 */
   .i116 .desc116 { margin-top:6px; font-size:var(--fs-sm); } .i116 .desc116 .k { color:var(--muted); }
   .i116 .q116 { margin:2px 0 4px; font-size:var(--fs-sm); }
   .keeprow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 2px; }   /* W1 共用輸入框 */
@@ -98,7 +103,7 @@
 /* 2026-11-09 落點分析改版（設計稿 OUTPUTS/nopq_luodian_tab_design_v0.2.md §2.2）：子分頁列、年份與警語、蓋版視窗、系簡介、版本卡、評估卡 */
 .subtabs { margin:0 0 6px; } .subtabs .ztab { text-align:center; text-decoration:none; color:var(--text); display:flex; align-items:center; justify-content:center; min-height:var(--tap); font-size:var(--fs-sm); line-height:1.3; }
 .yearline { background:var(--white); border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:0 0 6px; }
-.disc { color:var(--muted); background:var(--white); border-left:4px solid var(--sub); padding:6px 10px; border-radius:0 6px 6px 0; margin:0 0 12px; line-height:1.6; }
+.disc { color:var(--muted); background:var(--white); border:1px solid var(--line); padding:6px 10px; border-radius:6px; margin:0 0 12px; line-height:1.6; }   /* 11-25 Hallmark N20 */
 .linkbtn { font:inherit; font-size:inherit; background:none; border:0; padding:0; color:var(--main); text-decoration:underline; cursor:pointer; }
 .linkbtn[data-act="discFull"] { min-height:var(--tap); vertical-align:middle; }   /* 2026-11-24 第 2 批：落點告知的〔完整說明〕單獨一顆，補到 44px */
 .tick { display:inline-flex; align-items:center; gap:6px; cursor:pointer; min-height:var(--tap); } .tick input { margin:0; }
@@ -111,11 +116,11 @@
 .drow-w .drow { border-top:0; flex:1 1 240px; min-width:0; } .introbtn { flex:none; margin-top:8px; }
 .dintro { flex:1 1 100%; background:var(--soft); border-radius:6px; padding:6px 12px 8px; margin:0 0 10px; font-size:var(--fs-sm); }
 .ilist { margin:4px 0 4px; padding-left:20px; } .ilist li { margin:2px 0; word-break:break-word; }
-.tnote { background:var(--cream); border-left:4px solid var(--accent); padding:6px 10px; border-radius:0 6px 6px 0; margin-top:6px; }
+.tnote { background:var(--cream); border:1px solid var(--cream-line); padding:6px 10px; border-radius:6px; margin-top:6px; }   /* 11-25 Hallmark N20 */
 .ver { border-top:1px solid var(--line); padding:10px 0; } .ver:first-of-type { border-top:0; } .vedit { background:var(--soft); border-radius:6px; padding:4px 10px 10px; margin-top:6px; }
 .alertbox { background:var(--warn-bg); border:1px solid var(--warn-line); border-radius:6px; padding:10px 12px; margin:0 0 12px; font-size:var(--fs-base); }
-.acard { border:1px solid var(--line); border-left:5px solid var(--muted); border-radius:6px; padding:8px 10px; margin:8px 0; background:var(--white); }
-.acard .small { margin-top:3px; } .acard.t-high { border-left-color:var(--ok); } .acard.t-near { border-left-color:var(--warn); } .acard.t-below { border-left-color:var(--dream); }
+.acard { border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:8px 0; background:var(--white); }   /* 11-25 Hallmark N20：落點色從左邊條改成整圈細框，色意不變 */
+.acard .small { margin-top:3px; } .acard.t-high { border-color:var(--ok); } .acard.t-near { border-color:var(--warn); } .acard.t-below { border-color:var(--dream); }
 .tierpill { display:inline-block; font-size:var(--fs-sm); line-height:1.6; padding:0 8px; border-radius:4px; background:var(--soft); color:var(--text); border:1px solid var(--line); }
 .overall { margin:4px 0 6px; padding-left:20px; font-size:var(--fs-sm); } .overall li { margin:2px 0; }
 .aibox { background:var(--soft); border-radius:6px; padding:8px 12px; } .aibox .small { margin:4px 0; }
@@ -150,7 +155,7 @@ button.selline { width:100%; cursor:pointer; text-align:left; }
 .drow.full .dmain::after { content:"已滿 6 個"; display:block; font-size:var(--fs-sm); color:var(--muted); }
 body.has-selbar { padding-bottom:calc(46px + 56px + 32px + env(safe-area-inset-bottom)); }
 body.has-selbar .toast { bottom:calc(46px + 56px + 10px + env(safe-area-inset-bottom)); }
-body.sel-open { overflow:hidden; } html:has(body.sel-open) { overflow:hidden; }
+body.sel-open { overflow:clip; } html:has(body.sel-open) { overflow:clip; }   /* 2026-11-25 Hallmark N28：開面板鎖捲動；clip 用在 html 時視窗照樣當 hidden（不能捲），body 不會變成捲動容器 */
 @media (max-width:899px) { .selwrap { position:static; z-index:auto; } }   /* 手機上收合列與面板自己 fixed；外層 sticky 會自成一層、把面板壓到分頁列底下（實測按鈕點不到） */
 @media (min-width:900px) {
   body.has-selbar { padding-bottom:24px; } body.has-selbar .toast { bottom:24px; }
@@ -180,13 +185,13 @@ header.top .who .shoplink { color:var(--white); white-space:nowrap; font-size:va
 .invsum:hover { border-color:var(--sub); } .invsum .k { font-weight:700; min-width:9em; } .invsum .n { color:var(--main); font-weight:700; min-width:3.5em; } .invsum .st { flex:1 1 200px; }
 .invline { margin:0 0 4px; font-size:var(--fs-sm); color:var(--main); }
 /* 2026-11-13 第 31 條：撰寫NOPQ 一個科系一組 */
-.dgroup { border:1px solid var(--line); border-radius:6px; padding:4px 12px 2px; margin:10px 0; background:var(--white); }
+.dgroup { border-top:1px solid var(--line); padding:4px 0 2px; margin:10px 0; }   /* 2026-11-25 Hallmark N19：撰寫NOPQ 卡裡每系一組，不再框裡套框 */
 .dgroup .dghead { display:flex; justify-content:space-between; align-items:flex-start; gap:4px 10px; flex-wrap:wrap; padding:8px 0 4px; border-bottom:2px solid var(--main); }
 .dgroup .dghead b { color:var(--main); } .dgroup .dghead .pill { vertical-align:1px; } .dgroup .dgsub { margin:4px 0 0; }
 .dgroup .doc-row:first-of-type { border-top:0; }
 /* 2026-11-13 第 32 條：寫稿頁「對照」欄（該系要點）。手機在標題下、稿子上；寬螢幕右邊一欄、捲動時黏著 */
 .dwrap { display:flex; flex-direction:column; } .dwrap .dfocus { order:-1; } .dmainc { min-width:0; }
-.card.focus { border-color:var(--accent); border-left:5px solid var(--accent); background:var(--cream-2); }
+.card.focus { border-color:var(--accent); background:var(--cream-2); }   /* 11-25 Hallmark N20：拿掉粗左邊條 */
 .card.focus h3 { margin:0 0 8px; color:var(--warn); font-size:var(--fs-base); }
 .focus .fsec { margin:8px 0; font-size:var(--fs-base); } .focus .fsec > b { display:block; font-size:var(--fs-sm); color:var(--main); margin-bottom:2px; }
 .focus ul.fchk { list-style:none; margin:4px 0; padding:0; } .focus ul.fchk li { position:relative; padding:4px 0 4px 26px; border-top:1px dashed var(--line); font-weight:500; }
@@ -237,7 +242,7 @@ header.top .who .shoplink { color:var(--white); white-space:nowrap; font-size:va
 /* 2026-11-24 A13 W13：挑件頁、「我的學習歷程」面板（顏色、字級只用 nopq-base.css 的變數；可點的至少 44px） */
 .citem { border-top:1px solid var(--line); padding:8px 0; } .citem:first-of-type { border-top:0; } .citem .ptx { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; } .citem .pill { margin:0 4px 2px 0; }
 .ciw { display:block; margin-top:2px; font-size:var(--fs-sm); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
-.citepanel .cite { border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:8px 0; background:var(--bg); overflow-wrap:anywhere; } .citepanel .cite .row input[type=text] { flex:1 1 160px; min-width:0; }
+.citepanel .cite { border-top:1px solid var(--line); padding:8px 0; margin:8px 0 0; overflow-wrap:anywhere; } .citepanel .cite .cell, .hint .cell { border:0; padding:4px 0; margin:4px 0; background:transparent; }   /* 11-25 Hallmark N19：引用面板每件、說明框裡的原文不再框裡套框 */ .citepanel .cite .row input[type=text] { flex:1 1 160px; min-width:0; }
 .citepanel .cite .ro { max-height:260px; overflow:auto; } .ciw-alt { flex:1 1 180px; min-width:0; }
 /* 2026-11-24 A13 W14：P、Q 分格寫（每一格：格名＋標記＋輸入框；顏色、字級只用 nopq-base.css 的變數） */
 .pqcell { border-top:1px solid var(--line); padding:6px 0 10px; } .pqcell:first-of-type { border-top:0; }
@@ -247,15 +252,16 @@ label.f.pqlab { font-size:var(--fs-base); font-weight:700; color:var(--main); ma
 /* 2026-11-24 A13 W15：旁欄兩區（都要的／某系多要的）、檢查清單、這段放圖（顏色、字級只用 nopq-base.css 的變數；可點的至少 44px） */
 .focus .dzone { margin:8px 0; } .focus .dsome { border-top:1px dashed var(--line); padding:6px 0; } .focus .dsome:first-child { border-top:0; }
 .focus .dsome > b { display:block; font-size:var(--fs-sm); color:var(--main); margin-bottom:2px; overflow-wrap:anywhere; } .focus .dzone ul.plain { margin:2px 0; } .focus .dchk { padding:4px 0; overflow-wrap:anywhere; }
+.dchk-more ul.plain { margin:2px 0 0; } .dchk-more li a { display:inline-flex; align-items:center; min-height:var(--tap); }   /* 2026-11-25 第 1 批 N13-01：「看官方原文」展開後各系的連結一行一個，可點高度 44px（phase2_verify 17:38 量到 20px） */
 .chkbox { margin-top:10px; } .chkbox .chk-top { margin:0 0 2px; } .chkbox .chk-top b { color:var(--bad); }
-.btn.chk-item { display:block; width:100%; text-align:left; white-space:normal; overflow-wrap:anywhere; margin:6px 0; border-left:4px solid var(--warn); }
+.btn.chk-item { display:block; width:100%; text-align:left; white-space:normal; overflow-wrap:anywhere; margin:6px 0; }   /* 11-25 Hallmark N20：拿掉粗左邊條 */
 .photorow { margin:2px 0 4px; } .photorow .ptx { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
 /* 2026-11-24 A13 W23：句型（卡住時給＝一顆〔看句型〕）與檢核句（自己檢查一下），只用 nopq-base 的色與字級 */
 .pat { margin:6px 0; } .pat-box { border:1px dashed var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; background:var(--white); }
 .pat-title { font-size:var(--fs-sm); font-weight:700; color:var(--main); } .pat-list { margin:4px 0; padding-left:1.5em; } .pat-list li { margin:4px 0; overflow-wrap:anywhere; }
-.selfchk { margin:8px 0; padding:8px 10px; border-left:4px solid var(--warn); background:var(--white); overflow-wrap:anywhere; }
+.selfchk { margin:8px 0; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--white); overflow-wrap:anywhere; }   /* 11-25 Hallmark N20 */
 /* 2026-11-24 結案唯讀：頁首說明與被關掉的東西（只用 nopq-base 的色與字級；被關掉的鈕與輸入框本身用 disabled／readonly，這裡只是讓人看得出來） */
 .closed-bar { margin:0 0 12px; background:var(--info-bg); }
 textarea.is-closed, input.is-closed, select.is-closed { background:var(--soft); color:var(--text); }
-a.is-closed, label.btn.is-closed { opacity:.45; cursor:default; }
+a.is-closed, label.btn.is-closed { color:var(--muted); cursor:not-allowed; text-decoration:none; } a.btn.is-closed, label.btn.is-closed { background:var(--soft); border-color:var(--line); }   /* 11-25 Hallmark N28：關掉的不只靠變淡，底色、字色、游標都換 */
 a.is-closed { pointer-events:none; }

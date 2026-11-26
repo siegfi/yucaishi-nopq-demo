@@ -11,7 +11,7 @@
 <style>
   /* 育才仕 NOPQ通 1a 老師端。電腦與手機都能用：窄螢幕單欄，寬螢幕批改頁左右兩欄。配色同學生端（STEM 主色）。 */
   * { box-sizing:border-box; }
-  html,body { margin:0; background:var(--soft); color:var(--text); font-family:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; font-size:var(--fs-base); line-height:1.55; overflow-x:hidden; }
+  html,body { margin:0; background:var(--soft); color:var(--text); font-family:var(--font); font-size:var(--fs-base); line-height:1.55; overflow-x:clip; }   /* 2026-11-25 Hallmark N28：字型走 token、overflow 用 clip */
   body { padding-bottom:40px; } .hidden { display:none !important; }
   header.top { background:var(--main); color:var(--white); padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   header.top .brand { font-weight:700; font-size:var(--fs-lg); } header.top .who { font-size:var(--fs-sm); display:flex; gap:8px; align-items:center; }

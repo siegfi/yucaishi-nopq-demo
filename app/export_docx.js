@@ -169,7 +169,7 @@ function sectionParagraphs(segs) {
   // pack: {deptName, deptCode?, studentName?, docs:{N,O,P,Q,X}（各＝{title, text | sections, state?}；沒定稿的不要放，或 state 不是 'finalized' 會被略過）,
   //        xPlacement:'withOPQ'|'separate'（X 放哪份；由資料庫各系項目資料決定，沒給＝'separate'）, limits:{N:{maxChars, maxImages}}（由資料庫讀，沒給不檢查）}
   // 回 {files:[{kind:'N'|'OPQ'|'X', fileName, bytes, parts:['O','P','Q']}], missing:['P',…], warnings:[…]}；O、P、Q 沒定稿的排除並列在 missing。
-  const PART_LABEL = { N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫', X: '其他' };
+  const PART_LABEL = { N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫與生涯規劃', X: '其他' };   // 2026-11-25 第 1 批 N10-26：116 簡章原名
   const ready = (d) => d && (d.state == null || d.state === 'finalized') && (d.sections ? d.sections.some((s) => String(s.text || '').trim()) : String(d.text || '').trim());
   // planDept 不產檔、只排好每份要放什麼（給列印版面共用）：回 {groups:[{kind, fileName, doc, parts}], missing, warnings}
   // 一系兩份是上傳甄選會用的：預設不放檔頭三行（pk.showMeta＝true 才放）；N 標題只寫「多元表現綜整心得」，

@@ -582,9 +582,10 @@ function invGroup3(kd, title, limitG) {
 }
 function invBottom3() {
   const m = S.mine, W = W3(), off = m.official, docs = (S.home || {}).docs || [], w = m.wish, st = m.inv.statement || [];
-  const stateOf = (d) => (d ? `<span class="pill">${esc(d.stateLabel || '')}</span>` : `<span class="pill">${esc(W.miNotStarted)}</span>`);
+  const stateOf = (d) => `<span class="pill">${esc(d ? stepOf(d.state)[0] : W.miNotStarted)}</span>`;   // 2026-11-25 第 1 批 N10-12：跟撰寫NOPQ 同一套狀態字（原：後端的 stateLabel）
+  const noteOf = (d) => { const n = d ? stepOf(d.state)[2] : ''; return n ? `<div class="muted small">${esc(n)}</div>` : ''; };   // 有一題等你回答／題目出來了／回覆出來了
   const olds = (type) => { const xs = st.filter((x) => x.type === type); return xs.length ? `<details class="more"><summary>${esc(f3('miOldDrafts', { n: xs.length }))}</summary>${xs.map((x) => invItem(x, INV_KINDS.find((k) => k.k === 'statement'))).join('')}</details>` : ''; };
-  const row = (label, d, href, extra) => `<div class="drow"><span><b>${esc(label)}</b>${extra || ''}</span>${stateOf(d)}<a class="btn sm ghost" href="${esc(href)}">${esc(d ? W.contWrite : W.startWrite)}</a></div>`;
+  const row = (label, d, href, extra) => `<div class="drow"><span><b>${esc(label)}</b>${extra || ''}${noteOf(d)}</span>${stateOf(d)}<a class="btn sm ghost" href="${esc(href)}">${esc(d ? stepOf(d.state)[1] : W.startWrite)}</a></div>`;
   const dN = docs.find((d) => d.nopqType === 'N_diverseSummary'), dO = docs.find((d) => d.nopqType === 'O_reflection');
   let h = `<div class="card" id="inv-bottom"><h2>${esc(W.miBottom)}</h2><p class="muted small" style="margin:0 0 6px">${esc(W.miBottomIntro)}</p>
     ${row(NG.offName(off, 'N'), dN, dN ? '#/doc/' + dN.caseDocId : '#/write', ` <span class="muted small">${esc(W.miShared)}</span>`)}${olds('N')}
@@ -635,7 +636,7 @@ function invHtml3() {
     ${none.map((it) => `<div class="doc-row"><span class="dmain">${esc(it.name)}</span><select data-in="invKind" data-id="${esc(it.id)}" aria-label="這份是哪一類"><option value="">${esc(W.miPickKind)}</option>${INV_KINDS.filter((x) => x.k !== 'statement').map((x) => `<option value="${x.k}">${esc(x.name)}</option>`).join('')}</select></div>`).join('')}`;
   top += '</div>';
   const nMat = (inv.courseResult || []).length + (inv.diverse || []).length;
-  return scanResultCard12() + `<div class="card active"><h2>${esc(W.miTitle)}</h2><p style="margin:0">${esc(W.miIntro)}</p>${whereToGet12()}</div>`
+  return scanResultCard12() + `<div class="card active"><h2>${esc(W.miTitle)}</h2>${W.miIntro ? `<p style="margin:0">${esc(W.miIntro)}</p>` : ''}${whereToGet12()}</div>`
     + `<div class="inv2">${top}${invBottom3()}</div>`
     + invPicks3()
     + (m.items && m.items.length ? `<div class="card"><h2>從你的檔案整理出 ${m.items.length} 件事</h2><p class="muted small" style="margin:0 0 6px">系統整理的，老師還沒逐字看過。</p>${m.items.map(matRow).join('')}</div>` : '')

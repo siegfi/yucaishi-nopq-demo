@@ -65,7 +65,7 @@ function dpDraw() {
   const pickSum = (d.pick || []).reduce((a, g) => a + (g.picked || 0), 0);
   const head = `<div class="card"><div class="row spread"><a href="#/need" class="small">${esc(W.dpBack)}</a><span id="dp-saved" class="saved hidden" role="status">${esc(W.st3Saved)}</span></div>
     <h2 style="margin:6px 0 4px">${esc(d.rank + '. ' + (d.schoolName || '') + ' ' + (d.name || ''))}</h2>
-    ${d.ready ? `<p class="muted small" style="margin:0">${esc(dpF('dpProgress', { w: d.write.total, f: d.write.finalized, p: pickSum, c: d.school.ready, t: d.school.total }))}</p>` : ''}</div>`;
+    ${d.ready ? `<div class="muted small" data-role="dp-progress">${dpF('dpProgress', { w: d.write.total, f: d.write.finalized, p: pickSum, c: d.school.ready, t: d.school.total }).split('\n').map((l) => `<div>${esc(l)}</div>`).join('')}</div>` : ''}</div>`;
   if (!d.ready) {
     view(head + `<div class="card"><p>${esc(W.dpNotReady)}</p>${d.rulesUrl ? `<a class="btn ghost" href="${esc(d.rulesUrl)}" target="_blank" rel="noopener noreferrer">${esc(W.dpSeeRules)}</a>` : ''}</div>`);
     window.scrollTo(0, y); return;
@@ -79,11 +79,11 @@ function dpWriteHtml(d, off) {
   if (!items.length) return '';
   const li = (x) => {
     const name = x.code > 'Q' ? x.code + ' ' + (x.name || '') : NG.offName(off, x.code);
-    const st = x.docId ? (x.stateLabel || '') : W.miNotStarted;
-    const btn = x.docId ? `<a class="btn sm ghost" href="#/doc/${esc(x.docId)}">${esc(W.contWrite)}</a>`
+    const sp = x.docId ? stepOf(x.state) : null, st = sp ? sp[0] : W.miNotStarted;   // 2026-11-25 第 1 批 N10-13、N04-04：跟撰寫NOPQ 同一套狀態字與按鈕字（原：後端 stateLabel＋一律〔繼續寫〕）
+    const btn = x.docId ? `<a class="btn sm ghost" href="#/doc/${esc(x.docId)}">${esc(sp[1])}</a>`
       : x.code > 'Q' ? `<button type="button" class="btn sm" data-act="openExtra" data-dept="${esc(d.deptCode)}" data-code="${esc(x.code)}">${esc(W.startWrite)}</button>`
       : `<a class="btn sm ghost" href="#/write">${esc(W.startWrite)}</a>`;
-    return `<li class="drow"><span><b>${esc(name)}</b>${x.code === 'N' || x.code === 'O' ? ` <span class="muted small">${esc(W.miShared)}</span>` : ''}</span><span class="pill">${esc(st)}</span>${btn}</li>`;
+    return `<li class="drow"><span><b>${esc(name)}</b>${x.code === 'N' || x.code === 'O' ? ` <span class="muted small">${esc(W.miShared)}</span>` : ''}${sp && sp[2] ? `<div class="muted small">${esc(sp[2])}</div>` : ''}</span><span class="pill">${esc(st)}</span>${btn}</li>`;
   };
   return `<div class="card dpwrite"><h3>${esc(W.zWrite)}</h3><ul class="plain">${items.map(li).join('')}</ul></div>`;
 }

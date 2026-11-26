@@ -42,7 +42,7 @@ const w14 = (k, o) => NG.fill(W14[k], o);
 const W15 = {
   chkTop: '下面有{n}條還沒過。一條一條改，改完再按一次〔檢查〕。', btnCheck: '檢查', chkOk: '檢查過了，沒有還沒過的地方。', chkHow: '點一條，會跳到要改的那一格。',
   photoLab: '這段放圖', photoNote: '全篇最多三張。這裡只記這一段放不放，不用上傳圖檔。', photoFail: '這一段放不放圖沒有存成功，再按一次。',
-  dChecking: '{dept}：這一系的要求還在核對，寫之前先看官方原文。', dNone: '這幾個志願系對這一篇的要求還在整理。',
+  dChecking: '{dept}：這一系的要求還在核對，寫之前先看官方原文。', dCheckingN: '這 {n} 系的要求還在核對', dCheckingOne: '{dept}的要求還在核對', dNone: '這幾個志願系對這一篇的要求還在整理。',
 };
 const w15 = (k, o) => NG.fill(W15[k], o);
 // 2026-11-24 A13 W23（NOPQ 寫作改造前端包五：句型與檢核句）：字見文案對照表第 14 節 W23-01～W23-05；句型與檢核句本體來自規格（後端 29c 版本 4：questions[].patterns／patternMode／checkLine，審閱稿 v0.2），這裡不寫死
@@ -81,16 +81,13 @@ document.addEventListener('focusout', (ev) => {
 });
 const chkLineBox = (q, title) => (q && q.checkLine ? `<div class="selfchk" role="note"><div class="pat-title">${esc(title)}</div><div>${esc(q.checkLine)}</div><div class="muted small">${esc(W23.selfChkNote)}</div></div>` : '');
 const isNO = (d) => !!d && (d.nopqType === 'N_diverseSummary' || d.nopqType === 'O_reflection');
-const DOC_STEP = {
-  warmup: ['還沒開始', '開始'], interviewing: ['有一題等你回答', '繼續'], assignment_pending: ['正在準備下一個題目', '看一下'],
-  submission_pending: ['題目出來了', '去寫答案'], feedback_pending: ['已交出，等回覆', '看一下'], feedback_published: ['回覆出來了', '去看'],
-  draft_open: ['輪到你寫稿', '去寫'], self_check_pending: ['正在整理你的稿', '看一下'], review_pending: ['老師正在改你的稿', '看一下'], finalized: ['定稿了', '看稿'],
-};
+// 2026-11-25 第 1 批 N10（14_ 第 0 節；owner 第 3 題甲）：全站一套狀態字，表在 guide_pure.js 的 NG.STEP／NG.stepFor（學習歷程、系頁、準備指引同一份）
 // 2026-11-24 A13 W12-08：AI 關（或沒有同意）時，「待出作業」＝整篇已交給老師，不是系統在準備下一題
 const aiIsOff = () => S.aiOn === false || !(((S.home || {}).consent || {}).ai);
-function stepOf(state, dflt) {
-  if (state === 'assignment_pending' && aiIsOff()) return ['整篇交給老師了', '看一下'];
-  return DOC_STEP[state] || dflt || ['', '進入'];
+const SYS_STATES = ['assignment_pending', 'feedback_pending', 'self_check_pending'];
+function stepOf(state, dflt) {   // 回 [狀態字, 按鈕字, 小字]；系統整理功能關著（aiIsOff）時三種「整理中」改寫「等老師」
+  if (state && !NG.STEP[state] && !SYS_STATES.includes(state)) return dflt || ['', '進入', ''];
+  return NG.stepFor(state, !aiIsOff());
 }
 async function viewWrite() {
   setTab('write'); view(loading); const my = S.rt;
@@ -120,8 +117,8 @@ const PROMPT_FLAG = { changed: ['warn', '題目換了'], gone: ['', '今年沒�
 const flagPill = (d) => { const f = PROMPT_FLAG[d && d.promptFlag]; return f ? ` <span class="pill ${f[0]}">${esc(f[1])}</span>` : ''; };
 function docRow(d, short, note) {   // short：放在某一系那一組裡，標題只寫「P 就讀動機」（系名在組的標題）
   const st = stepOf(d.state), later = d.state === 'warmup' && isPQ(d) && d.docMode !== 'free';   // 後端還沒放行 P、Q（沒套 28g）時維持「之後再寫」
-  const extra = isFree(d) && d.freeLen ? '｜已寫 ' + d.freeLen + ' 字' : '';
-  return `<div class="doc-row"><div class="dmain"><div style="font-weight:700">${esc(short ? typeName(d) : docTitle(d))}${flagPill(d)}</div><div class="muted small">${esc(later ? '之後再寫' : st[0])}${d.round ? '｜第 ' + d.round + ' 輪' : ''}${esc(extra)}</div>${note ? '<div class="muted small pq-noreq">' + esc(note) + '</div>' : ''}</div>
+  const sub = (() => { const n = later ? '' : st[2], r = d.round ? '第 ' + d.round + ' 輪' : ''; return n && r ? n + '（' + r + '）' : n || r; })(), free = isFree(d) && d.freeLen ? '已寫 ' + d.freeLen + ' 字' : '';   // 2026-11-25 第 1 批 N31-06、07
+  return `<div class="doc-row"><div class="dmain"><div style="font-weight:700">${esc(short ? typeName(d) : docTitle(d))}${flagPill(d)}</div><div class="muted small">${esc(later ? '還沒開始' : st[0])}</div>${sub ? `<div class="muted small">${esc(sub)}</div>` : ''}${free ? `<div class="muted small">${esc(free)}</div>` : ''}${note ? '<div class="muted small pq-noreq">' + esc(note) + '</div>' : ''}</div>
     <button type="button" class="btn sm ${d.state === 'warmup' || d.state === 'interviewing' || d.state === 'draft_open' || d.state === 'submission_pending' ? '' : 'ghost'}" data-act="openDoc" data-id="${esc(d.caseDocId)}" data-state="${esc(d.state)}" ${later ? 'disabled' : ''}>${esc(st[1])}</button></div>`;
 }
 // 2026-11-13 改版建議第 31 條（USER 原話「寫NOPQ，你這邊很亂。應該要每個科系繳交要一個群」）：一個科系一組，該系要交的 P、Q 收在同一組，照志願順序；
@@ -238,7 +235,7 @@ function headCard() {
   const ownQ = isX(d) && (d.prompts || []).some((p) => promptText(p));
   const handed = d.state === 'assignment_pending' && d.docMode !== 'free' && (d.aiEnabled === false || aiIsOff());   // 2026-11-24 W12-08：整篇答完交給老師
   const hint = gone || pickMode() ? '' : handed ? OFF_HANDED_HINT : d.docMode === 'free' && d.state === 'draft_open' && !NG.focusHasPoints(S.focus) && !ownQ ? NG.WORDS.pqDraftOpenNone : (d.docMode === 'free' ? PQ_HINTS : HINTS)[d.state];
-  return `<div class="card active"><a href="#/write" class="small back" style="text-decoration:none">← 回到「撰寫NOPQ」</a>
+  return `<div class="card active"><a href="#/write" class="small back" style="text-decoration:none">回到「撰寫NOPQ」</a>
     <h2 style="margin-top:4px">${esc(home ? docTitle(home) : typeName(d) + (d.schoolName ? '｜' + d.schoolName + ' ' + (d.deptName || '') : ''))}</h2>
     ${hint ? `<div class="hint" style="margin-top:0">${esc(hint)}</div>` : ''}
     ${d.docMode === 'free' ? promptBanner(d) : ''}
@@ -309,6 +306,8 @@ function caretBack(v, c) {
 function drawDoc(html) { const v = $('view'), c = caretOf(v); view(html); caretBack(v, c); }
 function renderDoc() {
   if (!S.doc || S.doc.caseDocId !== S.docId) return;
+  // 2026-11-25 第 1 批（N04 按鈕字跟著狀態走）：需求頁、學習歷程用開機時的首頁資料畫按鈕（換分頁不重撈），這裡把這一篇的最新狀態補回去，交給老師後回需求頁才會是〔看一下〕（walk_extra_docs 兩次抓到）
+  { const hd = S.home && Array.isArray(S.home.docs) ? S.home.docs.find((x) => x.caseDocId === S.doc.caseDocId) : null; if (hd && S.doc.state && hd.state !== S.doc.state) hd.state = S.doc.state; }
   if (docComposing && $('view').contains(document.activeElement)) { docRedraw = true; return; }   // 選字中：選完再畫
   const y = window.scrollY, d = S.doc; let main;
   if (d.docMode === 'free') { drawDoc(withFocus(headCard(), finalCard() + reviewCard() + pqCard() + versionsCard())); window.scrollTo(0, y); return; }   // P、Q：整段稿，不經問答
@@ -328,7 +327,7 @@ function withFocus(head, rest) {
   return side ? `${head}<div class="dwrap"><div class="dmainc">${rest}</div><aside class="dfocus" aria-label="這系要你寫到的要點">${side}</aside></div>` : head + rest;
 }
 // 2026-11-24 A13 W15：N、O 旁欄與挑件頁上半塊同一份（後端 my_doc_dept_diff）、同一套字；官方原文連結從對照欄資料（S.focus）照系碼找
-const diffHtml = (none) => NG.focusDiffHtml(S.diff, { t: { all: W13.reqAll, some: W13.reqSome, checking: W15.dChecking, none }, link: (code) => { const dp = ((S.focus || {}).depts || []).find((x) => String(x.deptCode) === String(code)); return dp ? dp.guideUrl || '' : ''; } });
+const diffHtml = (none) => NG.focusDiffHtml(S.diff, { t: { all: W13.reqAll, some: W13.reqSome, checking: W15.dChecking, checkingN: W15.dCheckingN, checkingOne: W15.dCheckingOne, none }, link: (code) => { const dp = ((S.focus || {}).depts || []).find((x) => String(x.deptCode) === String(code)); return dp ? dp.guideUrl || '' : ''; } });
 function focusCard() {
   if (S.doc && isNO(S.doc) && S.diff !== false) {   // N、O：兩區（都要的／某系多要的）；各系差異還沒讀到先不畫，讀到了再整欄一次出現
     const df = S.diff; if (!df || !Array.isArray(df.depts) || !df.depts.length) return '';
@@ -587,7 +586,7 @@ function draftCard() {
   const freeHtml = !free ? '' : editable
     ? `<label class="f" for="free-text">你的稿</label><textarea id="free-text" class="big" data-in="free" maxlength="5000">${esc(u.freeText || '')}</textarea>`
     : `<div class="cell"><div class="ro">${esc(u.freeText || '') || '（沒有內容）'}</div></div>`;
-  return `<details class="card ${editable ? 'active' : ''}" open><summary>你的稿${d.state === 'finalized' ? '　<span class="pill ok">定稿了</span>' : ''}</summary>
+  return `<details class="card ${editable ? 'active' : ''}" open><summary>你的稿${d.state === 'finalized' ? '　<span class="pill ok">定稿</span>' : ''}</summary>
     ${freeHtml}${cellsHtml}${editable && !free && vc.canAdd ? '<button class="btn ghost sm" data-act="addSeg">＋ 再加一段</button>' : ''}
     <div class="row spread" style="margin-top:10px"><span class="muted small" id="tot-cnt">${esc(totalText())}</span><span class="pill warn ${u.dirty && editable ? '' : 'hidden'}" id="dirty">還沒儲存</span></div>
     ${editable ? chkHtml() : ''}
@@ -604,11 +603,11 @@ function pqCard() {
   const lims = [...new Set((d.limits || []).map((l) => (x && l && (l.pages != null || l.chars != null) ? [l.chars != null ? '最多 ' + l.chars + ' 字' : '', l.pages != null ? '限 ' + l.pages + ' 頁' : ''].filter(Boolean).join('、')
     : window.NG && NG.limitText ? NG.limitText(l) : '')).filter(Boolean))];
   const g = pqG(d), gm = pqGridOn(d);   // 2026-11-24 A13 W14：P、Q 有後端 pqGrid 就分格畫（拿掉「從別系複製」）；X 照舊
-  const what = x ? (d.itemLabel || '這一篇') : letter === 'P' ? '就讀動機' : '未來學習計畫';
+  const what = x ? (d.itemLabel || '這一篇') : letter === 'P' ? '就讀動機' : '未來學習計畫與生涯規劃';
   const where = ((d.schoolName || '') + ' ' + (d.deptName || '')).trim() || '這系';
   return `<div class="card ${editable ? 'active' : ''}">
     ${d.inWishlist === false ? '<div class="hint" style="margin-top:0">這系已經不在你的志願裡，寫過的稿都還留著；選回來就會回到上面的清單。</div>' : ''}
-    ${S.focus ? `<h3 style="margin-top:0">${esc(where)}</h3><div class="muted small">題目和這系的要點在「對照」那一欄（寬螢幕在右邊，手機在上面），邊寫邊對照。</div>` : `<h3 style="margin-top:0">${esc(where)} 要你回答</h3>
+    ${S.focus ? `<h3 style="margin-top:0">${esc(where)}</h3><div class="muted small">題目和這系的要點在「對照」那一欄，邊寫邊對照。</div>` : `<h3 style="margin-top:0">${esc(where)} 要你回答</h3>
     ${NG.pqGuideHtml(d, letter)}
     ${lims.length ? `<div class="muted small" style="margin-top:4px">篇幅：${esc(lims.join('；'))}</div>` : ''}`}
     ${x && S.focus && lims.length ? `<div class="muted small" style="margin-top:4px">篇幅：${esc(lims.join('；'))}（系統量不出頁數，交出去前自己排版確認）</div>` : ''}
@@ -767,7 +766,7 @@ function versionsCard() {
   const d = S.doc, vs = (d.draft && d.draft.versions) || []; if (!vs.length) return ''; const cur = d.draft.currentVersion, vu = verUi(), canSet = d.state === 'draft_open';
   const isCur = (v) => !!cur && cur.id === v.id, newest = vs.slice().reverse();
   const a = vu.a || (vs.length > 1 ? vs[vs.length - 2].id : vs[0].id), b = vu.b || (cur ? cur.id : vs[vs.length - 1].id);
-  const opts = (sel) => newest.map((v) => `<option value="${esc(v.id)}" ${sel === v.id ? 'selected' : ''}>第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}）${isCur(v) ? '・目前' : ''}</option>`).join('');
+  const opts = (sel) => newest.map((v) => `<option value="${esc(v.id)}" ${sel === v.id ? 'selected' : ''}>第 ${v.versionNumber} 版（${esc(AUTHOR[v.authorType] || v.authorType)}${isCur(v) ? '，目前' : ''}）</option>`).join('');
   const rows = newest.map((v) => `<div class="doc-row"><div class="dmain">第 ${v.versionNumber} 版｜${esc(AUTHOR[v.authorType] || v.authorType)}｜${v.mode === 'free' ? '整段寫' : '分欄寫'}｜${esc(when(v.createdAt))}${isCur(v) ? ' <span class="pill ok">目前</span>' : ''}</div>
     <div class="row"><button type="button" class="btn sm ghost" data-act="verView" data-id="${esc(v.id)}">看</button>${canSet && !isCur(v) ? `<button type="button" class="btn sm ghost" data-act="verSet" data-id="${esc(v.id)}">設回這一版</button>` : ''}</div></div>`).join('');
   return `<details id="ver-card" class="card" ${S.ui.verOpen ? 'open' : ''}><summary>版本紀錄（${vs.length}）</summary>
@@ -885,7 +884,7 @@ async function viewDeliver() {
   const docOf = (type, code) => docs.find((d) => d.nopqType === type && (type === 'N_diverseSummary' || type === 'O_reflection' || d.deptCode === code));
   const row = (letter, d, req) => {
     const st = d ? (stepOf(d.state, [d.state]))[0] : '還沒有這一篇', fin = d && d.state === 'finalized';
-    return `<div class="doc-row"><div class="dmain"><b>${esc(DOC_SHORT[letter])}</b> <span class="pill ${req === 'cac' || req === 'cacOpt' ? 'main' : ''}">${esc(NG.WORDS[req] || '')}</span>
+    return `<div class="doc-row"><div class="dmain"><b>${esc(DOC_SHORT[letter])}</b> <span class="pill ${req === 'cac' || req === 'cacOpt' ? 'main' : ''}">${esc(NG.WORDS[req === 'cacOpt' ? 'cac' : req] || '')}</span>${req === 'cacOpt' ? `<span class="pill">${esc(NG.WORDS.optShort)}</span>` : ''}
       <div class="muted small">${fin ? '<span class="pill ok">定稿了</span>' : esc(st)}${d && d.freeLen ? '｜' + d.freeLen + ' 字' : ''}${d ? flagPill(d) : ''}</div></div>
       ${d ? `<div class="row">${fin ? `<button type="button" class="btn sm" data-act="dlvCopy" data-id="${esc(d.caseDocId)}">複製全文</button>` : ''}<button type="button" class="btn sm ghost" data-act="openDoc" data-id="${esc(d.caseDocId)}" data-state="${esc(d.state)}">${fin ? '看' : '去寫'}</button></div>` : ''}</div>`;
   };
@@ -930,7 +929,7 @@ ACT.dlvCopy = async (el) => {
 };
 // ══ 2026-11-25 A3：定稿後匯出 Word／PDF（NX.docx＝export_docx.js、NX.print＝export_print.js）══
 const EXP_NAME_NOTE = '有些系要求不能出現姓名，要加請自己在檔案裡加';   // 文案對照表第八節 31
-const EXP_LABEL = { N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫' };
+const EXP_LABEL = { N: '多元表現綜整心得', O: '高中學習歷程反思', P: '就讀動機', Q: '未來學習計畫與生涯規劃' };   // 2026-11-25 第 1 批 N10-25：116 簡章原名
 let DLV = null, EXP_CACHE = {};
 const expLineHint = () => { const s = NX.print && NX.print.lineHint ? NX.print.lineHint() : ''; return s ? `<div class="hint" data-role="line-hint">${esc(s)}</div>` : ''; };   // 只有 LINE 內建瀏覽器才有字
 const expDeptName = (d) => ((d.schoolName || '') + ' ' + (d.deptName || '')).trim();
@@ -1056,7 +1055,7 @@ function pickCard() {
   const d = S.doc, c = ci(), p = ciPickN(d), items = ciOrdered(d);
   const row = (it) => { const n = it.pickedDepts || 0;
     return `<label class="crow citem"><input type="checkbox" data-in="pickSel" data-id="${esc(it.sourceId)}" ${c.sel.includes(it.sourceId) ? 'checked' : ''}>
-      <span class="ptx"><b>${esc(it.title)}</b> <span class="pill">${esc(ciCode(it))}</span> <span class="pill ${n ? 'ok' : 'warn'}">${esc(n ? w13('tagPicked', { n }) : W13.tagNone)}</span>${it.what ? `<span class="ciw muted">${esc(it.what)}</span>` : ''}</span></label>`; };
+      <span class="ptx"><b>${esc(it.title)}</b>${ciCode(it) ? ` <span class="pill">${esc(ciCode(it))}</span>` : ''} <span class="pill ${n ? 'ok' : 'warn'}">${esc(n ? w13('tagPicked', { n }) : W13.tagNone)}</span>${it.what ? `<span class="ciw muted">${esc(it.what)}</span>` : ''}</span></label>`; };
   const list = c.data === null ? `<p class="muted"><span class="spin"></span>${esc(W13.loading)}</p>` : c.data === false ? `<div class="issue">${esc(W13.loadFail)}</div>`
     : items.length ? items.map(row).join('') : `<p style="margin:0 0 8px">${esc(W13.emptyInv)}</p><button type="button" class="btn sm" data-act="goMine">${esc(W13.goPut)}</button>`;
   return `<div class="card active" id="pick-card"><h2>${esc(w13('pickTitle', { n: zhN(p.min) }))}</h2><p style="margin:0">${esc(w13('pickLead', { n: zhN(p.min), m: zhN(p.max) }))}</p></div>${pickReq(d)}
@@ -1122,7 +1121,7 @@ function citeRow(x, d, locked) {
 }
 function itemRow(it, d, cites, locked) {
   const c = ci(), here = cites.filter((x) => x.sourceId === it.sourceId), n = it.pickedDepts || 0, say = c.say[it.sourceId], full = c.full[it.sourceId];
-  return `<div class="cite item" data-src="${esc(it.sourceId)}"><div><b>${esc(it.title)}</b> <span class="pill">${esc(ciCode(it))}</span>${isPQ(d) && it.pickedHere ? ` <span class="pill ok">${esc(W13.hereTag)}</span>` : ''}${n ? ` <span class="pill">${esc(w13('tagPicked', { n }))}</span>` : ''}</div>
+  return `<div class="cite item" data-src="${esc(it.sourceId)}"><div><b>${esc(it.title)}</b>${ciCode(it) ? ` <span class="pill">${esc(ciCode(it))}</span>` : ''}${isPQ(d) && it.pickedHere ? ` <span class="pill ok">${esc(W13.hereTag)}</span>` : ''}${n ? ` <span class="pill">${esc(w13('tagPicked', { n }))}</span>` : ''}</div>
     ${it.what ? `<div class="ciw muted">${esc(it.what)}</div>` : ''}${here.length ? `<div class="small">${esc(w13('citedAt', { where: here.map((x) => ciWhere(x.sectionKey)).join('、') }))}</div>` : ''}
     ${say ? `<div class="issue" role="alert">${esc(say)}</div>` : ''}${full != null ? `<div class="cell"><div class="ro" style="white-space:pre-wrap">${esc(full)}</div></div>` : ''}
     <div class="row" style="margin-top:6px">${!locked && !here.length ? `<button type="button" class="btn sm" data-act="ciAdd" data-id="${esc(it.sourceId)}">${esc(W13.btnCite)}</button>` : ''}<button type="button" class="btn sm ghost" data-act="ciView" data-id="${esc(it.sourceId)}">${esc(full != null ? W13.btnHide : W13.btnView)}</button></div></div>`;

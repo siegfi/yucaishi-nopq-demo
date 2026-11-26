@@ -16,13 +16,13 @@ async function viewWish() {
   try {
     const ev = await call('my_wishlist_events', { p_limit: 1 }, { quiet: true }); if (my !== S.rt) return;
     const e = ev.ok && (ev.items || [])[0], key = (arr) => arr.slice().sort((a, b) => a.rank - b.rank).map((x) => String(x.deptCode) + '@' + x.rank).join(',');
-    if (e && Array.isArray(e.picks) && key(e.picks) === key(items)) from = `這組志願來自${e.versionSeq ? `第 ${esc(e.versionSeq)} 版「${esc(e.versionTitle || '')}」` : '落點分析'}（${esc(when(e.createdAt))} 存）。`;
+    if (e && Array.isArray(e.picks) && key(e.picks) === key(items)) from = '';   // 2026-11-25 第 1 批 N16-01：版號是系統編號，不寫給學生看（原：這組志願來自第 n 版…）
     else if (items.every((x) => x.snapshot && x.snapshot.carriedFrom)) from = `這組志願是你 ${esc(items[0].snapshot.carriedFrom.year)} 學年存的，已經幫你換成 116 年同名的系。`;
-    else from = '這組志願不是從落點分析存的（例如從落點通匯入，或在落點分析改版前存的）。';
+    else from = '';   // 2026-11-25 第 1 批 N16-02（原：這組志願不是從落點分析存的…）
   } catch (e) { /* 查不到紀錄就不標 */ }
   const render = (stars) => view(carryHtml + `<div class="card"><h2>我的志願</h2><p class="muted" style="margin:0 0 6px">最多六個，之後還可以回「落點分析」換。</p>${from ? `<p class="small" style="margin:0 0 6px">${from}</p>` : ''}
     ${items.map((it) => { const s = it.snapshot || {};
-      return `<div class="doc-row"><div class="dmain"><b>${it.rank}. ${esc(it.schoolName)} ${esc(it.name)}</b> ${snapPill(s)}<div class="muted small">${esc(s2Line(it.stage2))}${s.basisYear ? '｜對照 ' + esc(s.basisYear) + ' 年資料' : ''}</div>${stars[String(it.deptCode)] ? `<details class="small"><summary>這系也有繁星推薦</summary>${NG.renderStar(stars[String(it.deptCode)])}</details>` : ''}</div></div>`; }).join('')}
+      return `<div class="doc-row"><div class="dmain"><b>${it.rank}. ${esc(it.schoolName)} ${esc(it.name)}</b> ${snapPill(s)}<div class="muted small">${esc(s2Line(it.stage2))}</div>${s.basisYear ? `<div class="muted small">對照 ${esc(s.basisYear)} 年資料</div>` : ''}${stars[String(it.deptCode)] ? `<details class="small"><summary>這系也有繁星推薦</summary>${NG.renderStar(stars[String(it.deptCode)])}</details>` : ''}</div></div>`; }).join('')}
     <div class="row" style="margin-top:12px"><a class="btn ghost" href="#/score">換志願</a><a class="btn" href="#/need">看每一系的準備指引</a></div></div>`);
   render({});
   const stars = await starP; if (my !== S.rt || !Object.keys(stars).length) return;
@@ -33,7 +33,7 @@ function carryCardHtml(list) {
   const row = (c) => {
     const nm = esc((c.school || '') + ' ' + (c.fromName || ''));
     const msg = c.kind === 'near' ? `${nm}：116 簡章的系名是「${esc(c.toName || '')}」，已經幫你換過去（系名略有不同，請確認是同一個系）。`
-      : `${nm}：116 簡章沒有同名的系組，這個志願沒有帶過來，請重選。${c.hint ? `<div class="muted small">同校可能相關的 116 系（系統比對，請自己確認）：${esc(c.hint)}</div>` : ''}`;
+      : `${nm}：116 簡章沒有同名的系組，這個志願沒有帶過來，請重選。${c.hint ? `<div class="muted small">同校可能相關的 116 系（系統比對，請自己確認）：${esc(String(c.hint).replace(/(^|[、，,；;\s])\d{6}\s+/g, '$1'))}</div>` : ''}`;
     return `<div class="doc-row"><div class="dmain">${c.rank ? `原本第 ${esc(c.rank)} 志願　` : ''}${msg}</div><button type="button" class="btn sm ghost" data-act="carryOk" data-id="${esc(c.id)}">看過了</button></div>`;
   };
   return `<div class="card active"><h2>這幾個系請你確認</h2><p class="muted small" style="margin:0 0 6px">我們是照「同一所學校、同樣系名」幫你把之前的志願換到今年。下面這幾個請你自己確認。</p>${list.map(row).join('')}

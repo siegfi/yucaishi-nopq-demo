@@ -407,8 +407,8 @@ const view = (html) => { $('view').innerHTML = html; };
 const loading = '<div class="center muted" data-loading="1"><span class="spin"></span><span class="ld-msg">載入中…</span><div class="ld-slow small hidden" style="margin-top:6px">第一次打開會比較久，請再等一下。</div></div>';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ── 名稱對照 ──
-const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來計畫' };
-const DOC_SHORT = { N: 'N 多元表現綜整', O: 'O 學習歷程反思', P: 'P 就讀動機', Q: 'Q 未來計畫' };
+const TYPE_NAME = { N_diverseSummary: 'N 多元表現綜整心得', O_reflection: 'O 高中學習歷程反思', P_motivation: 'P 就讀動機', Q_futurePlan: 'Q 未來學習計畫與生涯規劃' };   // 2026-11-25 第 1 批 N10：116 簡章原名（owner 第 4 題甲）
+const DOC_SHORT = { N: 'N 多元表現綜整心得', O: 'O 高中學習歷程反思', P: 'P 就讀動機', Q: 'Q 未來學習計畫與生涯規劃' };
 const DOC_TYPE_OF = { N: 'N_diverseSummary', O: 'O_reflection', P: 'P_motivation', Q: 'Q_futurePlan' };
 const FMT = { onsite: '現場', live: '直播', recorded: '錄影', one_on_one: '1 對 1' };
 const LPN = { safe: '保底', reach: '正常', dream: '夢幻' };   // 2026-11-09 owner：穩／衝／夢太抽象，改保底／正常／夢幻

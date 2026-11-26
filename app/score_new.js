@@ -72,7 +72,7 @@ function scMount() {
   const sc = S.sc, opts = '<option value="">—</option>' + Array.from({ length: 16 }, (_, i) => 15 - i).map((n) => `<option value="${n}">${n}</option>`).join('');
   const fromLine = sc.from ? `<div class="hint" style="margin:0 0 10px">你正在改第 ${esc(sc.from.seq)} 版（${esc(mdOf(sc.from.at))}）。再存就是新的一版，原本那一版不會被蓋掉。 <button type="button" class="linkbtn" data-act="scFresh">改成從我存的成績重排</button></div>` : '';
   view(`${subTabsHtml('new')}${fromLine}<div class="card"><h2>你的成績</h2>
-    <p class="muted" style="margin:0 0 8px">學測級分（116 五標公布前，先用 ${SCORE_YEAR} 學年的五標估）。填幾科算幾科，填了就會馬上算。</p>
+    <p class="muted" style="margin:0 0 8px">學測級分。填幾科算幾科，填了就會馬上算。</p>
     <div class="scgrid">${SUBJECTS.map((k) => `<div><label for="sc_${k}">${SUBJ_NAME[k]}</label><select id="sc_${k}" data-in="score" data-k="${k}">${opts}</select><div class="band" id="bh_${k}"></div></div>`).join('')}
       <div><label for="sc_listen">英聽</label><select id="sc_listen" data-in="listen"><option value="">—</option><option>A</option><option>B</option><option>C</option><option>F</option></select></div></div>
     <div class="row small" style="margin-top:8px" role="radiogroup" aria-label="這是哪一種成績"><span class="muted">這是：</span><label class="tick"><input type="radio" name="sckind" data-in="kind" value="mock" ${sc.kind !== 'official' ? 'checked' : ''}> 模考或預估</label><label class="tick"><input type="radio" name="sckind" data-in="kind" value="official" ${sc.kind === 'official' ? 'checked' : ''}> 正式學測成績</label></div>
@@ -177,7 +177,7 @@ function rowHtml(r) {
   const d = r.d, on = S.sc.sel.includes(d.id), open = !!S.sc.intro[d.id];
   return `<div class="drow-w" data-row="${esc(d.id)}"><label class="drow${S.sc.sel.length >= 6 && !on ? ' full' : ''}"><input type="checkbox" data-in="pick" data-id="${esc(d.id)}" ${on ? 'checked' : ''} aria-label="選 ${esc(d.school + ' ' + d.dept)}">
     <span class="dmain"><b>${esc(d.school)} ${esc(d.dept)}</b> <span class="lp ${zCls(r.code)}">${esc(rowName(r))}</span><span class="muted small" style="display:block">${esc(s2Line(d.stage2))}</span></span></label>
-    <button type="button" class="btn sm ghost introbtn" data-act="intro" data-id="${esc(d.id)}" aria-expanded="${open}">這系在做什麼 ${open ? '▴' : '▾'}</button>
+    <button type="button" class="btn sm ghost introbtn" data-act="intro" data-id="${esc(d.id)}" aria-expanded="${open}">這系在做什麼</button>
     ${open ? `<div class="dintro">${introHtml(d)}</div>` : ''}</div>`;
 }
 // 「這系在做什麼」（設計稿 §4.1，B3 預設）：只用專案裡已有、查得到出處的資料；外部科系介紹要先查證、owner 點頭才接（L6a）
@@ -227,7 +227,7 @@ function scRender() {
   $('sc-zinfo').textContent = `通過第一階段檢定：${fr.length} 系（保底 ${cnt.safe}／正常 ${cnt.reach}／夢幻 ${cnt.dream}${cnt.na ? '／沒有去年資料 ' + cnt.na : ''}）${skippedLine() ? '　' + skippedLine() : ''}`;
   if (sc.autoZone) { sc.autoZone = false; if (!cnt[sc.zone]) { const z = zones.find((k) => cnt[k]); if (z) { sc.zone = z; return scRender(); } } }
   const list = fr.filter((r) => r.code === sc.zone), n = sc.shown[sc.zone] || 40;
-  if (!scNarrowed()) { $('sc-list').innerHTML = '<div class="hint">先在上面選學群或學校，清單才會縮到看得完。</div>'; return; }
+  if (!scNarrowed()) { $('sc-list').innerHTML = '<div class="hint">先選學群或學校。</div>'; return; }
   $('sc-list').innerHTML = (sc.zone === NA && list.length ? `<div class="hint">這些系去年沒有第一階段通過分數可以比，所以分不出保底、正常、夢幻。你已經過了它們的檢定。${list.some((r) => r.label === '過檢定就進二階') ? '<br>標「過檢定就進二階」的系第一階段不篩人，過了檢定就進第二階段。' : ''}${list.some((r) => r.label === '資料待校') ? '<br>標「資料待校」的系去年的通過分數還在核對。' : ''}</div>` : '')
     + (list.length ? list.slice(0, n).map(rowHtml).join('') : `<div class="muted">這個範圍裡沒有「${zName(sc.zone)}」的系。</div>`)
     + (list.length > n ? `<div style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="more">再看 ${Math.min(40, list.length - n)} 個（還有 ${list.length - n} 個）</button></div>` : '');
@@ -355,11 +355,11 @@ function renderSel() {
   if (!selMobile()) {   // 寬螢幕：固定浮在畫面底部（11-13 第 28 條），已選的系直接列成摘要；展開是六格（調順序、刪除、這系看什麼）
     box.innerHTML = `<div class="selbar${sc.bump ? ' bump' : ''}">${sc.panel ? `<div class="selpanel">${fullLine}${selSlotsHtml(sc)}${selUndoHtml(sc)}${selNoteHtml()}</div>` : selUndoHtml(sc)}
       <div class="selhead"><b>已選 ${n}／6</b>${mixLine(sc)}</div>${selSumHtml(sc)}${groupWarnHtml(ng, '勾的系橫跨')}
-      <div class="row spread" style="margin-top:6px"><span class="row"><button type="button" class="btn ghost sm" data-act="selPanel" aria-expanded="${!!sc.panel}">${sc.panel ? '▾ 收起' : '▴ 調整順序、看這系看什麼'}</button>${sc.panel ? '' : '<span class="muted small">參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）</span>'}</span><span class="row">${acts}</span></div></div>`;
+      <div class="row spread" style="margin-top:6px"><span class="row"><button type="button" class="btn ghost sm" data-act="selPanel" aria-expanded="${!!sc.panel}">${sc.panel ? '收起' : '調整順序、看這系看什麼'}</button>${sc.panel ? '' : '<span class="muted small">參考用，不是錄取保證（<button type="button" class="linkbtn" data-act="discFull">完整說明</button>）</span>'}</span><span class="row">${acts}</span></div></div>`;
     selBodyFlags(false, false); selWide(box, true); sc.bump = false; return;
   }
   selWide(box, false);
-  const line = `<button type="button" class="selline${sc.bump ? ' bump' : ''}" data-act="selOpen" aria-expanded="${!!sc.panel}"><span><b>已選 ${n}／6</b>${selDots(sc)}</span><span class="small">看已選 ▴</span></button>`;
+  const line = `<button type="button" class="selline${sc.bump ? ' bump' : ''}" data-act="selOpen" aria-expanded="${!!sc.panel}"><span><b>已選 ${n}／6</b>${selDots(sc)}</span><span class="small">看已選</span></button>`;
   const sheet = sc.panel ? `<div class="selback" data-act="selClose"></div><div class="selsheet" role="dialog" aria-modal="true" aria-label="已選志願">
       <div class="shead"><b>已選志願 ${n}／6</b><button type="button" class="btn sm ghost" data-act="selClose">收起</button></div>
       <div class="sbody">${fullLine}${selSlotsHtml(sc)}${mixLine(sc)}${groupWarnHtml(ng, '勾的系橫跨')}${selNoteHtml()}</div>

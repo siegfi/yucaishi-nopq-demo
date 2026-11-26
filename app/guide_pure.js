@@ -2,7 +2,15 @@
 (function (root) {
 'use strict';
 var DOCS = ['N', 'O', 'P', 'Q'];
-var DOC_SHORT = { N: 'N 多元表現綜整', O: 'O 學習歷程反思', P: 'P 就讀動機', Q: 'Q 未來計畫' };
+var DOC_SHORT = { N: 'N 多元表現綜整心得', O: 'O 高中學習歷程反思', P: 'P 就讀動機', Q: 'Q 未來學習計畫與生涯規劃' };   // 2026-11-25 第 1 批 N10：116 簡章原名（owner 第 4 題甲）
+// 2026-11-25 第 1 批 N04、N10（14_ 第 0 節；12_ 第 3 節 a；owner 第 3 題甲）：全站一套狀態字與按鈕字。[狀態字, 按鈕字, 小字]；
+//   sysOn＝雲端「系統整理」功能開著（學生頁 write.js 的 aiIsOff 反過來）：那時 assignment／feedback／self_check 三種寫「整理中」，關著寫「等老師」
+var STEP = { warmup: ['還沒開始', '開始', ''], interviewing: ['輪到你', '去回答', '有一題等你回答'], submission_pending: ['輪到你', '去寫答案', '題目出來了'],
+  draft_open: ['輪到你', '去寫', ''], feedback_published: ['輪到你', '去看', '回覆出來了'], review_pending: ['等老師', '看一下', ''], finalized: ['定稿', '看稿', ''] };
+function stepFor(state, sysOn) {
+  if (state === 'assignment_pending' || state === 'feedback_pending' || state === 'self_check_pending') return [sysOn ? '整理中' : '等老師', '看一下', ''];
+  return STEP[state] || ['還沒開始', '開始', ''];
+}
 var LPN = { safe: '保底', reach: '正常', dream: '夢幻' };   // 2026-11-09 owner 改名
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function safeUrl(u) { return /^https:\/\//i.test(u || '') ? u : ''; }
@@ -65,10 +73,10 @@ var WORDS = {
   focusAsk: '這一篇要回答（自述要答）',
   // 寫稿頁（主線 11-17 驗收 P3）：有對照點（項目層給的題目）才說「照題目寫」「一條一條對照」；沒有就換成下面這幾句
   pqDraftOpen: '照這系的題目寫。寫一段按「儲存」，確定了按「交給老師」。也可以用檔案帶入（Word、PDF、文字檔）。',
-  pqDraftOpenNone: '這系的題目先看官方原文。寫一段按「儲存」，確定了按「交給老師」。也可以用檔案帶入（Word、PDF、文字檔）。',
+  pqDraftOpenNone: '寫一段按「儲存」，確定了按「交給老師」。也可以用檔案帶入（Word、PDF、文字檔）。',
   focusNote: '交給老師之前，一條一條對照，確認每一點都寫到了。老師批改時也會對照這幾點。',
   focusNoteMulti: '交給老師之前，對照一下每一系要的都寫到了沒。老師批改時也會對照這幾點。',
-  focusNoteNone: '題目核對好之前，先照官方原文寫；寫好交給老師，老師會幫你看有沒有寫到。',
+  focusNoteNone: '寫好交給老師，老師會幫你看有沒有寫到。',
   focusAskShort: '要回答：',
   needIntro: 'N、O 各寫一篇；P、Q 每個志願系各寫一篇。每系卡片上「116 簡章寫要交」列的是今年簡章的原文；學校指引寫的題目我們正在重新核對，先看官方原文。都在「撰寫NOPQ」寫。',
   q116: '題目：',
@@ -83,7 +91,7 @@ var WORDS = {
   zPrep: '從學習歷程檔案挑的',           // 11-19 改，待楊老師確認（舊句見設計稿 5.1）
   zOther: '其他資料',
   notYet: '這一篇現在還不能在這裡寫。先照題目寫在自己的檔案裡。',   // 11-19 改，待楊老師確認（舊：這一篇還不能在 NOPQ通 裡寫，先照題目準備）。11-20 起只在呼叫端沒給系碼時才用（正常頁面都換成下面兩顆鈕）
-  startWrite: '開始寫',   // 11-20 審查資料第二步（28t）：R 以後要寫的（自傳、小論文…）在這裡寫
+  startWrite: '開始', /* 2026-11-25 第 1 批 N04：跟全站狀態表同一個按鈕字（原：開始寫） */   // 11-20 審查資料第二步（28t）：R 以後要寫的（自傳、小論文…）在這裡寫
   contWrite: '繼續寫',
   xChanged: '題目換了',   // 11-20（28u）：已經開寫的那一篇，學校的題目換了
   hintUpload: '作品或影音',
@@ -105,7 +113,7 @@ var WORDS = {
   dlvDeptAll: '看這一系全部要交的',   // 11-22 A4（規格 14.1）：寫稿頁「我要交的」每一系多一行連結，連到這一系那一頁
   st3Loading: '讀取中，第一次打開會比較久。', st3LoadFail: '沒讀到。請檢查網路，再按一次。', st3Retry: '再讀一次',
   st3SaveFail: '剛剛那一下沒存到。請檢查網路，再按一次。', st3Saved: '存好了',
-  dpBack: '← 回各系要交什麼', dpProgress: '要寫 {w} 篇，定稿 {f} 篇｜要勾的 {p} 件｜表格證明 {c}／{t}',
+  dpBack: '回各系要交什麼', dpProgress: '要寫 {w} 篇，定稿 {f} 篇\n要勾的 {p} 件\n表格證明 {c}／{t}',   // 2026-11-25 第 1 批 N25-02、N31-05
   dpNotReady: '這一系今年要交什麼，我們還沒整理好。先看簡章原文。', dpSeeRules: '看簡章原文', dpNotWish: '這一系不在你現在的志願裡。',
   dpListed: '這一系的簡章列了：{list}', dpPickedTitle: '我打算勾的（{n}／{limit}）', dpPickedFull: '我打算勾的（{limit}／{limit}，滿了）',
   dpPickedNoLimit: '我打算勾的（{n}）', dpUnpickedTitle: '還沒勾的（{m}）',
@@ -129,7 +137,7 @@ var WORDS = {
   cpPartial: '{name} 沒套到，其他 {n} 系套好了。請再按一次。', cpStale: '你換過清單，老師的建議是針對舊的那一份。',
   scIntro: '這幾樣不在這裡交。準備好了就打勾，你和老師都看得到還缺什麼。', scReady: '準備好了', scDoneAt: '{d} 打勾的', scSkip: '這一項我不交',
   scSkipped: '你選了不交。', scUndo: '改回來', scAllDone: '都準備好了', scGo: '去打勾',
-  miTitle: '我的學習歷程', miIntro: '上面是你高中三年放在學校系統裡的；下面是申請時才寫的。', miTop: '學習歷程檔案（學校系統裡的）',
+  miTitle: '我的學習歷程', miIntro: '' /* 2026-11-25 第 1 批 N16-07：拿掉解釋版面的句子（原：上面是…；下面是…） */, miTop: '學習歷程檔案（學校系統裡的）',
   miTopIntro: '把學校系統裡已經有的放進來，老師才能幫你挑每一系要勾哪幾件。內容照原樣放，不用重寫。', miTeacherSees: '你放進來的，你的老師都看得到。',
   miARef: '放進來是給老師參考用的。', miCount: '你放進來 {n} 件。', miByTeacher: '{t}幫你標的', miTagBtn: '標代碼',
   miUnclassified: '還沒分類的（{n}）', miUnclassHint: '先選它是哪一類，才會出現在上面。', miPickKind: '選類別', miPut: '放一件進來',
@@ -159,7 +167,10 @@ function needOf(it, k) {
   return s === 'must' || s === 'opt' ? 'guide' : 'none';
 }
 var NEED_PILL = { cac: 'ok', cacOpt: 'ok', guide: '', none: 'warn', nodata: 'warn' };
-function needPill(k, st) { return '<span class="pill ' + (NEED_PILL[st] || '') + '">' + esc(k + ' ' + (WORDS[st] || '')) + '</span>'; }
+function needPill(k, st) {
+  if (st === 'cacOpt') return '<span class="pill ok">' + esc(k + ' ' + WORDS.cac) + '</span><span class="pill">' + esc(WORDS.optShort) + '</span>';   // 2026-11-25 第 1 批 N31-02：「116 簡章有列・選繳」一個標籤拆成兩個，字不變
+  return '<span class="pill ' + (NEED_PILL[st] || '') + '">' + esc(k + ' ' + (WORDS[st] || '')) + '</span>';
+}
 function isListed(st) { return st === 'cac' || st === 'cacOpt' || st === 'guide'; }
 // 題目的來源標：116 簡章（分則）／YYY 學校指引（階段二過閘後的學校指引題目，來源 id 以 sg: 開頭）
 function srcLabel(p) { return p && p.sourceId && String(p.sourceId).indexOf('sg:') === 0 ? (p.year || '') + ' 學校指引' : (p && p.year ? p.year : 116) + ' 簡章'; }
@@ -306,7 +317,7 @@ function renderZones116(gi, o) {
     if (!(x.code > 'Q') || !o.deptCode) return '';
     var d = (Array.isArray(o.docs) ? o.docs : []).filter(function (z) { return z && z.nopqType === 'X_extraWriting' && z.itemCode === x.code && String(z.deptCode) === String(o.deptCode); })[0];
     var flag = d && d.promptFlag === 'changed' ? ' <span class="pill warn">' + esc(WORDS.xChanged) + '</span>' : '';   // 28u
-    return d ? flag + ' <a class="btn sm" href="#/doc/' + esc(d.caseDocId) + '">' + esc(WORDS.contWrite) + '</a>'
+    return d ? flag + ' <a class="btn sm" href="#/doc/' + esc(d.caseDocId) + '">' + esc(stepFor(d.state, o.sysOn)[1]) + '</a>'
       : ' <button type="button" class="btn sm" data-act="openExtra" data-dept="' + esc(o.deptCode) + '" data-code="' + esc(x.code) + '">' + esc(WORDS.startWrite) + '</button>';
   };
   if (w.length) h += '<div class="gline"><span class="k">' + esc(WORDS.zWrite) + '</span><ul class="plain">' + w.map(function (x) { return li(x, x.code > 'Q' && !o.deptCode ? WORDS.notYet : '', xBtn(x)); }).join('') + '</ul></div>';
@@ -508,7 +519,7 @@ function deptIntroLines(d, info, has116) {
   // 2026-11-10 L6b（owner「只接 ColleGo」）：外部介紹只放連結、不轉載內容，標來源與查證日（查證紀錄 source_assets/dept_intro_sources/00_查證紀錄.md）
   (intro && Array.isArray(intro.links) ? intro.links : []).forEach(function (l) {
     if (!l || !safeUrl(l.url)) return;
-    out.push({ k: 'ext', text: (l.name || '外部介紹') + (l.checkedAt ? '・' + String(l.checkedAt).slice(0, 10) + ' 查證' : ''), url: l.url });
+    out.push({ k: 'ext', text: (l.name || '外部介紹') + (l.checkedAt ? '，' + String(l.checkedAt).slice(0, 10) + ' 查證' : ''), url: l.url });
   });
   if (intro && intro.teacherNote) out.push({ k: 'teacher', text: intro.teacherNote, by: intro.teacherBy || '', at: intro.teacherAt || '' });
   return out;
@@ -517,7 +528,7 @@ function renderDeptIntro(lines, fmtDate) {
   var mach = lines.filter(function (l) { return l.k !== 'teacher'; }), tea = lines.filter(function (l) { return l.k === 'teacher'; });
   var li = function (l) { return '<li>' + (l.url ? '<a href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' + esc(l.text) + '</a>' : esc(l.text)) + '</li>'; };
   return '<ul class="ilist">' + mach.map(li).join('') + '</ul><div class="muted small">機器整理，老師還沒確認。</div>'
-    + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　— ' + esc(l.by) + (l.at && fmtDate ? '・' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
+    + tea.map(function (l) { return '<div class="tnote"><b>老師寫的</b>　' + esc(l.text) + '<span class="muted small">　' + esc(l.by) + (l.at && fmtDate ? '，' + esc(fmtDate(l.at)) : '') + '</span></div>'; }).join('');
 }
 // ── 2026-11-24 A13 W15：N、O 的旁欄與挑件頁上半塊（各系要求分「都要的」「某系多要的」）。資料＝後端 28y my_doc_dept_diff 的 diff，兩處用同一份、同一套分法 ──
 // common＝兩個系以上都有的句子（每句附哪幾系）；depts[].only＝只有這一系有；status＝checking 的系只回系名，不回任何句子（不帶 115）。
@@ -543,9 +554,14 @@ function focusDiffHtml(diff, o) {
   var h = '';
   if (z.all.length) h += '<div class="fsec dzone dz-all"><b>' + esc(t.all) + '</b><ul class="plain">' + z.all.map(li).join('') + '</ul></div>';
   var some = z.some.map(function (s) { return '<div class="dsome"><b>' + esc(fill(t.some, { dept: s.dept })) + '</b><ul class="plain">' + s.items.map(li).join('') + '</ul></div>'; }).join('');
-  var chk = z.checking.map(function (c) { var u = safeUrl(link(c.deptCode)); return '<div class="small dchk">' + esc(fill(t.checking, { dept: c.dept })) + (u ? ' <a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(WORDS.officialLink) + '</a>' : '') + '</div>'; }).join('');
+  // 2026-11-25 第 1 批 N13-01（owner 第 3 件甲）：核對中的系合成一行；〔看官方原文〕展開列出是哪幾系、各連官方原文；只有 1 系時直接寫系名；一個連結都沒有就不出按鈕
+  var cl = z.checking.map(function (c) { return { dept: c.dept, u: safeUrl(link(c.deptCode)) }; }), chk = '';
+  if (cl.length === 1) chk = '<div class="small dchk">' + esc(fill(t.checkingOne || t.checking, { dept: cl[0].dept, n: 1 })) + (cl[0].u ? ' <a href="' + esc(cl[0].u) + '" target="_blank" rel="noopener noreferrer">' + esc(WORDS.officialLink) + '</a>' : '') + '</div>';
+  else if (cl.length > 1) { var withU = cl.filter(function (c) { return c.u; });
+    chk = '<div class="small dchk">' + esc(fill(t.checkingN || t.checking, { n: cl.length, dept: '' })) + (withU.length ? '<details class="more dchk-more"><summary>' + esc(WORDS.officialLink) + '</summary><ul class="plain">'
+      + cl.map(function (c) { return '<li>' + (c.u ? '<a href="' + esc(c.u) + '" target="_blank" rel="noopener noreferrer">' + esc(c.dept) + '</a>' : esc(c.dept)) + '</li>'; }).join('') + '</ul></details>' : '') + '</div>'; }
   if (some || chk) h += '<div class="fsec dzone dz-some">' + some + chk + '</div>';
   return h || '<p class="small dnone" style="margin:0 0 6px">' + esc(t.none) + '</p>';
 }
-root.NG = { diffZones: diffZones, focusDiffHtml: focusDiffHtml, isQ: isQ, mergeQuotes: mergeQuotes, offGroup: offGroup, offLimit: offLimit, offItem: offItem, offName: offName, limitLine: limitLine, CAC_NAMES: CAC_NAMES,codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
+root.NG = { stepFor: stepFor, STEP: STEP, diffZones: diffZones, focusDiffHtml: focusDiffHtml, isQ: isQ, mergeQuotes: mergeQuotes, offGroup: offGroup, offLimit: offLimit, offItem: offItem, offName: offName, limitLine: limitLine, CAC_NAMES: CAC_NAMES,codeName: codeName, pqGuideHtml: pqGuideHtml, sameCellTag: sameCellTag, DOC_SHORT: DOC_SHORT, WORDS: WORDS, fill: fill, needOf: needOf, needPill: needPill, isListed: isListed, srcLabel: srcLabel, unchecked: unchecked, focusDeptHtml: focusDeptHtml, focusUncShown: focusUncShown, is116Prompt: is116Prompt, focusHasPoints: focusHasPoints, needLine: needLine, gi116: gi116, zones116: zones116, itemName: itemName, prompt116: prompt116, renderItems116: renderItems116, renderZones116: renderZones116, digestRows: digestRows, yrTag: yrTag, renderStar: renderStar, selfRules: selfRules, needsAiStatement: needsAiStatement, rules116Html: rules116Html, deptIntroLines: deptIntroLines, renderDeptIntro: renderDeptIntro, esc: esc, safeUrl: safeUrl, s2Line: s2Line, s2Facts: s2Facts, snapPill: snapPill, hasGuide: hasGuide, reqState: reqState, factsOf: factsOf, guideSummary: guideSummary, limitText: limitText, digestLines: digestLines, renderDigest: renderDigest, renderGuideCard: renderGuideCard };
 })(typeof window !== 'undefined' ? window : globalThis);
